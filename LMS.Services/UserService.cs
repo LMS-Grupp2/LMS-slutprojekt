@@ -1,5 +1,6 @@
 ﻿using Domain.Contracts;
 using Domain.Models.Entities;
+using Domain.Models.Exceptions;
 using LMS.Shared.DTOs.UserDtos;
 using Service.Contracts;
 
@@ -46,9 +47,14 @@ public class UserService : IUserService
         return result;
     }
 
-    public Task<UserDto> GetByIdAsync(string id)
+    public async Task<UserDto> GetByIdAsync(string id)
     {
-        throw new NotImplementedException();
+        var user = await _unitOfWork.Users.FindByIdWithCourseAsync(id)
+            ?? throw new UserNotFoundException(id);
+
+        var roles = await _unitOfWork.Users.GetRolesAsync(user);
+
+        return MapToDto(user, roles.FirstOrDefault() ?? "Role not assigned");
     }
 
     public Task UpdateAsync(string id, UpdateUserDto dto)

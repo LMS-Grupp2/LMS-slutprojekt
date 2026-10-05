@@ -56,4 +56,12 @@ public class UserRepository : IUserRepository
             .ThenInclude(cu => cu.Course)
             .ToListAsync();
     }
+
+    public async Task<ApplicationUser?> FindByIdWithCourseAsync(string id)
+    {
+        return await _userManager.Users
+            .Include(u => u.CourseUsers)
+            .ThenInclude(cu => cu.Course)
+            .FirstOrDefaultAsync(u => u.Id == id);
+    }
 }

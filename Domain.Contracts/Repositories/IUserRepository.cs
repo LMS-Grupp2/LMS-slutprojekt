@@ -7,6 +7,7 @@ public interface IUserRepository
 {
     Task<IEnumerable<ApplicationUser>> GetAllAsync();
     Task<ApplicationUser?> FindByIdAsync(string id);
+    Task<ApplicationUser?> FindByIdWithCourseAsync(string id);
     Task<ApplicationUser?> FindByEmailAsync(string email);
     Task<IdentityResult> CreateAsync(ApplicationUser user, string password);
     Task<IdentityResult> UpdateAsync(ApplicationUser user);
