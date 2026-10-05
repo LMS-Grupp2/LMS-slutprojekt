@@ -82,6 +82,7 @@ internal class DataSeedService : IHostedService
     {
         var user = new ApplicationUser
         {
+            Name = "Demo User",
             Email = DefaultUserEmail,
             UserName = DefaultUserEmail,
         };
