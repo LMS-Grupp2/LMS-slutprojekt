@@ -1,4 +1,5 @@
 ﻿using LMS.Infrastructure.Data;
+using LMS.Shared.Constants;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -41,20 +42,21 @@ internal class DataSeedService : IHostedService
         ApplicationDbContext context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>()
                             ?? throw new ArgumentNullException();
 
+        roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>()
+                            ?? throw new ArgumentNullException();
+
+        await CreateRolesAsync([DemoRole, UserRoles.Student, UserRoles.Teacher]);
+        
         if (await context.Users.AnyAsync(cancellationToken)) return;
 
         userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>()
-                            ?? throw new ArgumentNullException();
-
-        roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>()
                             ?? throw new ArgumentNullException();
 
         _password = configuration["password"]!;
         ArgumentNullException.ThrowIfNull(_password, nameof(_password));
 
         try
-        {
-            await CreateRolesAsync([DemoRole]);
+        {  
             await CreateDefaultUserAsync();
             logger.LogInformation("Seed complete");
         }
