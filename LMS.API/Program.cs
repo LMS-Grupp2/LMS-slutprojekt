@@ -11,8 +11,11 @@ internal class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        var connectionString = builder.Configuration.GetConnectionString("ApplicationDbContext") ?? throw new InvalidOperationException("Connection string 'ApplicationDbContext' not found.");
-        builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connectionString));
+        // "ActiveConnection" picks which connection string to use; unset means the developer's local database.
+        var activeConnection = builder.Configuration["ActiveConnection"];
+        var connectionName = string.IsNullOrWhiteSpace(activeConnection) ? "ApplicationDbContext" : activeConnection;
+        var connectionString = builder.Configuration.GetConnectionString(connectionName) ?? throw new InvalidOperationException($"Connection string '{connectionName}' not found.");
+        builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure()));
 
         builder.Services.AddControllers(opt =>
         {
@@ -30,6 +33,8 @@ internal class Program
         builder.Services.ConfigurePolicys();
 
         var app = builder.Build();
+
+        app.Logger.LogInformation("Using connection string '{ConnectionName}'", connectionName);
 
         app.ConfigureExceptionHandler();
 
