@@ -13,12 +13,14 @@ public class UnitOfWork : IUnitOfWork
 
     public IUserRepository Users { get; }
     public ICourseUserRepository CourseUsers { get; }
+    public ICourseRepository Courses { get; }
 
     public UnitOfWork(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
     {
         _context = context;
         Users = new UserRepository(userManager);
         CourseUsers = new CourseUserRepository(context);
+        Courses = new CourseRepository(context);
     }
 
     public async Task SaveChangesAsync()
