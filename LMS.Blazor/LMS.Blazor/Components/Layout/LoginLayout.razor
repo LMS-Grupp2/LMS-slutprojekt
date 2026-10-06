@@ -1,0 +1,29 @@
+﻿@inherits LayoutComponentBase
+
+@* Layout for the login page: brand panel on the left, form on the right. *@
+
+<div class="lms-login">
+    <aside class="lms-login-brand">
+        <div class="d-flex align-items-center gap-3">
+            <span class="lms-logo">L</span>
+            <span class="lms-login-brand-name">Lexicon LMS</span>
+        </div>
+        <h1 class="lms-login-headline">Everything for your course in one place.</h1>
+        <p class="lms-login-lead">Schedule, course material, assignments and feedback for Lexicon’s programmes.</p>
+    </aside>
+
+    <main class="lms-login-form-panel">
+        <div class="lms-login-card">
+            <div class="lms-login-mobile-brand">
+                <span class="lms-logo">L</span> Lexicon LMS
+            </div>
+            @Body
+        </div>
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href=".">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
