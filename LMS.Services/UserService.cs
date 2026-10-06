@@ -71,12 +71,12 @@ public class UserService : IUserService
     {
         ValidateRoleAndCourse(dto.Role, dto.CourseId);
 
-        var user = await _unitOfWork.Users.FindByIdWithCourseAsync(dto.Email)
+        var user = await _unitOfWork.Users.FindByIdWithCourseAsync(id)
             ?? throw new UserNotFoundException(id);
 
         var emailOwner = await _unitOfWork.Users.FindByEmailAsync(dto.Email);
         if (emailOwner is not null && emailOwner.Id != user.Id)
-            throw new ConflictException($"The email '{dto.Email}' is already in user.");
+            throw new ConflictException($"The email '{dto.Email}' is already in use.");
 
         user.Name = dto.Name;
         user.Email = dto.Email;
