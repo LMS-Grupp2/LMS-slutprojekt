@@ -1,0 +1,502 @@
+﻿@page "/users"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Net
+@using System.Security.Claims
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
+@using LMS.Shared.DTOs.UserDtos
+@using Microsoft.AspNetCore.Authorization
+
+@* TODO (US-107): restrict to the Teacher role. *@
+@attribute [Authorize]
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient
+@inject NavigationManager NavigationManager
+
+<div class="users-page">
+    <div class="users-header">
+        <div>
+            <AuthorizeView>
+                <PageTitle>@RoleTitle(context.User)</PageTitle>
+                <h1 class="users-title">@RoleTitle(context.User)</h1>
+            </AuthorizeView>
+            <p class="users-subtitle">Manage students and teachers.</p>
+        </div>
+
+        @if (!showForm)
+        {
+            <button type="button" class="btn btn-primary" @onclick="StartCreate">+ New user</button>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible mb-0" role="status">
+            @successMessage
+            <button type="button" class="btn-close" aria-label="Close" @onclick="DismissSuccess"></button>
+        </div>
+    }
+
+    @if (showForm)
+    {
+        <div class="users-card">
+            <div class="users-card-header">
+                <h2 class="users-card-title">@(editingId is null ? "New user" : "Edit user")</h2>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(formError))
+            {
+                <div class="alert alert-danger" role="alert">@formError</div>
+            }
+
+            <EditForm Model="form" OnValidSubmit="SaveAsync">
+                <DataAnnotationsValidator />
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="user-name">Name</label>
+                        <InputText id="user-name" class="form-control" @bind-Value="form.Name" />
+                        <ValidationMessage For="() => form.Name" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label" for="user-email">Email</label>
+                        <InputText id="user-email" class="form-control" @bind-Value="form.Email" />
+                        <ValidationMessage For="() => form.Email" />
+                    </div>
+
+                    @if (editingId is null)
+                    {
+                        <div class="col-md-6">
+                            <label class="form-label" for="user-password">Password</label>
+                            <InputText id="user-password" type="password" class="form-control" autocomplete="new-password" @bind-Value="form.Password" />
+                            @if (!string.IsNullOrWhiteSpace(passwordError))
+                            {
+                                <div class="validation-message">@passwordError</div>
+                            }
+                        </div>
+                    }
+
+                    <div class="col-md-6">
+                        <label class="form-label" for="user-role">Role</label>
+                        <InputSelect id="user-role" class="form-select" @bind-Value="form.Role">
+                            <option value="">Select role...</option>
+                            @foreach (var role in UserRoles.Assignable)
+                            {
+                                <option value="@role">@role</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => form.Role" />
+                    </div>
+
+                    @if (form.Role == UserRoles.Student)
+                    {
+                        <div class="col-md-6">
+                            <label class="form-label" for="user-course">Course</label>
+                            <InputSelect id="user-course" class="form-select" @bind-Value="form.CourseId">
+                                <option value="">Select course...</option>
+                                @foreach (var course in courses)
+                                {
+                                    <option value="@course.Id">@course.Name</option>
+                                }
+                            </InputSelect>
+                            @if (!string.IsNullOrWhiteSpace(courseFieldError))
+                            {
+                                <div class="validation-message">@courseFieldError</div>
+                            }
+                            else if (!string.IsNullOrWhiteSpace(courseLoadError))
+                            {
+                                <div class="validation-message">@courseLoadError</div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                        @(isSaving ? "Saving..." : "Save")
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" disabled="@isSaving" @onclick="CloseForm">Cancel</button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="users-card">
+            <div class="d-flex flex-column gap-3">
+                <div class="users-skeleton" style="width: 40%; height: 16px;"></div>
+                <div class="users-skeleton" style="width: 70%; height: 16px;"></div>
+                <div class="users-skeleton" style="width: 55%; height: 16px;"></div>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <div class="users-card">
+            <div class="users-state">
+                <span class="users-icon-tile" style="background: #fde8e8; color: #dc3545;">!</span>
+                <div class="users-cell-title">@loadError</div>
+                <button type="button" class="btn btn-outline-primary btn-sm" @onclick="ReloadAsync">Try again</button>
+            </div>
+        </div>
+    }
+    else if (users is { Count: 0 })
+    {
+        <div class="users-card">
+            <div class="users-state">
+                <span class="users-icon-tile users-tone-primary">+</span>
+                <div class="users-cell-title">No users yet</div>
+                <div class="users-cell-sub">Create the first user with the button above.</div>
+            </div>
+        </div>
+    }
+    else if (users is not null)
+    {
+        <div class="users-card users-card-table">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle users-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th>Course</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in users)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="users-avatar @AvatarClass(user.Role)">@GetInitials(user)</span>
+                                        <div>
+                                            <div class="users-cell-title">@(string.IsNullOrWhiteSpace(user.Name) ? "—" : user.Name)</div>
+                                            <div class="users-cell-sub">@user.Email</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="users-badge @RoleToneClass(user.Role)">@user.Role</span></td>
+                                <td>@CourseText(user)</td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => StartEdit(user)">Edit</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // TODO: confirm the route when the course list endpoint exists.
+    private const string CoursesEndpoint = "courses";
+
+    private readonly CancellationTokenSource cts = new();
+
+    private List<UserDto>? users;
+    private List<CourseOption> courses = [];
+    private bool isLoading = true;
+    private string? loadError;
+    private string? courseLoadError;
+
+    private bool showForm;
+    private string? editingId;
+    private UserFormModel form = new();
+    private bool isSaving;
+    private string? formError;
+    private string? passwordError;
+    private string? courseFieldError;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsersAsync();
+        await LoadCoursesAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        await LoadUsersAsync();
+        await LoadCoursesAsync();
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        isLoading = true;
+        loadError = null;
+
+        try
+        {
+            var result = await ApiProxyClient.GetAsync<List<UserDto>>("users", cts.Token);
+
+            // The server-side prerender client deliberately returns null. Keep
+            // showing the loading state until WebAssembly runs this again.
+            if (result is null)
+            {
+                return;
+            }
+
+            users = result;
+            isLoading = false;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (HttpRequestException ex)
+        {
+            loadError = ex.StatusCode == HttpStatusCode.Forbidden
+                ? "You do not have access to manage users."
+                : "Could not load users. Please try again.";
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadCoursesAsync()
+    {
+        courseLoadError = null;
+
+        try
+        {
+            var result = await ApiProxyClient.GetAsync<List<CourseOption>>(CoursesEndpoint, cts.Token);
+
+            if (result is null)
+            {
+                return;
+            }
+
+            courses = result;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (HttpRequestException)
+        {
+            courseLoadError = "Courses could not be loaded.";
+        }
+    }
+
+    private void StartCreate()
+    {
+        editingId = null;
+        form = new UserFormModel();
+        ResetFormErrors();
+        successMessage = null;
+        showForm = true;
+    }
+
+    private void StartEdit(UserDto user)
+    {
+        editingId = user.Id;
+
+        // The user DTO only contains course names, so the course is matched by name.
+        var courseName = user.CourseNames.FirstOrDefault();
+        var courseId = courseName is null
+            ? (Guid?)null
+            : courses.FirstOrDefault(c => c.Name == courseName)?.Id;
+
+        form = new UserFormModel
+        {
+            Name = user.Name,
+            Email = user.Email,
+            Role = UserRoles.Assignable.Contains(user.Role) ? user.Role : string.Empty,
+            CourseId = courseId
+        };
+
+        ResetFormErrors();
+        successMessage = null;
+        showForm = true;
+    }
+
+    private void CloseForm()
+    {
+        showForm = false;
+        editingId = null;
+        form = new UserFormModel();
+        ResetFormErrors();
+    }
+
+    private void ResetFormErrors()
+    {
+        formError = null;
+        passwordError = null;
+        courseFieldError = null;
+    }
+
+    private void DismissSuccess() => successMessage = null;
+
+    private async Task SaveAsync()
+    {
+        ResetFormErrors();
+
+        if (editingId is null && form.Password.Length < 3)
+        {
+            passwordError = "Password must be at least 3 characters.";
+        }
+
+        if (form.Role == UserRoles.Student && form.CourseId is null)
+        {
+            courseFieldError = "Select a course for students.";
+        }
+
+        if (passwordError is not null || courseFieldError is not null)
+        {
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            var courseId = form.Role == UserRoles.Student ? form.CourseId : null;
+
+            if (editingId is null)
+            {
+                var dto = new CreateUserDto
+                {
+                    Name = form.Name.Trim(),
+                    Email = form.Email.Trim(),
+                    Password = form.Password,
+                    Role = form.Role,
+                    CourseId = courseId
+                };
+
+                await ApiProxyClient.SendAsync<UserDto>(
+                    HttpMethod.Post, "users", JsonContent.Create(dto), cts.Token);
+
+                successMessage = $"User '{dto.Name}' was created.";
+            }
+            else
+            {
+                var dto = new UpdateUserDto
+                {
+                    Name = form.Name.Trim(),
+                    Email = form.Email.Trim(),
+                    Role = form.Role,
+                    CourseId = courseId
+                };
+
+                await ApiProxyClient.SendAsync<UserDto>(
+                    HttpMethod.Put, $"users/{editingId}", JsonContent.Create(dto), cts.Token);
+
+                successMessage = $"User '{dto.Name}' was updated.";
+            }
+
+            CloseForm();
+            await LoadUsersAsync();
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (HttpRequestException ex)
+        {
+            formError = ex.StatusCode switch
+            {
+                HttpStatusCode.BadRequest => "The input is invalid. Check the fields and that a student has a course.",
+                HttpStatusCode.Conflict => "The email address is already in use.",
+                HttpStatusCode.NotFound => "The user no longer exists.",
+                HttpStatusCode.Forbidden => "You do not have permission to manage users.",
+                _ => "Could not save the user. Please try again."
+            };
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void RedirectToLogin() =>
+        NavigationManager.NavigateTo(
+            $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
+            forceLoad: true);
+
+    // The page title shows the role of the logged-in user.
+    private static string RoleTitle(ClaimsPrincipal user)
+    {
+        if (user.IsInRole(UserRoles.Teacher)) return "Lærer";
+        if (user.IsInRole(UserRoles.Student)) return "Elev";
+
+        return user.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+    }
+
+    private static string CourseText(UserDto user) =>
+        user.CourseNames.Count == 0 ? "—" : string.Join(", ", user.CourseNames);
+
+    private static string RoleToneClass(string role) => role switch
+    {
+        UserRoles.Teacher => "users-tone-purple",
+        UserRoles.Student => "users-tone-primary",
+        _ => "users-tone-muted"
+    };
+
+    private static string AvatarClass(string role) => role switch
+    {
+        UserRoles.Teacher => "is-teacher",
+        UserRoles.Student => string.Empty,
+        _ => "is-other"
+    };
+
+    private static string GetInitials(UserDto user)
+    {
+        var source = string.IsNullOrWhiteSpace(user.Name)
+            ? user.Email.Split('@')[0].Replace('.', ' ')
+            : user.Name;
+
+        var parts = source.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        return parts.Length switch
+        {
+            0 => "?",
+            1 => parts[0][..1].ToUpperInvariant(),
+            _ => $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant()
+        };
+    }
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+
+    public sealed record CourseOption(Guid Id, string Name);
+
+    private sealed class UserFormModel
+    {
+        [Required(ErrorMessage = "Name is required.")]
+        [MaxLength(50, ErrorMessage = "Name can be at most 50 characters.")]
+        public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Email is required.")]
+        [EmailAddress(ErrorMessage = "Enter a valid email address.")]
+        [MaxLength(256, ErrorMessage = "Email can be at most 256 characters.")]
+        public string Email { get; set; } = string.Empty;
+
+        public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Select a role.")]
+        public string Role { get; set; } = string.Empty;
+
+        public Guid? CourseId { get; set; }
+    }
+}

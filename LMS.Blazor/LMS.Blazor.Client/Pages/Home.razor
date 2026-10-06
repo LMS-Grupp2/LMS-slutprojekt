@@ -1,7 +1,14 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+@using Microsoft.AspNetCore.Authorization
 
-<h1>Hello, world!</h1>
+@attribute [Authorize]
 
-Welcome to your new app.
+@inject NavigationManager NavigationManager
+
+@code {
+    // Visitors who are not logged in are sent to the login page by the router.
+    // Logged-in users go straight to the users page.
+    protected override void OnInitialized() =>
+        NavigationManager.NavigateTo("users", replace: true);
+}
