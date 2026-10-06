@@ -50,7 +50,7 @@
                 <div class="alert alert-danger" role="alert">@formError</div>
             }
 
-            <EditForm Model="form" OnValidSubmit="SaveAsync">
+            <EditForm EditContext="editContext" OnValidSubmit="SaveAsync">
                 <DataAnnotationsValidator />
 
                 <div class="row g-3">
@@ -208,6 +208,8 @@
     private bool showForm;
     private string? editingId;
     private UserFormModel form = new();
+    private EditContext editContext = default!;
+    private ValidationMessageStore messageStore = default!;
     private bool isSaving;
     private string? formError;
     private string? passwordError;
@@ -295,6 +297,7 @@
     {
         editingId = null;
         form = new UserFormModel();
+        CreateEditContext();
         ResetFormErrors();
         successMessage = null;
         showForm = true;
@@ -318,6 +321,7 @@
             CourseId = courseId
         };
 
+        CreateEditContext();
         ResetFormErrors();
         successMessage = null;
         showForm = true;
@@ -331,11 +335,20 @@
         ResetFormErrors();
     }
 
+    private void CreateEditContext()
+    {
+        editContext = new EditContext(form);
+        messageStore = new ValidationMessageStore(editContext);
+
+        editContext.OnFieldChanged += (_, e) => messageStore.Clear(e.FieldIdentifier);
+    }
+
     private void ResetFormErrors()
     {
         formError = null;
         passwordError = null;
         courseFieldError = null;
+        messageStore?.Clear();
     }
 
     private void DismissSuccess() => successMessage = null;
@@ -407,6 +420,16 @@
         catch (UnauthorizedAccessException)
         {
             RedirectToLogin();
+        }
+        catch (ApiValidationException ex)
+        {
+            foreach (var (field, messages) in ex.Errors)
+                messageStore.Add(editContext.Field(field), messages);
+
+            if (ex.Errors.Count == 0)
+                formError = ex.Message;
+
+            editContext.NotifyValidationStateChanged();
         }
         catch (HttpRequestException ex)
         {
