@@ -434,8 +434,8 @@
     // The page title shows the role of the logged-in user.
     private static string RoleTitle(ClaimsPrincipal user)
     {
-        if (user.IsInRole(UserRoles.Teacher)) return "Lærer";
-        if (user.IsInRole(UserRoles.Student)) return "Elev";
+        if (user.IsInRole(UserRoles.Teacher)) return UserRoles.Teacher;
+        if (user.IsInRole(UserRoles.Student)) return UserRoles.Student;
 
         return user.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
     }
