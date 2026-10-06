@@ -1,0 +1,38 @@
+name: CI
+
+# Runs when a feature or bug-fix branch has a pull request into Dev.
+on:
+  pull_request:
+    branches: [Dev]
+
+# A newer push to the same branch or PR cancels the run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# The workflow only reads the code; it never writes to the repository.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore packages
+        run: dotnet restore LMS.slnx
+
+      - name: Build
+        run: dotnet build LMS.slnx --configuration Release --no-restore
+
+      # No test projects yet. When one is added, uncomment this step.
+      # - name: Test
+      #   run: dotnet test LMS.slnx --configuration Release --no-build
