@@ -12,6 +12,7 @@ namespace LMS.API.Services;
 //    "secretkey" :  "ThisMustNeReallyLong!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 //  }
 //}
+// The seeded users (DemoUser@Lms.com and teacher@lms.com) use the same password.
 
 
 internal class DataSeedService : IHostedService
@@ -24,6 +25,7 @@ internal class DataSeedService : IHostedService
     private string _password = null!;
     private const string DemoRole = "Demo";
     private const string DefaultUserEmail = "DemoUser@Lms.com";
+    private const string TeacherEmail = "teacher@lms.com";
 
     public DataSeedService(IServiceProvider serviceProvider, IConfiguration configuration, ILogger<DataSeedService> logger)
     {
@@ -46,18 +48,24 @@ internal class DataSeedService : IHostedService
                             ?? throw new ArgumentNullException();
 
         await CreateRolesAsync([DemoRole, UserRoles.Student, UserRoles.Teacher]);
-        
-        if (await context.Users.AnyAsync(cancellationToken)) return;
 
         userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>()
                             ?? throw new ArgumentNullException();
+
+        // The demo user is only seeded into an empty database.
+        // The teacher is seeded whenever it is missing, so existing databases get one too.
+        var needsDemoUser = !await context.Users.AnyAsync(cancellationToken);
+        var needsTeacher = await userManager.FindByEmailAsync(TeacherEmail) is null;
+
+        if (!needsDemoUser && !needsTeacher) return;
 
         _password = configuration["password"]!;
         ArgumentNullException.ThrowIfNull(_password, nameof(_password));
 
         try
-        {  
-            await CreateDefaultUserAsync();
+        {
+            if (needsDemoUser) await CreateDefaultUserAsync();
+            if (needsTeacher) await CreateTeacherAsync();
             logger.LogInformation("Seed complete");
         }
         catch (Exception ex)
@@ -90,6 +98,18 @@ internal class DataSeedService : IHostedService
         };
 
         await CreateUserAsync(user, DemoRole);
+    }
+
+    private async Task CreateTeacherAsync()
+    {
+        var user = new ApplicationUser
+        {
+            Name = "Demo Teacher",
+            Email = TeacherEmail,
+            UserName = TeacherEmail,
+        };
+
+        await CreateUserAsync(user, UserRoles.Teacher);
     }
 
     private async Task CreateUserAsync(ApplicationUser user, string role)
