@@ -3,4 +3,5 @@
 public interface IServiceManager
 {
     IAuthService AuthService { get; }
+    IStudentCourseService StudentCourseService { get; }
 }

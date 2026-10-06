@@ -38,6 +38,13 @@
 
         <AuthorizeView>
             <Authorized>
+                <AuthorizeView Roles="Student" Context="studentContext">
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="my-course">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Min kurs
+                        </NavLink>
+                    </div>
+                </AuthorizeView>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="SomepageNotImplemented">
                         <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> @context.User.Identity?.Name
