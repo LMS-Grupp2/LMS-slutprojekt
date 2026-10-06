@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace LMS.Blazor.Client.Services.ApiProxy;
 
@@ -26,6 +27,10 @@ public sealed class ApiProxyClient(HttpClient httpClient) : IApiProxyClient
         using var response = await httpClient.SendAsync(request, cancellationToken);
 
         EnsureAuthenticated(response);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+            throw await CreateValidationExceptionAsync(response, cancellationToken);
+
         response.EnsureSuccessStatusCode();
 
         if (response.StatusCode == HttpStatusCode.NoContent ||
@@ -93,4 +98,26 @@ public sealed class ApiProxyClient(HttpClient httpClient) : IApiProxyClient
 
         return $"api/proxy/{endpoint}";
     }
+
+    private static async Task<ApiValidationException> CreateValidationExceptionAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var problem = await response.Content.ReadFromJsonAsync<ProblemResponse>(cancellationToken);
+
+            return new ApiValidationException(
+                problem?.Errors ?? new Dictionary<string, string[]>(),
+                problem?.Detail ?? problem?.Title
+            );
+        }
+        catch (JsonException)
+        {
+            return new ApiValidationException(new Dictionary<string, string[]>(), null);
+        }
+
+    }
+   
+    private sealed record ProblemResponse(string? Title, string? Detail, 
+        Dictionary<string, string[]>? Errors);
 }

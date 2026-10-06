@@ -1,10 +1,30 @@
 ﻿using Domain.Contracts;
-using Domain.Contracts.Repositories;
-using LMS.Infrastructure.Data;
+using Domain.Contracts.Repositories;                       
+using Domain.Models.Entities;                              
+using LMS.Infrastructure.Data;                             
+using Microsoft.AspNetCore.Identity;
+
 
 namespace LMS.Infrastructure.Repositories;
 
-public class UnitOfWork(ApplicationDbContext context) : IUnitOfWork
+public class UnitOfWork : IUnitOfWork
 {
-    public ICourseRepository Courses { get; } = new CourseRepository(context);
+    private readonly ApplicationDbContext _context;
+
+    public IUserRepository Users { get; }
+    public ICourseUserRepository CourseUsers { get; }
+    public ICourseRepository Courses { get; }
+
+    public UnitOfWork(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+    {
+        _context = context;
+        Users = new UserRepository(userManager);
+        CourseUsers = new CourseUserRepository(context);
+        Courses = new CourseRepository(context);
+    }
+
+    public async Task SaveChangesAsync()
+    {
+        await _context.SaveChangesAsync();
+    }
 }
