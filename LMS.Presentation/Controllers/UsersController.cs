@@ -4,13 +4,13 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Service.Contracts;
 using Swashbuckle.AspNetCore.Annotations;
+using LMS.Shared.Constants;
 
 namespace LMS.Presentation.Controllers;
 
-// TODO (US-107): restrict to the Teacher role with [Authorize(Roles = UserRoles.Teacher)].
 [Route("api/users")]
 [ApiController]
-[Authorize]
+[Authorize(Roles = UserRoles.Teacher)]
 [Consumes("application/json")]
 [Produces("application/json")]
 public class UsersController(IServiceManager serviceManager) : ControllerBase

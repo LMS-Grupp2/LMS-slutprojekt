@@ -8,8 +8,7 @@
 @using LMS.Shared.DTOs.UserDtos
 @using Microsoft.AspNetCore.Authorization
 
-@* TODO (US-107): restrict to the Teacher role. *@
-@attribute [Authorize]
+@attribute [Authorize(Roles = UserRoles.Teacher)]
 @implements IDisposable
 
 @inject IApiProxyClient ApiProxyClient

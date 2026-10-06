@@ -1,14 +1,27 @@
 ﻿@page "/"
 
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using LMS.Shared.Constants
 
 @attribute [Authorize]
 
 @inject NavigationManager NavigationManager
 
 @code {
-    // Visitors who are not logged in are sent to the login page by the router.
-    // Logged-in users go straight to the users page.
-    protected override void OnInitialized() =>
-        NavigationManager.NavigateTo("users", replace: true);
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is null) return;
+
+        var user = (await AuthState).User;
+
+        var target = user.IsInRole(UserRoles.Teacher) ? "users"
+                   : user.IsInRole(UserRoles.Student) ? "my-course"
+                   : "auth";
+
+        NavigationManager.NavigateTo(target, replace: true);
+    }
 }

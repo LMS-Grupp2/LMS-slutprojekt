@@ -1,4 +1,5 @@
 ﻿@implements IDisposable
+@using LMS.Shared.Constants
 
 @inject NavigationManager NavigationManager
 
@@ -14,12 +15,13 @@
     <nav class="nav flex-column">
         <AuthorizeView>
             <Authorized>
-                @* TODO (US-107): show the Users link only for the Teacher role. *@
+               <AuthorizeView Roles="@UserRoles.Teacher" Context="teacherContext">
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="users">
                         <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Users
                     </NavLink>
                 </div>
+               </AuthorizeView>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="auth">
                         <span class="bi bi-lock-nav-menu" aria-hidden="true"></span> Auth Required
