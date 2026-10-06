@@ -1,4 +1,4 @@
-using Domain.Contracts;
+using Domain.Contracts.Repositories;
 using Domain.Models.Entities;
 using LMS.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;

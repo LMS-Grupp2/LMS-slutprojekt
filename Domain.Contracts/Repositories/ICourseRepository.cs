@@ -1,6 +1,6 @@
 using Domain.Models.Entities;
 
-namespace Domain.Contracts;
+namespace Domain.Contracts.Repositories;
 
 public interface ICourseRepository
 {
