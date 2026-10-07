@@ -5,4 +5,6 @@ namespace Domain.Contracts.Repositories;
 public interface ICourseRepository
 {
     Task<Course?> GetCourseForUserAsync(string userId);
+
+    Task<IEnumerable<Course>> GetAllCoursesAsync();
 }

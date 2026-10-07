@@ -7,6 +7,11 @@ namespace LMS.Infrastructure.Repositories;
 
 public class CourseRepository(ApplicationDbContext context) : ICourseRepository
 {
+    public async Task<IEnumerable<Course>> GetAllCoursesAsync()
+    {
+        return await context.Courses.ToListAsync();
+    }
+
     public async Task<Course?> GetCourseForUserAsync(string userId) =>
         await context.Courses
             .AsNoTracking()
