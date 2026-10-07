@@ -2,7 +2,7 @@
 
 namespace LMS.Shared.DTOs.ActivityDtos;
 
-public record CreateActivityDto
+public record CreateActivityDto 
 {
     [Required]
     public string Type { get; init; } = null!;
@@ -22,5 +22,7 @@ public record CreateActivityDto
 
     [Required]
     public Guid? ModuleId { get; init; }
+
+    
 
 }

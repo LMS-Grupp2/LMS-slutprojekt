@@ -9,6 +9,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Course> Courses { get; set; }
     public DbSet<Module> Modules { get; set; }
     public DbSet<Activity> Activities { get; set; }
+    public DbSet<ActivityType> ActivityTypes { get; set; }
     public DbSet<CourseUser> CourseUsers { get; set; }
     public DbSet<Submission> Submissions { get; set; }
     public DbSet<Feedback> Feedbacks { get; set; }
@@ -30,6 +31,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany()
             .HasForeignKey(s => s.StudentId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Activity>()
+            .HasOne(a => a.ActivityType)
+            .WithMany(t => t.Activities)
+            .HasForeignKey(a => a.ActivityTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ActivityType>()
+            .HasIndex(t => t.Name)
+            .IsUnique();
 
         builder.Entity<Feedback>()
             .HasOne(f => f.Teacher)

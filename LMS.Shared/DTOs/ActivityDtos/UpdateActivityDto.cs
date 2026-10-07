@@ -3,7 +3,7 @@
 
 namespace LMS.Shared.DTOs.ActivityDtos;
 
-public record UpdateActivityDto
+public record UpdateActivityDto 
 {
     [Required]
     public string Type { get; init; } = null!;
@@ -20,4 +20,5 @@ public record UpdateActivityDto
 
     [Required]
     public DateTime? EndTime { get; init; }
+
 }
