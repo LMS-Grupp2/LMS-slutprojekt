@@ -17,9 +17,7 @@ public class CourseController(IServiceManager serviceManager) : ControllerBase
 
     [HttpGet]
     [SwaggerOperation(Summary = "Get all course - without models etc.", Description = "Get all course.")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<CourseDto>))]
     public async Task<ActionResult<IEnumerable<CourseDto>>> GetCourses()
     {
         var courses = await _serviceManager.CourseService.GetCourses();
@@ -27,12 +25,11 @@ public class CourseController(IServiceManager serviceManager) : ControllerBase
         return Ok(courses);
     }
 
-    [HttpGet]
+    [HttpGet("{id}")]
     [SwaggerOperation(Summary = "Get course by id", Description = "Get an existing course by ID.")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(CourseDto))]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-
     public async Task<ActionResult<CourseDto?>> GetCourse([FromRoute] Guid id)
     {
         if (id == Guid.Empty)
@@ -55,9 +52,19 @@ public class CourseController(IServiceManager serviceManager) : ControllerBase
     [SwaggerOperation(Summary = "Create course", Description = "Creates a new course.")]
     [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(CourseDto))]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<CourseDto>> CreateCourse(CreateCourseDto createCourseDto)
+    public async Task<ActionResult<CourseDto>> CreateCourse(CreateCourseDto dto)
     {
-        var courseDto = await _serviceManager.CourseService.CreateCourse(createCourseDto);
+        if (string.IsNullOrWhiteSpace(dto.Name) )
+        {
+            return BadRequest("Name is mandatory");
+        }
+
+        if (dto.StartDate < dto.EndDate)
+        {
+            return BadRequest("Start date can not be after end date.");
+        }
+
+        var courseDto = await _serviceManager.CourseService.CreateCourse(dto);
 
         return CreatedAtAction(nameof(GetCourse), new { id = courseDto.Id }, courseDto);
     }
