@@ -1,22 +1,21 @@
-﻿using LMS.Shared.DTOs.CourseDtos;
+﻿using LMS.Shared.Constants;
+using LMS.Shared.DTOs.CourseDtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Service.Contracts;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace LMS.Presentation.Controllers;
 
-[Route("api/student/course")]
+[Route("api/course")]
 [ApiController]
-[Authorize(Roles = "Teatcher, Student")]
-internal class CourseController(IServiceManager serviceManager) : ControllerBase
+[Authorize(Roles = UserRoles.Teacher)]
+[Authorize(Roles = UserRoles.Student)]
+public class CourseController(IServiceManager serviceManager) : ControllerBase
 {
     private readonly IServiceManager _serviceManager = serviceManager;
 
     [HttpGet]
-    [Authorize(Roles = "Teatcher")]
+    [Authorize(Roles = UserRoles.Teacher)]
     public async Task<ActionResult<IEnumerable<CourseDto>>> GetCourses()
     {
         var courses = await _serviceManager.CourseService.GetCourses();
@@ -25,5 +24,13 @@ internal class CourseController(IServiceManager serviceManager) : ControllerBase
     }
 
 
+
+
+    public async Task<ActionResult<CourseDto>> UpdateCourse(UpdateCourseDto course)
+    {
+        bool success = await _serviceManager.CourseService.UpdateCourse(course);
+
+        return (success ? Ok() : BadRequest(course));
+    }
 
 }

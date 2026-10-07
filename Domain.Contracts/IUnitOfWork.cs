@@ -8,4 +8,5 @@ public interface IUnitOfWork
     IUserRepository Users { get; }
     ICourseUserRepository CourseUsers { get; }
     Task SaveChangesAsync();
+    Task CompleteAsync();
 }
