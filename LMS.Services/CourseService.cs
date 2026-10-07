@@ -23,7 +23,9 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
                        Name = item.Name,
                        Description = item.Description,
                        StartDate = item.StartDate,
-                       EndDate = item.EndDate,
+                       EndDate = item.EndDate
+
+                       // TODO - add collections to GetCourses()
                        // ICollection<Modules> Modules { get; init; } = [];
                        // ICollection<CourseUsers> CourseUsers { get; init; } = [];
                        // ICollection<Documents> Documents { get; set; } = [];

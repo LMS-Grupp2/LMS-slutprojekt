@@ -9,9 +9,8 @@ public record CourseDto
     public DateOnly StartDate { get; init; }
     public DateOnly EndDate { get; init; }
 
-    // TODO
+    // TODO - add collections to CourseDto
     //public ICollection<Modules> Modules { get; init; } = [];
     //public ICollection<CourseUsers> CourseUsers { get; init; } = [];
     //public ICollection<Documents> Documents { get; set; } = [];
-
 }
