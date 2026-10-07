@@ -68,24 +68,63 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
         return courseList;
     }
 
-    public async Task<bool> UpdateCourse(UpdateCourseDto updateCourseDto)
+    public async Task<CourseDto?> GetCourseById(Guid id)
+    {
+        Course? course = await unitOfWork.Courses.GetCourseByIdAsync(id);
+
+        if (course is null)
+        {
+            return null;
+        }
+
+        var dto = new CourseDto
+        {
+            Id = course.Id,
+            Name = course.Name,
+            Description = course.Description,
+            StartDate = course.StartDate,
+            EndDate = course.EndDate
+
+            // TODO - add collections to CourseDto
+            //public ICollection<Modules> Modules { get; init; } = [];
+            //public ICollection<CourseUsers> CourseUsers { get; init; } = [];
+            //public ICollection<Documents> Documents { get; set; } = [];
+        };
+
+        return dto;
+    }
+
+    public async Task<bool> UpdateCourse(Guid id, UpdateCourseDto updateCourseDto)
     {
         if (updateCourseDto.StartDate > updateCourseDto.EndDate)
         {
-            throw new BadRequestException("Failed to create new course");
+            throw new BadRequestException("Start date can not be after end date.");
         }
 
-        var course = new Course
+        var course = await unitOfWork.Courses.GetCourseByIdAsync(id);
+
+        if (course is null)
         {
-            Name = updateCourseDto.Name.Trim(),
-            Description = updateCourseDto.Description?.Trim(),
-            StartDate = updateCourseDto.StartDate,
-            EndDate = updateCourseDto.EndDate
-        };
+            return false;
+        }
 
-        await unitOfWork.Courses.UpdateCourse(course);
-        await unitOfWork.CompleteAsync();
+        try
+        {
+            course.Name = updateCourseDto.Name.Trim();
+            course.Description = updateCourseDto.Description?.Trim();
+            course.StartDate = updateCourseDto.StartDate;
+            course.EndDate = updateCourseDto.EndDate;
 
-        return true;
+            await unitOfWork.Courses.UpdateCourse(course);
+            await unitOfWork.CompleteAsync();
+
+            return true;
+        }
+        catch (Exception)  //  ex
+        {
+            //
+        }
+
+        return false;
     }
 }

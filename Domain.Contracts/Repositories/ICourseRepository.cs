@@ -6,7 +6,7 @@ public interface ICourseRepository
 {
     Task CreateCourseAsync(Course course);
 
-    Task<Course?> GetCourseById(Guid Id);
+    Task<Course?> GetCourseByIdAsync(Guid Id);
 
     Task<Course?> GetCourseForUserAsync(string userId);
 

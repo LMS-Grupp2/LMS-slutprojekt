@@ -4,9 +4,11 @@ namespace Service.Contracts;
 
 public interface ICourseService
 {
-    Task<IEnumerable<CourseDto>> GetCourses();
+    Task<CourseDto?> GetCourseById(Guid id);
+
+    Task <IEnumerable<CourseDto>> GetCourses();
 
     Task<CourseDto> CreateCourse(CreateCourseDto createCourseDto);
 
-    Task<bool> UpdateCourse(UpdateCourseDto updateCourseDto);
+    Task<bool> UpdateCourse(Guid id, UpdateCourseDto updateCourseDto);
 }

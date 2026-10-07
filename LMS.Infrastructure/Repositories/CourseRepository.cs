@@ -9,8 +9,7 @@ public class CourseRepository(ApplicationDbContext context) : ICourseRepository
 {
     public async Task CreateCourseAsync(Course course)
     {
-        context.Add(course);
-        //await context.SaveChangesAsync();
+        await context.Courses.AddAsync(course);
     }
 
     public async Task<IEnumerable<Course>> GetAllCoursesAsync()
@@ -18,7 +17,7 @@ public class CourseRepository(ApplicationDbContext context) : ICourseRepository
         return await context.Courses.ToListAsync();
     }
 
-    public async Task<Course?> GetCourseById(Guid Id)
+    public async Task<Course?> GetCourseByIdAsync(Guid Id)
     {
         return await context.Courses.FirstOrDefaultAsync(c => c.Id == Id);
     }
@@ -30,10 +29,10 @@ public class CourseRepository(ApplicationDbContext context) : ICourseRepository
                 .ThenInclude(cu => cu.User)
             .FirstOrDefaultAsync(c => c.CourseUsers.Any(cu => cu.UserId == userId));
 
-    public Task<bool> UpdateCourse(Course course)
+    public async Task<bool> UpdateCourse(Course course)
     {
-
-
-        throw new NotImplementedException();
+        context.Courses.Update(course);
+        var changed = await context.SaveChangesAsync();
+        return changed > 0;
     }
 }
