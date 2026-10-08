@@ -10,7 +10,7 @@ public class StudentCourseService(IUnitOfWork unitOfWork) : IStudentCourseServic
     public async Task<StudentCourseDto> GetMyCourseAsync(string userId)
     {
         var course = await unitOfWork.Courses.GetCourseForUserAsync(userId)
-            ?? throw new CourseNotFoundException();
+            ?? throw new CourseNotFoundException("You are not enrolled in any course.", "Course not found");
 
         var participants = course.CourseUsers
             .Select(cu => new CourseParticipantDto(cu.User.Name))
