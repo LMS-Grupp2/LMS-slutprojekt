@@ -6,4 +6,5 @@ public interface IServiceManager
     IModuleService ModuleService { get; }
     IStudentCourseService StudentCourseService { get; }
     IUserService UserService { get; }
+    ICourseService CourseService { get; }
 }
