@@ -29,7 +29,6 @@ public class CourseController(IServiceManager serviceManager) : ControllerBase
     [SwaggerOperation(Summary = "Get course by id", Description = "Get an existing course by ID.")]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(CourseDto))]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<CourseDto?>> GetCourse([FromRoute] Guid id)
     {
         var courseDto = await _serviceManager.CourseService.GetCourseByIdAsync(id);

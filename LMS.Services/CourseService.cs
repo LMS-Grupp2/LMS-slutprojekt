@@ -8,7 +8,7 @@ namespace LMS.Services;
 
 public class CourseService(IUnitOfWork unitOfWork) : ICourseService
 {
-    public async Task<CourseDto> CreateCourse(CreateCourseDto createCourseDto)
+    public async Task<CourseDto> CreateCourseAsync(CreateCourseDto createCourseDto)
     {
         if (createCourseDto.StartDate > createCourseDto.EndDate)
         {
@@ -38,7 +38,7 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
         return dto;
     }
 
-    public async Task<IEnumerable<CourseDto>> GetCourses()
+    public async Task<IEnumerable<CourseDto>> GetCoursesAsync()
     {
         var courses = await unitOfWork.Courses.GetAllCoursesAsync();
 
@@ -68,7 +68,7 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
         return courseList;
     }
 
-    public async Task<CourseDto?> GetCourseById(Guid id)
+    public async Task<CourseDto?> GetCourseByIdAsync(Guid id)
     {
         Course? course = await unitOfWork.Courses.GetCourseByIdAsync(id);
 
@@ -94,7 +94,7 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
         return dto;
     }
 
-    public async Task UpdateCourse(Guid id, UpdateCourseDto updateCourseDto)
+    public async Task UpdateCourseAsync(Guid id, UpdateCourseDto updateCourseDto)
     {
         if (updateCourseDto.StartDate > updateCourseDto.EndDate)
         {
