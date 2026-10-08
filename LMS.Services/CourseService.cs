@@ -40,7 +40,7 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
 
     public async Task<IEnumerable<CourseDto>> GetCourses()
     {
-        var courses = unitOfWork.Courses.GetAllCoursesAsync();
+        var courses = await unitOfWork.Courses.GetAllCoursesAsync();
 
         var courseList = new List<CourseDto>();
 
@@ -74,7 +74,7 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
 
         if (course is null)
         {
-            return null;
+            throw new CourseNotFoundException($"Course with id '{id}' was not found.", "Course not found");
         }
 
         var dto = new CourseDto
@@ -94,7 +94,7 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
         return dto;
     }
 
-    public async Task<bool> UpdateCourse(Guid id, UpdateCourseDto updateCourseDto)
+    public async Task UpdateCourse(Guid id, UpdateCourseDto updateCourseDto)
     {
         if (updateCourseDto.StartDate > updateCourseDto.EndDate)
         {
@@ -105,26 +105,15 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
 
         if (course is null)
         {
-            return false;
+            throw new CourseNotFoundException($"Course with id '{id}' was not found.", "Course not found");
         }
 
-        try
-        {
-            course.Name = updateCourseDto.Name.Trim();
-            course.Description = updateCourseDto.Description?.Trim();
-            course.StartDate = updateCourseDto.StartDate;
-            course.EndDate = updateCourseDto.EndDate;
+        course.Name = updateCourseDto.Name.Trim();
+        course.Description = updateCourseDto.Description?.Trim();
+        course.StartDate = updateCourseDto.StartDate;
+        course.EndDate = updateCourseDto.EndDate;
 
-            await unitOfWork.Courses.UpdateCourse(course);
-            await unitOfWork.CompleteAsync();
-
-            return true;
-        }
-        catch (Exception)  //  ex
-        {
-            //
-        }
-
-        return false;
+        await unitOfWork.Courses.UpdateCourse(course);
+        await unitOfWork.CompleteAsync();
     }
 }

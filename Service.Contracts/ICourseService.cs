@@ -1,14 +1,15 @@
 ﻿using LMS.Shared.DTOs.CourseDtos;
+using System.Runtime.CompilerServices;
 
 namespace Service.Contracts;
 
 public interface ICourseService
 {
-    Task<CourseDto?> GetCourseById(Guid id);
+    Task<CourseDto?> GetCourseByIdAsync(Guid id);
 
-    Task <IEnumerable<CourseDto>> GetCourses();
+    Task <IEnumerable<CourseDto>> GetCoursesAsync();
 
-    Task<CourseDto> CreateCourse(CreateCourseDto createCourseDto);
+    Task<CourseDto> CreateCourseAsync(CreateCourseDto createCourseDto);
 
-    Task<bool> UpdateCourse(Guid id, UpdateCourseDto updateCourseDto);
+    Task UpdateCourseAsync(Guid id, UpdateCourseDto updateCourseDto);
 }

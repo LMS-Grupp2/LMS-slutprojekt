@@ -20,7 +20,7 @@ public class CourseController(IServiceManager serviceManager) : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<CourseDto>))]
     public async Task<ActionResult<IEnumerable<CourseDto>>> GetCourses()
     {
-        var courses = await _serviceManager.CourseService.GetCourses();
+        var courses = await _serviceManager.CourseService.GetCoursesAsync();
 
         return Ok(courses);
     }
@@ -32,21 +32,10 @@ public class CourseController(IServiceManager serviceManager) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<CourseDto?>> GetCourse([FromRoute] Guid id)
     {
-        if (id == Guid.Empty)
-        {
-            return BadRequest("No id present in URI.");
-        }
-        var courseDto = _serviceManager.CourseService.GetCourseById(id);
+        var courseDto = await _serviceManager.CourseService.GetCourseByIdAsync(id);
 
-        if (courseDto != null) {
-            return Ok(courseDto);
-        }
-        else
-        {
-            return NotFound();
-        }
+        return Ok(courseDto);
     }
-
 
     [HttpPost]
     [SwaggerOperation(Summary = "Create course", Description = "Creates a new course.")]
@@ -54,17 +43,7 @@ public class CourseController(IServiceManager serviceManager) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<CourseDto>> CreateCourse(CreateCourseDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Name) )
-        {
-            return BadRequest("Name is mandatory");
-        }
-
-        if (dto.StartDate < dto.EndDate)
-        {
-            return BadRequest("Start date can not be after end date.");
-        }
-
-        var courseDto = await _serviceManager.CourseService.CreateCourse(dto);
+        var courseDto = await _serviceManager.CourseService.CreateCourseAsync(dto);
 
         return CreatedAtAction(nameof(GetCourse), new { id = courseDto.Id }, courseDto);
     }
@@ -76,12 +55,7 @@ public class CourseController(IServiceManager serviceManager) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult> UpdateCourse([FromRoute] Guid id, UpdateCourseDto course)
     {
-        if (id == Guid.Empty && id == course.Id)
-        {
-            return BadRequest("No or bad id present in URI.");
-        }
-
-        bool success = await _serviceManager.CourseService.UpdateCourse(id, course);
+        await _serviceManager.CourseService.UpdateCourseAsync(id, course);
 
         return NoContent();
     }
