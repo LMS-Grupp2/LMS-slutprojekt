@@ -6,14 +6,17 @@ using Service.Contracts;
 
 namespace LMS.Services;
 
+/// <summary>
+/// Business rules for courses. Controllers call this service,
+/// and it talks to the database only through the unit of work.
+/// </summary>
 public class CourseService(IUnitOfWork unitOfWork) : ICourseService
 {
+    /// <summary>Creates a course after validating that the dates make sense.</summary>
     public async Task<CourseDto> CreateCourseAsync(CreateCourseDto createCourseDto)
     {
-        if (createCourseDto.StartDate > createCourseDto.EndDate)
-        {
-            throw new BadRequestException("Start date can not be after end date");
-        }
+        // Rule: a course cannot start after it ends (returns 400).
+        EnsureValidDates(createCourseDto.StartDate, createCourseDto.EndDate);
 
         var course = new Course
         {
@@ -24,96 +27,68 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
         };
 
         await unitOfWork.Courses.CreateCourseAsync(course);
+
+        // The repository only adds the entity. Saving happens once, here.
         await unitOfWork.SaveChangesAsync();
 
-        var dto = new CourseDto
-        {
-            Id = course.Id,
-            Name = course.Name,
-            Description = course.Description,
-            StartDate = course.StartDate,
-            EndDate = course.EndDate
-        };
-
-        return dto;
+        return ToDto(course);
     }
 
+    /// <summary>Returns all courses, earliest start date first.</summary>
     public async Task<IEnumerable<CourseDto>> GetCoursesAsync()
     {
         var courses = await unitOfWork.Courses.GetAllCoursesAsync();
 
-        var courseList = new List<CourseDto>();
-
-        if (courses != null)
-        {
-            foreach (var item in courses)
-            {
-                courseList.Add(
-                   new CourseDto
-                   {
-                       Id = item.Id,
-                       Name = item.Name,
-                       Description = item.Description,
-                       StartDate = item.StartDate,
-                       EndDate = item.EndDate
-
-                       // TODO - add collections to GetCourses()
-                       // ICollection<Modules> Modules { get; init; } = [];
-                       // ICollection<CourseUsers> CourseUsers { get; init; } = [];
-                       // ICollection<Documents> Documents { get; set; } = [];
-                   });
-            }
-        }
-
-        return courseList;
+        // The mapping runs over the loaded courses (not an empty list).
+        return courses
+            .OrderBy(c => c.StartDate)
+            .Select(ToDto)
+            .ToList();
     }
 
+    /// <summary>Returns one course, or throws a 404 if it does not exist.</summary>
     public async Task<CourseDto?> GetCourseByIdAsync(Guid id)
     {
-        Course? course = await unitOfWork.Courses.GetCourseByIdAsync(id);
+        var course = await unitOfWork.Courses.GetCourseByIdAsync(id)
+            ?? throw new CourseNotFoundException($"Course with id '{id}' was not found.", "Course not found");
 
-        if (course is null)
-        {
-            throw new CourseNotFoundException($"Course with id '{id}' was not found.", "Course not found");
-        }
-
-        var dto = new CourseDto
-        {
-            Id = course.Id,
-            Name = course.Name,
-            Description = course.Description,
-            StartDate = course.StartDate,
-            EndDate = course.EndDate
-
-            // TODO - add collections to CourseDto
-            //public ICollection<Modules> Modules { get; init; } = [];
-            //public ICollection<CourseUsers> CourseUsers { get; init; } = [];
-            //public ICollection<Documents> Documents { get; set; } = [];
-        };
-
-        return dto;
+        return ToDto(course);
     }
 
+    /// <summary>Updates an existing course, or throws a 404 if it does not exist.</summary>
     public async Task UpdateCourseAsync(Guid id, UpdateCourseDto updateCourseDto)
     {
-        if (updateCourseDto.StartDate > updateCourseDto.EndDate)
-        {
-            throw new BadRequestException("Start date can not be after end date.");
-        }
+        EnsureValidDates(updateCourseDto.StartDate, updateCourseDto.EndDate);
 
-        var course = await unitOfWork.Courses.GetCourseByIdAsync(id);
+        var course = await unitOfWork.Courses.GetCourseByIdAsync(id)
+            ?? throw new CourseNotFoundException($"Course with id '{id}' was not found.", "Course not found");
 
-        if (course is null)
-        {
-            throw new CourseNotFoundException($"Course with id '{id}' was not found.", "Course not found");
-        }
-
+        // The course is tracked by the context, so changing the properties
+        // and saving is enough. No explicit Update call is needed.
         course.Name = updateCourseDto.Name.Trim();
         course.Description = updateCourseDto.Description?.Trim();
         course.StartDate = updateCourseDto.StartDate;
         course.EndDate = updateCourseDto.EndDate;
 
-        await unitOfWork.Courses.UpdateCourse(course);
         await unitOfWork.SaveChangesAsync();
     }
+
+    /// <summary>Throws a 400 (BadRequestException) if the start date is after the end date.</summary>
+    private static void EnsureValidDates(DateOnly startDate, DateOnly endDate)
+    {
+        if (startDate > endDate)
+        {
+            throw new BadRequestException("Start date can not be after end date.");
+        }
+    }
+
+    /// <summary>Single place that maps a Course entity to its DTO.</summary>
+    private static CourseDto ToDto(Course course) => new()
+    {
+        Id = course.Id,
+        Name = course.Name,
+        Description = course.Description,
+        StartDate = course.StartDate,
+        EndDate = course.EndDate
+    };
 }

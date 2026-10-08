@@ -1,6 +1,8 @@
 ﻿namespace LMS.Shared.DTOs.CourseDtos;
 
-public record UpdateCourseDto : CreateCourseDto
-{
-    public required Guid Id { get; init; }
-}
+/// <summary>
+/// Input for updating a course. It has the same fields and rules as CreateCourseDto.
+/// The course id is not part of the body, it comes from the route (PUT api/courses/{id}),
+/// so the two can never disagree.
+/// </summary>
+public record UpdateCourseDto : CreateCourseDto;
