@@ -12,5 +12,5 @@ public interface ICourseRepository
 
     Task<IEnumerable<Course>> GetAllCoursesAsync();
 
-    Task<bool> UpdateCourse(Course course);
+    Task UpdateCourse(Course course);
 }

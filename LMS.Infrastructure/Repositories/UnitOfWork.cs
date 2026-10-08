@@ -27,9 +27,4 @@ public class UnitOfWork : IUnitOfWork
     {
         await _context.SaveChangesAsync();
     }
-
-    public async Task CompleteAsync()
-    {
-        await _context.SaveChangesAsync();
-    }
 }

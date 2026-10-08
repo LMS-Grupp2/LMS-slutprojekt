@@ -45,8 +45,8 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
         var courseList = new List<CourseDto>();
 
         if (courses != null)
-        {   
-            foreach (var item in courseList)
+        {
+            foreach (var item in courses)
             {
                 courseList.Add(
                    new CourseDto
@@ -114,6 +114,6 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
         course.EndDate = updateCourseDto.EndDate;
 
         await unitOfWork.Courses.UpdateCourse(course);
-        await unitOfWork.CompleteAsync();
+        await unitOfWork.SaveChangesAsync();
     }
 }

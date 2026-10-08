@@ -29,10 +29,9 @@ public class CourseRepository(ApplicationDbContext context) : ICourseRepository
                 .ThenInclude(cu => cu.User)
             .FirstOrDefaultAsync(c => c.CourseUsers.Any(cu => cu.UserId == userId));
 
-    public async Task<bool> UpdateCourse(Course course)
+    public async Task UpdateCourse(Course course)
     {
         context.Courses.Update(course);
-        var changed = await context.SaveChangesAsync();
-        return changed > 0;
+        await context.SaveChangesAsync();
     }
 }
