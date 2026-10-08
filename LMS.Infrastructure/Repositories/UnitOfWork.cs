@@ -12,6 +12,7 @@ public class UnitOfWork : IUnitOfWork
     private readonly ApplicationDbContext _context;
 
     public IUserRepository Users { get; }
+    public IModuleRepository Modules { get; }
     public ICourseUserRepository CourseUsers { get; }
     public ICourseRepository Courses { get; }
 
@@ -19,6 +20,7 @@ public class UnitOfWork : IUnitOfWork
     {
         _context = context;
         Users = new UserRepository(userManager);
+        Modules = new ModuleRepository(context);
         CourseUsers = new CourseUserRepository(context);
         Courses = new CourseRepository(context);
     }

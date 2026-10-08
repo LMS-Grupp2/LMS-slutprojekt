@@ -13,4 +13,9 @@ public class CourseRepository(ApplicationDbContext context) : ICourseRepository
             .Include(c => c.CourseUsers)
                 .ThenInclude(cu => cu.User)
             .FirstOrDefaultAsync(c => c.CourseUsers.Any(cu => cu.UserId == userId));
+
+    public async Task<Course?> GetCourseByIdAsync(Guid id) =>
+        await context.Courses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == id);
 }
