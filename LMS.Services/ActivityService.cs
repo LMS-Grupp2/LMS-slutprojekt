@@ -3,10 +3,15 @@ using Service.Contracts;
 using Domain.Models.Entities;
 using Domain.Models.Exceptions;
 using LMS.Shared.DTOs.ActivityDtos;
-using System.Xml;
+
 
 namespace LMS.Services;
 
+/// <summary>
+/// Business rules for activities: end must be after start (400) and no overlap
+/// within the same module (409). Controllers call this service through the interface,
+/// and it talks to the database only through the unit of work.
+/// </summary>
 public class ActivityService : IActivityService
 {
     private readonly IUnitOfWork _unitOfWork;
@@ -48,6 +53,8 @@ public class ActivityService : IActivityService
         _unitOfWork.Activities.Create(activity);
         await _unitOfWork.SaveChangesAsync();
 
+        // Reload instead of MapToDto(activity): the new entity only has ActivityTypeId,
+        // its ActivityType navigation is null. GetByIdAsync includes it for the type name.
         return await GetByIdAsync(activity.Id);
     }
 
@@ -65,7 +72,7 @@ public class ActivityService : IActivityService
         activity.StartTime = dto.StartTime!.Value;
         activity.EndTime = dto.EndTime!.Value;
 
-        _unitOfWork.Activities.Update(activity);
+        // Tracked by the context, so changing the properties and saving is enough. No Update call needed.
         await _unitOfWork.SaveChangesAsync();
     }
 
@@ -80,6 +87,10 @@ public class ActivityService : IActivityService
 
 
     /* Helper */
+
+    /// <summary>
+    /// Single place that maps an Activity to its DTO. Requires ActivityType to be loaded (Include).
+    /// </summary>
     private static ActivityDto MapToDto(Activity activity)
     {
         return new ActivityDto(
@@ -94,6 +105,10 @@ public class ActivityService : IActivityService
         );
     }
 
+    /// <summary>
+    /// Runs the activity rules before create/update: 400 if end is not after start,
+    /// 409 if it overlaps another activity in the module. excludeActivityId = own id on update, null on create.
+    /// </summary>
     private async Task ValidateActivityAsync(Guid moduleId, DateTime startTime, DateTime endTime,
         Guid? excludeActivityId)
     {

@@ -43,17 +43,21 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany()
             .HasForeignKey(d => d.UserId)
             .OnDelete(DeleteBehavior.Restrict);
-
+        
+        // Restrict: a type in use can't be deleted. Cascade would wipe every activity using it.
         builder.Entity<Activity>()
             .HasOne(a => a.ActivityType)
             .WithMany(t => t.Activities)
             .HasForeignKey(a => a.ActivityTypeId)
             .OnDelete(DeleteBehavior.Restrict);
-        
+
+        // Type names must be unique, otherwise the dropdown shows duplicates and data splits between them.
         builder.Entity<ActivityType>()
             .HasIndex(t => t.Name)
             .IsUnique();
 
+        // Seeded through migrations so every database (local, Azure, CI) has the default types.
+        // Ids are hardcoded: Guid.NewGuid() would change on every build and make EF re-seed in each migration.
         builder.Entity<ActivityType>().HasData(
             new ActivityType
             {

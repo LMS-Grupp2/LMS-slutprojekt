@@ -2,6 +2,9 @@
 
 namespace LMS.Shared.DTOs.ActivityDtos;
 
+/// <summary>
+///  Input for POST api/activities. Validated by the attributes before it reaches the service.
+/// </summary>
 public record CreateActivityDto 
 {
     [Required]

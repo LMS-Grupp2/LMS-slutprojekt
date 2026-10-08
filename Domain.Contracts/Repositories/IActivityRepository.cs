@@ -2,6 +2,10 @@
 
 namespace Domain.Contracts.Repositories;
 
+/// <summary>
+/// Database access for activities. Nothing is saved at this level: Create/Update/Delete
+/// only mark changes, and the service saves once through the unit of work.
+/// </summary>
 public interface IActivityRepository
 {
     Task<IEnumerable<Activity>> GetByModuleIdAsync(Guid moduleId);
@@ -10,6 +14,10 @@ public interface IActivityRepository
     void Update(Activity activity);
     void Delete(Activity activity);
 
+    /// <summary>
+    /// Returns the first activity in the module that overlaps the given times, or null if the slot is free.
+    /// On update, pass the activity's own id so it doesn't clash with itself. On create, pass null.
+    /// </summary>
     Task<Activity?> FindOverlappingAsync(Guid moduleId, DateTime startTime, 
         DateTime endTime, Guid? excludeActivityId);
 }

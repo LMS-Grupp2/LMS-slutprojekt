@@ -14,22 +14,29 @@ public class ActivityRepository : IActivityRepository
         _context = context;
     }
 
+    // Read only (the schedule list), so tracking is turned off.          
+    // Include is needed so MapToDto can read ActivityType.Name. 
     public async Task<IEnumerable<Activity>> GetByModuleIdAsync(Guid moduleId)
     {
         return await _context.Activities
+            .AsNoTracking()
             .Include(a => a.ActivityType)
             .Where(a => a.ModuleId == moduleId)
             .OrderBy(a => a.StartTime)
             .ToListAsync();
     }
 
+    // Tracked on purpose: UpdateAsync and DeleteAsync change the entity and save it.  
+    // Include is needed so MapToDto can read ActivityType.Name. 
     public async Task<Activity?> GetByIdAsync(Guid id)
     {
         return await _context.Activities
             .Include(a => a.ActivityType)
             .FirstOrDefaultAsync(a => a.Id == id);
     }
-
+    
+    // Overlap = starts before the other ends AND ends after the other starts.
+    // Strict < and > so back-to-back activities (10:00 end, 10:00 start) are allowed.
     public async Task<Activity?> FindOverlappingAsync(Guid moduleId, 
         DateTime startTime, 
         DateTime endTime,

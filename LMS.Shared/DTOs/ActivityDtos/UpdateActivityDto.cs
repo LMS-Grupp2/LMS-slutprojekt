@@ -3,6 +3,10 @@
 
 namespace LMS.Shared.DTOs.ActivityDtos;
 
+/// <summary>
+/// Input for PUT api/activities/{id}. No ModuleId on purpose: an activity can't move
+/// to another module, so the service takes the module from the stored activity.
+/// </summary>
 public record UpdateActivityDto 
 {
     [Required]
