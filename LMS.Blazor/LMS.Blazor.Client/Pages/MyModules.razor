@@ -1,0 +1,77 @@
+﻿@page "/my-modules"
+
+@using System.Net
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
+@using LMS.Shared.DTOs.CourseDtos
+@using Microsoft.AspNetCore.Authorization
+
+@attribute [Authorize(Roles = UserRoles.Student)]
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>My modules</PageTitle>
+
+<div class="my-modules-page">
+    <div class="my-modules-card" role="status">
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <span class="my-modules-icon-tile my-modules-tone-primary">i</span>
+            <div class="my-modules-title">@message</div>
+            <div class="my-modules-sub">Ask your teacher to add you to a course.</div>
+        }
+        else
+        {
+            <div class="my-modules-skeleton" style="width: 40%; height: 16px;"></div>
+            <div class="my-modules-skeleton" style="width: 70%; height: 16px;"></div>
+            <div class="my-modules-skeleton" style="width: 55%; height: 16px;"></div>
+            <span class="visually-hidden">Loading your modules...</span>
+        }
+    </div>
+</div>
+
+@code {
+    private readonly CancellationTokenSource cts = new();
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var course = await ApiProxyClient.GetAsync<StudentCourseDto>("student/course", cts.Token);
+
+            // The server-side prerender client deliberately returns null. Keep
+            // showing the loading state until WebAssembly runs this again.
+            if (course is null)
+            {
+                return;
+            }
+
+            NavigationManager.NavigateTo($"courses/{course.Id}/modules", replace: true);
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            NavigationManager.NavigateTo(
+                $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
+                forceLoad: true);
+        }
+        catch (HttpRequestException ex)
+        {
+            message = ex.StatusCode == HttpStatusCode.NotFound
+                ? "You are not enrolled in a course yet, so there are no modules to show."
+                : "Could not load your course. Please try again later.";
+        }
+    }
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+}

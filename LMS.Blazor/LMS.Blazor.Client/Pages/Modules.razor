@@ -1,0 +1,537 @@
+﻿@page "/courses/{CourseId:guid}/modules"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Globalization
+@using System.Net
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
+@using LMS.Shared.DTOs.ModuleDtos
+@using Microsoft.AspNetCore.Authorization
+
+@* Teachers see a table with create and edit. Students see a module list with a detail card. *@
+@attribute [Authorize(Roles = UserRoles.Teacher + "," + UserRoles.Student)]
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>Modules</PageTitle>
+
+<div class="modules-page">
+    <div class="modules-header">
+        <div>
+            <AuthorizeView Roles="@UserRoles.Teacher">
+                <Authorized>
+                    <h1 class="modules-title">Modules</h1>
+                    <p class="modules-subtitle">Plan the course. Modules must stay inside the course dates and cannot overlap.</p>
+                </Authorized>
+                <NotAuthorized>
+                    <nav class="modules-breadcrumb" aria-label="Breadcrumb">
+                        <a href="my-course">My course</a>
+                        <span>/</span>
+                        <span>Modules</span>
+                    </nav>
+                    <h1 class="modules-title">Modules</h1>
+                    <p class="modules-subtitle">@(modules is null ? "The modules of your course, in order." : $"{modules.Count} modules in order")</p>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+
+        <AuthorizeView Roles="@UserRoles.Teacher">
+            @if (!showForm)
+            {
+                <button type="button" class="btn btn-primary" @onclick="StartCreate">+ New module</button>
+            }
+        </AuthorizeView>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible mb-0" role="status">
+            @successMessage
+            <button type="button" class="btn-close" aria-label="Close" @onclick="DismissSuccess"></button>
+        </div>
+    }
+
+    @* ---------- Create / edit form (teachers only) ---------- *@
+    @if (showForm)
+    {
+        <div class="modules-card">
+            <div class="modules-card-header">
+                <h2 class="modules-card-title">@(editingId is null ? "New module" : "Edit module")</h2>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(formError))
+            {
+                <div class="alert alert-danger" role="alert">@formError</div>
+            }
+
+            <EditForm EditContext="editContext" OnValidSubmit="SaveAsync">
+                <DataAnnotationsValidator />
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="module-name">Name</label>
+                        <InputText id="module-name" class="form-control" @bind-Value="form.Name" />
+                        <ValidationMessage For="() => form.Name" />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label" for="module-description">Description</label>
+                        <InputTextArea id="module-description" class="form-control" rows="3" @bind-Value="form.Description" />
+                        <ValidationMessage For="() => form.Description" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label" for="module-start">Start date</label>
+                        <InputDate id="module-start" class="form-control" @bind-Value="form.StartDate" />
+                        <ValidationMessage For="() => form.StartDate" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label" for="module-end">End date</label>
+                        <InputDate id="module-end" class="form-control" @bind-Value="form.EndDate" />
+                        <ValidationMessage For="() => form.EndDate" />
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                        @(isSaving ? "Saving..." : "Save")
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" disabled="@isSaving" @onclick="CloseForm">Cancel</button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    @* ---------- Loading, error, empty and list states ---------- *@
+    @if (isLoading)
+    {
+        <div class="modules-card">
+            <div class="d-flex flex-column gap-3">
+                <div class="modules-skeleton" style="width: 40%; height: 16px;"></div>
+                <div class="modules-skeleton" style="width: 70%; height: 16px;"></div>
+                <div class="modules-skeleton" style="width: 55%; height: 16px;"></div>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <div class="modules-card">
+            <div class="modules-state">
+                <span class="modules-icon-tile" style="background: #fde8e8; color: #dc3545;">!</span>
+                <div class="modules-cell-title">@loadError</div>
+                <button type="button" class="btn btn-outline-primary btn-sm" @onclick="LoadModulesAsync">Try again</button>
+            </div>
+        </div>
+    }
+    else if (modules is { Count: 0 })
+    {
+        <div class="modules-card">
+            <div class="modules-state">
+                <span class="modules-icon-tile modules-tone-primary">+</span>
+                <div class="modules-cell-title">No modules yet</div>
+                <AuthorizeView Roles="@UserRoles.Teacher">
+                    <Authorized>
+                        <div class="modules-cell-sub">Create the first module with the button above.</div>
+                    </Authorized>
+                    <NotAuthorized>
+                        <div class="modules-cell-sub">Your teacher has not added any modules yet.</div>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
+        </div>
+    }
+    else if (modules is not null)
+    {
+        <AuthorizeView Roles="@UserRoles.Teacher">
+            <Authorized>
+                @* Teacher view: table with an Edit button on every row. *@
+                <div class="modules-card modules-card-table">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle modules-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Module</th>
+                                    <th>Dates</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (var i = 0; i < modules.Count; i++)
+                                {
+                                    var module = modules[i];
+                                    var status = StatusOf(module);
+
+                                    <tr>
+                                        <td class="modules-cell-sub">@(i + 1)</td>
+                                        <td>
+                                            <div class="modules-cell-title">@module.Name</div>
+                                            @if (!string.IsNullOrWhiteSpace(module.Description))
+                                            {
+                                                <div class="modules-cell-sub">@module.Description</div>
+                                            }
+                                        </td>
+                                        <td class="text-nowrap">@FormatDate(module.StartDate) – @FormatDate(module.EndDate)</td>
+                                        <td><span class="modules-badge @status.Css">@status.Text</span></td>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => StartEdit(module)">Edit</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                @* Student view: module list on the left, details of the selected module on the right. *@
+                <div class="modules-layout">
+                    <aside class="modules-card modules-list-card" aria-label="Module list">
+                        <h2 class="modules-list-title">Modules</h2>
+                        <ul class="modules-list">
+                            @foreach (var item in modules)
+                            {
+                                var itemStatus = StatusOf(item);
+
+                                <li>
+                                    <button type="button"
+                                            class="modules-list-item @(item.Id == selected?.Id ? "is-active" : string.Empty)"
+                                            @onclick="() => Select(item)">
+                                        <span class="modules-dot @itemStatus.Dot"></span>
+                                        <span class="modules-list-text">
+                                            <span class="modules-list-name">@item.Name</span>
+                                            <span class="modules-list-dates">@FormatShort(item.StartDate) – @FormatShort(item.EndDate)</span>
+                                        </span>
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    </aside>
+
+                    @if (selected is not null)
+                    {
+                        var selectedStatus = StatusOf(selected);
+
+                        <section class="modules-card modules-detail">
+                            <div class="modules-detail-head">
+                                <div>
+                                    <h2 class="modules-detail-title">@selected.Name</h2>
+                                    <p class="modules-detail-dates">@FormatLong(selected.StartDate) – @FormatLong(selected.EndDate)</p>
+                                </div>
+                                <span class="modules-badge @selectedStatus.Css">@selectedStatus.Text</span>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(selected.Description))
+                            {
+                                <p class="modules-detail-description">@selected.Description</p>
+                            }
+                            else
+                            {
+                                <p class="modules-detail-description modules-cell-sub">No description has been added yet.</p>
+                            }
+                        </section>
+                    }
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+    }
+</div>
+
+@code {
+    private readonly CancellationTokenSource cts = new();
+
+    [Parameter]
+    public Guid CourseId { get; set; }
+
+    private Guid loadedCourseId;
+    private List<ModuleDto>? modules;
+    private ModuleDto? selected;
+    private bool isLoading = true;
+    private string? loadError;
+
+    private bool showForm;
+    private Guid? editingId;
+    private ModuleFormModel form = new();
+    private EditContext editContext = default!;
+    private ValidationMessageStore messageStore = default!;
+    private bool isSaving;
+    private string? formError;
+    private string? successMessage;
+
+    // Reload when the course id in the URL changes.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedCourseId == CourseId) return;
+
+        loadedCourseId = CourseId;
+        selected = null;
+        CloseForm();
+        await LoadModulesAsync();
+    }
+
+    private async Task LoadModulesAsync()
+    {
+        isLoading = true;
+        loadError = null;
+
+        try
+        {
+            // The API returns the modules ordered by start date.
+            var result = await ApiProxyClient.GetAsync<List<ModuleDto>>(
+                $"courses/{CourseId}/modules", cts.Token);
+
+            // The server-side prerender client deliberately returns null. Keep
+            // showing the loading state until WebAssembly runs this again.
+            if (result is null)
+            {
+                return;
+            }
+
+            modules = result;
+            SelectDefault();
+            isLoading = false;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (HttpRequestException ex)
+        {
+            loadError = ex.StatusCode switch
+            {
+                // Also returned for a student who asks for a course they do not belong to.
+                HttpStatusCode.NotFound => "This course was not found.",
+                HttpStatusCode.Forbidden => "You do not have access to the modules.",
+                _ => "Could not load the modules. Please try again."
+            };
+            isLoading = false;
+        }
+    }
+
+    // Keeps the current selection if it still exists, otherwise picks the
+    // module in progress, the next upcoming one, or the last one.
+    private void SelectDefault()
+    {
+        if (modules is null || modules.Count == 0)
+        {
+            selected = null;
+            return;
+        }
+
+        var current = selected is null ? null : modules.FirstOrDefault(m => m.Id == selected.Id);
+        if (current is not null)
+        {
+            selected = current;
+            return;
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        selected = modules.FirstOrDefault(m => today >= m.StartDate && today <= m.EndDate)
+                   ?? modules.FirstOrDefault(m => m.EndDate >= today)
+                   ?? modules[^1];
+    }
+
+    private void Select(ModuleDto module) => selected = module;
+
+    private void StartCreate()
+    {
+        editingId = null;
+
+        var start = SuggestStartDate();
+        form = new ModuleFormModel { StartDate = start, EndDate = start };
+
+        CreateEditContext();
+        ResetFormErrors();
+        successMessage = null;
+        showForm = true;
+    }
+
+    private void StartEdit(ModuleDto module)
+    {
+        editingId = module.Id;
+        form = new ModuleFormModel
+        {
+            Name = module.Name,
+            Description = module.Description,
+            StartDate = module.StartDate,
+            EndDate = module.EndDate
+        };
+
+        CreateEditContext();
+        ResetFormErrors();
+        successMessage = null;
+        showForm = true;
+    }
+
+    private void CloseForm()
+    {
+        showForm = false;
+        editingId = null;
+        form = new ModuleFormModel();
+        ResetFormErrors();
+    }
+
+    private void CreateEditContext()
+    {
+        editContext = new EditContext(form);
+        messageStore = new ValidationMessageStore(editContext);
+
+        // Clear a field's server error as soon as the user edits that field.
+        editContext.OnFieldChanged += (_, e) => messageStore.Clear(e.FieldIdentifier);
+    }
+
+    private void ResetFormErrors()
+    {
+        formError = null;
+        messageStore?.Clear();
+    }
+
+    private void DismissSuccess() => successMessage = null;
+
+    // A new module starts the day after the last module ends.
+    private DateOnly SuggestStartDate() =>
+        modules is { Count: > 0 }
+            ? modules.Max(m => m.EndDate).AddDays(1)
+            : DateOnly.FromDateTime(DateTime.Today);
+
+    private async Task SaveAsync()
+    {
+        ResetFormErrors();
+
+        if (form.EndDate < form.StartDate)
+        {
+            messageStore.Add(editContext.Field(nameof(ModuleFormModel.EndDate)),
+                "The end date cannot be before the start date.");
+            editContext.NotifyValidationStateChanged();
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            var name = form.Name.Trim();
+            var description = string.IsNullOrWhiteSpace(form.Description) ? null : form.Description.Trim();
+
+            if (editingId is null)
+            {
+                // The course id is part of the route, so it is not sent in the body.
+                var dto = new CreateModuleDto
+                {
+                    Name = name,
+                    Description = description,
+                    StartDate = form.StartDate,
+                    EndDate = form.EndDate
+                };
+
+                await ApiProxyClient.SendAsync<ModuleDto>(
+                    HttpMethod.Post, $"courses/{CourseId}/modules", JsonContent.Create(dto), cts.Token);
+
+                successMessage = $"Module '{name}' was created.";
+            }
+            else
+            {
+                var dto = new UpdateModuleDto
+                {
+                    Name = name,
+                    Description = description,
+                    StartDate = form.StartDate,
+                    EndDate = form.EndDate
+                };
+
+                await ApiProxyClient.SendAsync<ModuleDto>(
+                    HttpMethod.Put, $"modules/{editingId}", JsonContent.Create(dto), cts.Token);
+
+                successMessage = $"Module '{name}' was updated.";
+            }
+
+            CloseForm();
+            await LoadModulesAsync();
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (ApiValidationException ex)
+        {
+            // Show the API's validation errors next to the matching fields.
+            foreach (var (field, messages) in ex.Errors)
+                messageStore.Add(editContext.Field(field), messages);
+
+            if (ex.Errors.Count == 0)
+                formError = ex.Message;
+
+            editContext.NotifyValidationStateChanged();
+        }
+        catch (HttpRequestException ex)
+        {
+            formError = ex.StatusCode switch
+            {
+                HttpStatusCode.Conflict => "The module overlaps another module in this course.",
+                HttpStatusCode.NotFound => "The course or the module no longer exists.",
+                HttpStatusCode.Forbidden => "You do not have permission to manage modules.",
+                _ => "Could not save the module. Please try again."
+            };
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void RedirectToLogin() =>
+        NavigationManager.NavigateTo(
+            $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
+            forceLoad: true);
+
+    private static string FormatDate(DateOnly date) => date.ToString("yyyy-MM-dd");
+
+    private static string FormatShort(DateOnly date) =>
+        date.ToString("d MMM", CultureInfo.InvariantCulture);
+
+    private static string FormatLong(DateOnly date) =>
+        date.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+
+    // Status is calculated from today's date: completed, in progress or upcoming.
+    private static (string Text, string Css, string Dot) StatusOf(ModuleDto module)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        if (today > module.EndDate) return ("Completed", "modules-tone-muted", "is-done");
+        if (today >= module.StartDate) return ("In progress", "modules-tone-success", "is-current");
+        return ("Upcoming", "modules-tone-primary", "is-upcoming");
+    }
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+
+    // Client-side rules, matching the module DTOs on the API.
+    private sealed class ModuleFormModel
+    {
+        [Required(ErrorMessage = "Name is required.")]
+        [MaxLength(100, ErrorMessage = "Name can be at most 100 characters.")]
+        public string Name { get; set; } = string.Empty;
+
+        [MaxLength(500, ErrorMessage = "Description can be at most 500 characters.")]
+        public string? Description { get; set; }
+
+        public DateOnly StartDate { get; set; }
+
+        public DateOnly EndDate { get; set; }
+    }
+}
