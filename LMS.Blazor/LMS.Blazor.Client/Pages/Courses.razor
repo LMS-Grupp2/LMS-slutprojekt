@@ -8,7 +8,8 @@
 @using LMS.Shared.DTOs.CourseDtos
 @using Microsoft.AspNetCore.Authorization
 
-@* Teacher overview of all courses, with an inline form to create and edit a course. *@
+@* Teacher overview of all courses, with an inline form to create and edit a course.
+   Styling comes from the shared design system in wwwroot/css/lms.css. *@
 @attribute [Authorize(Roles = UserRoles.Teacher)]
 @implements IDisposable
 
@@ -17,11 +18,22 @@
 
 <PageTitle>Courses</PageTitle>
 
-<div class="courses-page">
-    <div class="courses-header">
+<div class="d-flex flex-column gap-4">
+
+    @* ---------- Page header ---------- *@
+    <div class="lms-page-header">
         <div>
-            <h1 class="courses-title">Courses</h1>
-            <p class="courses-subtitle">Manage courses and open their modules.</p>
+            @if (showForm)
+            {
+                <div class="lms-breadcrumb">Courses / @(editingId is null ? "New course" : "Edit course")</div>
+                <h1 class="lms-page-title">@(editingId is null ? "New course" : "Edit course")</h1>
+                <p class="lms-page-subtitle">Fill in the course details. You can add modules afterwards.</p>
+            }
+            else
+            {
+                <h1 class="lms-page-title">Courses</h1>
+                <p class="lms-page-subtitle">@CourseCountText</p>
+            }
         </div>
 
         @if (!showForm)
@@ -38,99 +50,116 @@
         </div>
     }
 
-    @* ---------- Create / edit form ---------- *@
+    @* ---------- Create / edit form with a rules card next to it ---------- *@
     @if (showForm)
     {
-        <div class="courses-card">
-            <div class="courses-card-header">
-                <h2 class="courses-card-title">@(editingId is null ? "New course" : "Edit course")</h2>
+        <div class="row g-3">
+            <div class="col-12 col-xl-8">
+                <div class="lms-card">
+                    @if (!string.IsNullOrWhiteSpace(formError))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            <strong class="d-block">The course could not be saved</strong>
+                            @formError
+                        </div>
+                    }
+
+                    <EditForm EditContext="editContext" OnValidSubmit="SaveAsync">
+                        <DataAnnotationsValidator />
+
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label" for="course-name">Course name *</label>
+                                <InputText id="course-name" class="form-control" @bind-Value="form.Name" />
+                                <ValidationMessage For="() => form.Name" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label" for="course-description">Description</label>
+                                <InputTextArea id="course-description" class="form-control" rows="4" @bind-Value="form.Description" />
+                                <ValidationMessage For="() => form.Description" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label" for="course-start">Start date *</label>
+                                <InputDate id="course-start" class="form-control" @bind-Value="form.StartDate" />
+                                <ValidationMessage For="() => form.StartDate" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label" for="course-end">End date *</label>
+                                <InputDate id="course-end" class="form-control" @bind-Value="form.EndDate" />
+                                <ValidationMessage For="() => form.EndDate" />
+                            </div>
+                        </div>
+
+                        <hr class="my-4" />
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-outline-secondary" disabled="@isSaving" @onclick="CloseForm">Cancel</button>
+                            <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                @(isSaving ? "Saving..." : "Save course")
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
             </div>
 
-            @if (!string.IsNullOrWhiteSpace(formError))
-            {
-                <div class="alert alert-danger" role="alert">@formError</div>
-            }
-
-            <EditForm EditContext="editContext" OnValidSubmit="SaveAsync">
-                <DataAnnotationsValidator />
-
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label" for="course-name">Name</label>
-                        <InputText id="course-name" class="form-control" @bind-Value="form.Name" />
-                        <ValidationMessage For="() => form.Name" />
-                    </div>
-
-                    <div class="col-12">
-                        <label class="form-label" for="course-description">Description</label>
-                        <InputTextArea id="course-description" class="form-control" rows="3" @bind-Value="form.Description" />
-                        <ValidationMessage For="() => form.Description" />
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label" for="course-start">Start date</label>
-                        <InputDate id="course-start" class="form-control" @bind-Value="form.StartDate" />
-                        <ValidationMessage For="() => form.StartDate" />
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label" for="course-end">End date</label>
-                        <InputDate id="course-end" class="form-control" @bind-Value="form.EndDate" />
-                        <ValidationMessage For="() => form.EndDate" />
-                    </div>
+            <div class="col-12 col-xl-4">
+                <div class="lms-card">
+                    <h2 class="lms-card-title mb-3">Rules</h2>
+                    <ul class="mb-0 ps-3 d-flex flex-column gap-2">
+                        <li>Start date must be before end date.</li>
+                        <li>Modules must fit inside the course dates.</li>
+                        <li>Modules in the same course can't overlap.</li>
+                        <li>All rules are also checked by the API.</li>
+                    </ul>
                 </div>
-
-                <div class="d-flex gap-2 mt-4">
-                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
-                        @(isSaving ? "Saving..." : "Save")
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" disabled="@isSaving" @onclick="CloseForm">Cancel</button>
-                </div>
-            </EditForm>
+            </div>
         </div>
     }
 
     @* ---------- Loading, error, empty and list states ---------- *@
     @if (isLoading)
     {
-        <div class="courses-card">
+        <div class="lms-card">
             <div class="d-flex flex-column gap-3">
-                <div class="courses-skeleton" style="width: 40%; height: 16px;"></div>
-                <div class="courses-skeleton" style="width: 70%; height: 16px;"></div>
-                <div class="courses-skeleton" style="width: 55%; height: 16px;"></div>
+                <div class="lms-skeleton" style="width: 40%; height: 16px;"></div>
+                <div class="lms-skeleton" style="width: 70%; height: 16px;"></div>
+                <div class="lms-skeleton" style="width: 55%; height: 16px;"></div>
             </div>
         </div>
     }
     else if (!string.IsNullOrWhiteSpace(loadError))
     {
-        <div class="courses-card">
-            <div class="courses-state">
-                <span class="courses-icon-tile" style="background: #fde8e8; color: #dc3545;">!</span>
-                <div class="courses-cell-title">@loadError</div>
+        <div class="lms-card">
+            <div class="lms-state">
+                <span class="lms-badge lms-tone-danger">!</span>
+                <div class="lms-cell-title">@loadError</div>
                 <button type="button" class="btn btn-outline-primary btn-sm" @onclick="LoadCoursesAsync">Try again</button>
             </div>
         </div>
     }
     else if (courses is { Count: 0 })
     {
-        <div class="courses-card">
-            <div class="courses-state">
-                <span class="courses-icon-tile courses-tone-primary">+</span>
-                <div class="courses-cell-title">No courses yet</div>
-                <div class="courses-cell-sub">Create the first course with the button above.</div>
+        <div class="lms-card">
+            <div class="lms-state">
+                <span class="lms-badge lms-tone-primary">+</span>
+                <div class="lms-cell-title">No courses yet</div>
+                <div class="lms-cell-sub">Create the first course with the button above.</div>
             </div>
         </div>
     }
     else if (courses is not null)
     {
-        <div class="courses-card courses-card-table">
+        <div class="lms-card lms-card-table">
             <div class="table-responsive">
-                <table class="table table-hover align-middle courses-table">
+                <table class="table lms-table align-middle">
                     <thead>
                         <tr>
                             <th>Course</th>
-                            <th>Dates</th>
-                            <th>Status</th>
+                            <th>Start date</th>
+                            <th>End date</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -141,18 +170,19 @@
 
                             <tr>
                                 <td>
-                                    <div class="courses-cell-title">@course.Name</div>
+                                    <div class="lms-cell-title">@course.Name</div>
                                     @if (!string.IsNullOrWhiteSpace(course.Description))
                                     {
-                                        <div class="courses-cell-sub">@course.Description</div>
+                                        <div class="lms-cell-sub">@course.Description</div>
                                     }
                                 </td>
-                                <td class="text-nowrap">@FormatDate(course.StartDate) – @FormatDate(course.EndDate)</td>
-                                <td><span class="courses-badge @status.Css">@status.Text</span></td>
+                                <td class="text-nowrap">@FormatDate(course.StartDate)</td>
+                                <td class="text-nowrap">@FormatDate(course.EndDate)</td>
                                 <td class="text-end text-nowrap">
+                                    <span class="lms-badge @status.Css">@status.Text</span>
                                     @* Links to the module page of this course (US04). *@
-                                    <a class="btn btn-sm btn-outline-primary" href="courses/@course.Id/modules">Modules</a>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => StartEdit(course)">Edit</button>
+                                    <a class="btn btn-link btn-sm text-decoration-none ms-2" href="courses/@course.Id/modules">Modules</a>
+                                    <button type="button" class="btn btn-link btn-sm text-decoration-none" @onclick="() => StartEdit(course)">Edit</button>
                                 </td>
                             </tr>
                         }
@@ -179,6 +209,11 @@
     private string? formError;
     private string? successMessage;
 
+    // Subtitle under the page title, e.g. "5 courses"
+    private string CourseCountText => courses is null
+        ? string.Empty
+        : $"{courses.Count} {(courses.Count == 1 ? "course" : "courses")}";
+
     protected override async Task OnInitializedAsync() => await LoadCoursesAsync();
 
     private async Task LoadCoursesAsync()
@@ -197,7 +232,8 @@
                 return;
             }
 
-            courses = result;
+            // Newest course first, like the mockup (sorted by start date, descending)
+            courses = result.OrderByDescending(c => c.StartDate).ToList();
             isLoading = false;
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
@@ -370,14 +406,14 @@
     private static string FormatDate(DateOnly date) =>
         date.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
 
-    // Status is calculated from today's date, the same way as for modules.
+    // Status is calculated from today's date: Upcoming / Active / Finished (as in the mockups).
     private static (string Text, string Css) StatusOf(CourseDto course)
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
 
-        if (today > course.EndDate) return ("Completed", "courses-tone-muted");
-        if (today >= course.StartDate) return ("In progress", "courses-tone-success");
-        return ("Upcoming", "courses-tone-primary");
+        if (today > course.EndDate) return ("Finished", "lms-tone-muted");
+        if (today >= course.StartDate) return ("Active", "lms-tone-success");
+        return ("Upcoming", "lms-tone-info");
     }
 
     public void Dispose()

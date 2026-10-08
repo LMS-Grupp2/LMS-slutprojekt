@@ -5,10 +5,13 @@
 @using System.Net
 @using LMS.Blazor.Client.Services.ApiProxy
 @using LMS.Shared.Constants
+@using LMS.Shared.DTOs.CourseDtos
 @using LMS.Shared.DTOs.ModuleDtos
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 
-@* Teachers see a table with create and edit. Students see a module list with a detail card. *@
+@* Teachers see a timeline + table with create and edit. Students see a module list with a detail card.
+   Shared styling comes from wwwroot/css/lms.css, the student list from Modules.razor.css. *@
 @attribute [Authorize(Roles = UserRoles.Teacher + "," + UserRoles.Student)]
 @implements IDisposable
 
@@ -17,22 +20,26 @@
 
 <PageTitle>Modules</PageTitle>
 
-<div class="modules-page">
-    <div class="modules-header">
+<div class="d-flex flex-column gap-4">
+
+    @* ---------- Page header ---------- *@
+    <div class="lms-page-header">
         <div>
             <AuthorizeView Roles="@UserRoles.Teacher">
                 <Authorized>
-                    <h1 class="modules-title">Modules</h1>
-                    <p class="modules-subtitle">Plan the course. Modules must stay inside the course dates and cannot overlap.</p>
+                    @* Back link to the course list, then the course name *@
+                    <div class="lms-breadcrumb">
+                        <a href="courses">Courses</a> / @(courseName ?? "Course")
+                    </div>
+                    <h1 class="lms-page-title">@(courseName ?? "Modules")</h1>
+                    <p class="lms-page-subtitle">@TeacherSubtitle</p>
                 </Authorized>
                 <NotAuthorized>
-                    <nav class="modules-breadcrumb" aria-label="Breadcrumb">
-                        <a href="my-course">My course</a>
-                        <span>/</span>
-                        <span>Modules</span>
-                    </nav>
-                    <h1 class="modules-title">Modules</h1>
-                    <p class="modules-subtitle">@(modules is null ? "The modules of your course, in order." : $"{modules.Count} modules in order")</p>
+                    <div class="lms-breadcrumb">
+                        <a href="my-course">My course</a> / Modules
+                    </div>
+                    <h1 class="lms-page-title">Modules</h1>
+                    <p class="lms-page-subtitle">@StudentSubtitle</p>
                 </NotAuthorized>
             </AuthorizeView>
         </div>
@@ -40,7 +47,7 @@
         <AuthorizeView Roles="@UserRoles.Teacher">
             @if (!showForm)
             {
-                <button type="button" class="btn btn-primary" @onclick="StartCreate">+ New module</button>
+                <button type="button" class="btn btn-primary" @onclick="StartCreate">+ Add module</button>
             }
         </AuthorizeView>
     </div>
@@ -53,91 +60,39 @@
         </div>
     }
 
-    @* ---------- Create / edit form (teachers only) ---------- *@
-    @if (showForm)
-    {
-        <div class="modules-card">
-            <div class="modules-card-header">
-                <h2 class="modules-card-title">@(editingId is null ? "New module" : "Edit module")</h2>
-            </div>
-
-            @if (!string.IsNullOrWhiteSpace(formError))
-            {
-                <div class="alert alert-danger" role="alert">@formError</div>
-            }
-
-            <EditForm EditContext="editContext" OnValidSubmit="SaveAsync">
-                <DataAnnotationsValidator />
-
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label" for="module-name">Name</label>
-                        <InputText id="module-name" class="form-control" @bind-Value="form.Name" />
-                        <ValidationMessage For="() => form.Name" />
-                    </div>
-
-                    <div class="col-12">
-                        <label class="form-label" for="module-description">Description</label>
-                        <InputTextArea id="module-description" class="form-control" rows="3" @bind-Value="form.Description" />
-                        <ValidationMessage For="() => form.Description" />
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label" for="module-start">Start date</label>
-                        <InputDate id="module-start" class="form-control" @bind-Value="form.StartDate" />
-                        <ValidationMessage For="() => form.StartDate" />
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label" for="module-end">End date</label>
-                        <InputDate id="module-end" class="form-control" @bind-Value="form.EndDate" />
-                        <ValidationMessage For="() => form.EndDate" />
-                    </div>
-                </div>
-
-                <div class="d-flex gap-2 mt-4">
-                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
-                        @(isSaving ? "Saving..." : "Save")
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" disabled="@isSaving" @onclick="CloseForm">Cancel</button>
-                </div>
-            </EditForm>
-        </div>
-    }
-
     @* ---------- Loading, error, empty and list states ---------- *@
     @if (isLoading)
     {
-        <div class="modules-card">
+        <div class="lms-card">
             <div class="d-flex flex-column gap-3">
-                <div class="modules-skeleton" style="width: 40%; height: 16px;"></div>
-                <div class="modules-skeleton" style="width: 70%; height: 16px;"></div>
-                <div class="modules-skeleton" style="width: 55%; height: 16px;"></div>
+                <div class="lms-skeleton" style="width: 40%; height: 16px;"></div>
+                <div class="lms-skeleton" style="width: 70%; height: 16px;"></div>
+                <div class="lms-skeleton" style="width: 55%; height: 16px;"></div>
             </div>
         </div>
     }
     else if (!string.IsNullOrWhiteSpace(loadError))
     {
-        <div class="modules-card">
-            <div class="modules-state">
-                <span class="modules-icon-tile" style="background: #fde8e8; color: #dc3545;">!</span>
-                <div class="modules-cell-title">@loadError</div>
+        <div class="lms-card">
+            <div class="lms-state">
+                <span class="lms-badge lms-tone-danger">!</span>
+                <div class="lms-cell-title">@loadError</div>
                 <button type="button" class="btn btn-outline-primary btn-sm" @onclick="LoadModulesAsync">Try again</button>
             </div>
         </div>
     }
-    else if (modules is { Count: 0 })
+    else if (modules is { Count: 0 } && !showForm)
     {
-        <div class="modules-card">
-            <div class="modules-state">
-                <span class="modules-icon-tile modules-tone-primary">+</span>
-                <div class="modules-cell-title">No modules yet</div>
+        <div class="lms-card">
+            <div class="lms-state">
+                <span class="lms-badge lms-tone-primary">+</span>
+                <div class="lms-cell-title">No modules yet</div>
                 <AuthorizeView Roles="@UserRoles.Teacher">
                     <Authorized>
-                        <div class="modules-cell-sub">Create the first module with the button above.</div>
+                        <div class="lms-cell-sub">Create the first module with the button above.</div>
                     </Authorized>
                     <NotAuthorized>
-                        <div class="modules-cell-sub">Your teacher has not added any modules yet.</div>
+                        <div class="lms-cell-sub">Your teacher has not added any modules yet.</div>
                     </NotAuthorized>
                 </AuthorizeView>
             </div>
@@ -145,53 +100,130 @@
     }
     else if (modules is not null)
     {
-        <AuthorizeView Roles="@UserRoles.Teacher">
+        @* Context is renamed so it does not clash with the EditForm's own "context" below *@
+        <AuthorizeView Roles="@UserRoles.Teacher" Context="teacherView">
             <Authorized>
-                @* Teacher view: table with an Edit button on every row. *@
-                <div class="modules-card modules-card-table">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle modules-table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Module</th>
-                                    <th>Dates</th>
-                                    <th>Status</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @for (var i = 0; i < modules.Count; i++)
-                                {
-                                    var module = modules[i];
-                                    var status = StatusOf(module);
+                @* Teacher view: timeline and table on the left, add/edit form on the right *@
+                <div class="row g-3">
+                    <div class="col-12 @(showForm ? "col-xl-8" : "col-xl-12")">
+                        <div class="d-flex flex-column gap-3">
 
-                                    <tr>
-                                        <td class="modules-cell-sub">@(i + 1)</td>
-                                        <td>
-                                            <div class="modules-cell-title">@module.Name</div>
-                                            @if (!string.IsNullOrWhiteSpace(module.Description))
+                            @* Course timeline: one segment per module, as wide as the module is long *@
+                            @if (modules.Count > 0)
+                            {
+                                <div class="lms-card">
+                                    <h2 class="lms-card-title mb-3">Course timeline</h2>
+                                    <div class="d-flex gap-1">
+                                        @foreach (var item in modules)
+                                        {
+                                            <div title="@item.Name"
+                                                 style="flex: @DaysIn(item) 1 0; height: 32px; border-radius: 6px; background: @StatusOf(item).Color;"></div>
+                                        }
+                                    </div>
+                                    <div class="d-flex justify-content-between lms-cell-sub mt-2">
+                                        <span>@FormatLong(modules.Min(m => m.StartDate))</span>
+                                        <span>@FormatLong(modules.Max(m => m.EndDate))</span>
+                                    </div>
+                                </div>
+                            }
+
+                            <div class="lms-card lms-card-table">
+                                <div class="table-responsive">
+                                    <table class="table lms-table align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th>Module</th>
+                                                <th>Start</th>
+                                                <th>End</th>
+                                                <th>Status</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @for (var i = 0; i < modules.Count; i++)
                                             {
-                                                <div class="modules-cell-sub">@module.Description</div>
+                                                var module = modules[i];
+                                                var status = StatusOf(module);
+
+                                                @* The ongoing module is highlighted *@
+                                                <tr class="@(status.Dot == "is-current" ? "lms-row-highlight" : string.Empty)">
+                                                    <td>
+                                                        <div class="lms-cell-title">@(i + 1). @module.Name</div>
+                                                        <div class="lms-cell-sub">@WeeksText(module)</div>
+                                                    </td>
+                                                    <td class="text-nowrap">@FormatShort(module.StartDate)</td>
+                                                    <td class="text-nowrap">@FormatShort(module.EndDate)</td>
+                                                    <td><span class="lms-badge @status.Css">@status.Text</span></td>
+                                                    <td class="text-end">
+                                                        <button type="button" class="btn btn-link btn-sm text-decoration-none" @onclick="() => StartEdit(module)">Edit</button>
+                                                    </td>
+                                                </tr>
                                             }
-                                        </td>
-                                        <td class="text-nowrap">@FormatDate(module.StartDate) – @FormatDate(module.EndDate)</td>
-                                        <td><span class="modules-badge @status.Css">@status.Text</span></td>
-                                        <td class="text-end">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => StartEdit(module)">Edit</button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
+                    @* ---------- Create / edit form ---------- *@
+                    @if (showForm)
+                    {
+                        <div class="col-12 col-xl-4">
+                            <div class="lms-card">
+                                <h2 class="lms-card-title mb-3">@(editingId is null ? "Add module" : "Edit module")</h2>
+
+                                @if (!string.IsNullOrWhiteSpace(formError))
+                                {
+                                    <div class="alert alert-danger" role="alert">@formError</div>
+                                }
+
+                                <EditForm EditContext="editContext" OnValidSubmit="SaveAsync">
+                                    <DataAnnotationsValidator />
+
+                                    <div class="row g-3">
+                                        <div class="col-12">
+                                            <label class="form-label" for="module-name">Module name *</label>
+                                            <InputText id="module-name" class="form-control" @bind-Value="form.Name" />
+                                            <ValidationMessage For="() => form.Name" />
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label class="form-label" for="module-description">Description</label>
+                                            <InputTextArea id="module-description" class="form-control" rows="3" @bind-Value="form.Description" />
+                                            <ValidationMessage For="() => form.Description" />
+                                        </div>
+
+                                        <div class="col-6">
+                                            <label class="form-label" for="module-start">Start date *</label>
+                                            <InputDate id="module-start" class="form-control" @bind-Value="form.StartDate" />
+                                            <ValidationMessage For="() => form.StartDate" />
+                                        </div>
+
+                                        <div class="col-6">
+                                            <label class="form-label" for="module-end">End date *</label>
+                                            <InputDate id="module-end" class="form-control" @bind-Value="form.EndDate" />
+                                            <ValidationMessage For="() => form.EndDate" />
+                                        </div>
+                                    </div>
+
+                                    <div class="d-flex justify-content-end gap-2 mt-3">
+                                        <button type="button" class="btn btn-outline-secondary" disabled="@isSaving" @onclick="CloseForm">Cancel</button>
+                                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                            @(isSaving ? "Saving..." : (editingId is null ? "Add module" : "Save module"))
+                                        </button>
+                                    </div>
+                                </EditForm>
+                            </div>
+                        </div>
+                    }
                 </div>
             </Authorized>
             <NotAuthorized>
-                @* Student view: module list on the left, details of the selected module on the right. *@
+                @* Student view: module list on the left, details of the selected module on the right *@
                 <div class="modules-layout">
-                    <aside class="modules-card modules-list-card" aria-label="Module list">
-                        <h2 class="modules-list-title">Modules</h2>
+                    <aside class="lms-card modules-list-card" aria-label="Module list">
+                        <h2 class="lms-card-title mb-3">Modules</h2>
                         <ul class="modules-list">
                             @foreach (var item in modules)
                             {
@@ -216,22 +248,22 @@
                     {
                         var selectedStatus = StatusOf(selected);
 
-                        <section class="modules-card modules-detail">
-                            <div class="modules-detail-head">
+                        <section class="lms-card">
+                            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
                                 <div>
-                                    <h2 class="modules-detail-title">@selected.Name</h2>
-                                    <p class="modules-detail-dates">@FormatLong(selected.StartDate) – @FormatLong(selected.EndDate)</p>
+                                    <h2 class="lms-page-title" style="font-size: 1.375rem;">@selected.Name</h2>
+                                    <p class="lms-page-subtitle">@FormatLong(selected.StartDate) – @FormatLong(selected.EndDate)</p>
                                 </div>
-                                <span class="modules-badge @selectedStatus.Css">@selectedStatus.Text</span>
+                                <span class="lms-badge @selectedStatus.Css">@selectedStatus.Text</span>
                             </div>
 
                             @if (!string.IsNullOrWhiteSpace(selected.Description))
                             {
-                                <p class="modules-detail-description">@selected.Description</p>
+                                <p class="mb-0">@selected.Description</p>
                             }
                             else
                             {
-                                <p class="modules-detail-description modules-cell-sub">No description has been added yet.</p>
+                                <p class="lms-cell-sub mb-0">No description has been added yet.</p>
                             }
                         </section>
                     }
@@ -247,11 +279,20 @@
     [Parameter]
     public Guid CourseId { get; set; }
 
+    // Used to find out if the signed-in user is a teacher (decides which course endpoint to call)
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
     private Guid loadedCourseId;
     private List<ModuleDto>? modules;
     private ModuleDto? selected;
     private bool isLoading = true;
     private string? loadError;
+
+    // Course info shown in the page header
+    private string? courseName;
+    private DateOnly? courseStart;
+    private DateOnly? courseEnd;
 
     private bool showForm;
     private Guid? editingId;
@@ -262,6 +303,29 @@
     private string? formError;
     private string? successMessage;
 
+    // "4 May 2026 – 26 Feb 2027 · 7 modules"
+    private string TeacherSubtitle
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (courseStart is not null && courseEnd is not null)
+                parts.Add($"{FormatLong(courseStart.Value)} – {FormatLong(courseEnd.Value)}");
+            if (modules is not null)
+                parts.Add($"{modules.Count} {(modules.Count == 1 ? "module" : "modules")}");
+
+            return parts.Count > 0
+                ? string.Join(" · ", parts)
+                : "Plan the course. Modules must stay inside the course dates and cannot overlap.";
+        }
+    }
+
+    // "Fullstack .NET 2026 · 7 modules in order"
+    private string StudentSubtitle =>
+        modules is null
+            ? "The modules of your course, in order."
+            : $"{(courseName is null ? string.Empty : courseName + " · ")}{modules.Count} {(modules.Count == 1 ? "module" : "modules")} in order";
+
     // Reload when the course id in the URL changes.
     protected override async Task OnParametersSetAsync()
     {
@@ -270,7 +334,50 @@
         loadedCourseId = CourseId;
         selected = null;
         CloseForm();
+
+        await LoadCourseInfoAsync();
         await LoadModulesAsync();
+    }
+
+    // Loads the course name and dates for the header. A failure here is not fatal:
+    // the page still works, it just shows a generic header.
+    private async Task LoadCourseInfoAsync()
+    {
+        try
+        {
+            var state = AuthState is null ? null : await AuthState;
+            var isTeacher = state?.User.IsInRole(UserRoles.Teacher) == true;
+
+            if (isTeacher)
+            {
+                var course = await ApiProxyClient.GetAsync<CourseDto>($"courses/{CourseId}", cts.Token);
+                if (course is not null)
+                {
+                    courseName = course.Name;
+                    courseStart = course.StartDate;
+                    courseEnd = course.EndDate;
+                }
+            }
+            else
+            {
+                // A student only belongs to one course, so this is the same course as in the URL.
+                var course = await ApiProxyClient.GetAsync<StudentCourseDto>("student/course", cts.Token);
+                if (course is not null)
+                {
+                    courseName = course.Name;
+                    courseStart = course.StartDate;
+                    courseEnd = course.EndDate;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (Exception ex) when (ex is HttpRequestException or UnauthorizedAccessException)
+        {
+            // Ignore: the modules request below reports real access problems.
+        }
     }
 
     private async Task LoadModulesAsync()
@@ -496,22 +603,31 @@
             $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
             forceLoad: true);
 
-    private static string FormatDate(DateOnly date) => date.ToString("yyyy-MM-dd");
-
     private static string FormatShort(DateOnly date) =>
         date.ToString("d MMM", CultureInfo.InvariantCulture);
 
     private static string FormatLong(DateOnly date) =>
         date.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
 
-    // Status is calculated from today's date: completed, in progress or upcoming.
-    private static (string Text, string Css, string Dot) StatusOf(ModuleDto module)
+    // Length of a module in days (used for the timeline segment width)
+    private static int DaysIn(ModuleDto module) =>
+        Math.Max(1, module.EndDate.DayNumber - module.StartDate.DayNumber + 1);
+
+    // "6 weeks" under the module name in the table
+    private static string WeeksText(ModuleDto module)
+    {
+        var weeks = Math.Max(1, (int)Math.Round(DaysIn(module) / 7.0));
+        return $"{weeks} {(weeks == 1 ? "week" : "weeks")}";
+    }
+
+    // Status is calculated from today's date: Completed, Ongoing or Planned (as in the mockups).
+    private static (string Text, string Css, string Dot, string Color) StatusOf(ModuleDto module)
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
 
-        if (today > module.EndDate) return ("Completed", "modules-tone-muted", "is-done");
-        if (today >= module.StartDate) return ("In progress", "modules-tone-success", "is-current");
-        return ("Upcoming", "modules-tone-primary", "is-upcoming");
+        if (today > module.EndDate) return ("Completed", "lms-tone-muted", "is-done", "#a8d5ba");
+        if (today >= module.StartDate) return ("Ongoing", "lms-tone-primary", "is-current", "#0d6efd");
+        return ("Planned", "lms-tone-info", "is-upcoming", "#dee2e6");
     }
 
     public void Dispose()

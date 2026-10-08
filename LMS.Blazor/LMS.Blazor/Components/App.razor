@@ -6,9 +6,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <ResourcePreloader />
+
+    @* Bootstrap first, everything else builds on top of it *@
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
+
+    @* Inter font used by the design mockups *@
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+
+    @* Template styles *@
     <link rel="stylesheet" href="@Assets["app.css"]" />
+
+    @* Lexicon LMS design system (must come after Bootstrap and app.css) *@
+    <link rel="stylesheet" href="@Assets["css/lms.css"]" />
+
+    @* Scoped CSS bundle (.razor.css files) *@
     <link rel="stylesheet" href="@Assets["LMS.Blazor.styles.css"]" />
+
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet @rendermode="PageRenderMode" />
@@ -25,6 +39,7 @@
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 
+    // Use WebAssembly interactivity when the request accepts it, otherwise plain server rendering
     private IComponentRenderMode? PageRenderMode =>
         HttpContext.AcceptsInteractiveRouting() ? InteractiveWebAssembly : null;
 }

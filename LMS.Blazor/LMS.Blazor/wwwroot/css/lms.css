@@ -1,0 +1,473 @@
+﻿/* =========================================================================
+   Lexicon LMS - shared design system on top of Bootstrap 5.
+   Must be loaded AFTER bootstrap.min.css (see App.razor).
+   ========================================================================= */
+
+/* ---------- 1. Design tokens ---------- */
+:root {
+    /* Bootstrap overrides */
+    --bs-primary: #0d6efd;
+    --bs-primary-rgb: 13, 110, 253;
+    --bs-body-bg: #f4f6f9;
+    --bs-body-color: #212529;
+    --bs-secondary-color: #6c757d;
+    --bs-border-color: #dee2e6;
+    --bs-body-font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --bs-body-font-size: 0.875rem; /* 14px */
+    --bs-border-radius: 6px;
+    --bs-border-radius-lg: 10px;
+    /* LMS tokens */
+    --lms-nav-bg: #111827;
+    --lms-nav-bg-hover: #1f2937;
+    --lms-nav-muted: #9ca3af;
+    --lms-nav-height: 60px;
+    --lms-sidebar-width: 248px;
+    --lms-radius: 10px;
+    --lms-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+    --lms-primary-subtle: #e7f0ff;
+    --lms-primary-dark: #0a58ca;
+    --lms-row-highlight: #fffaf0; /* highlighted table row (ongoing / new) */
+    --lms-purple: #7c3aed;
+    --lms-purple-subtle: #ede9fe;
+}
+
+body {
+    background: var(--bs-body-bg);
+    font-size: var(--bs-body-font-size);
+}
+
+h1:focus {
+    outline: none;
+}
+
+/* ---------- 2. App shell ---------- */
+.lms-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.lms-topbar {
+    height: var(--lms-nav-height);
+    background: var(--lms-nav-bg);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+}
+
+.lms-brand {
+    display: flex;
+    align-items: center;
+    gap: .625rem;
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.0625rem;
+    text-decoration: none;
+}
+
+    .lms-brand:hover {
+        color: #fff;
+    }
+
+.lms-logo {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    background: var(--bs-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+
+.lms-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.lms-user {
+    display: flex;
+    align-items: center;
+    gap: .625rem;
+    line-height: 1.2;
+}
+
+.lms-user-name {
+    font-size: .8125rem;
+    font-weight: 600;
+}
+
+.lms-user-role {
+    font-size: .6875rem;
+    color: var(--lms-nav-muted);
+}
+
+.lms-logout {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--lms-nav-muted);
+    font-size: .8125rem;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+    .lms-logout:hover {
+        color: #fff;
+    }
+
+.lms-body {
+    flex: 1;
+    display: flex;
+}
+
+.lms-sidebar {
+    width: var(--lms-sidebar-width);
+    flex-shrink: 0;
+    background: #fff;
+    border-right: 1px solid var(--bs-border-color);
+    padding: 1.25rem .875rem;
+}
+
+.lms-sidebar-title {
+    font-size: .6875rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    margin: 0 0 .5rem .25rem;
+}
+
+.lms-nav-link {
+    display: flex;
+    align-items: center;
+    gap: .625rem;
+    padding: .5625rem .75rem;
+    border-radius: 6px;
+    color: #374151;
+    font-weight: 500;
+    text-decoration: none;
+    margin-bottom: .25rem;
+}
+
+    .lms-nav-link:hover {
+        background: var(--bs-light);
+        color: #374151;
+    }
+
+.lms-nav-glyph {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    background: #e9ecef;
+    color: var(--bs-secondary-color);
+    font-size: .6875rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* NavLink adds "active" automatically */
+.lms-nav-link.active {
+    background: var(--lms-primary-subtle);
+    color: var(--lms-primary-dark);
+    font-weight: 600;
+}
+
+    .lms-nav-link.active .lms-nav-glyph {
+        background: var(--bs-primary);
+        color: #fff;
+    }
+
+.lms-main {
+    flex: 1;
+    min-width: 0;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* ---------- 3. Page header ---------- */
+.lms-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.lms-breadcrumb {
+    font-size: .8125rem;
+    color: var(--bs-secondary-color);
+    margin-bottom: .25rem;
+}
+
+    .lms-breadcrumb a {
+        color: inherit;
+        text-decoration: none;
+    }
+
+        .lms-breadcrumb a:hover {
+            text-decoration: underline;
+        }
+
+.lms-page-title {
+    font-size: 1.625rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.lms-page-subtitle {
+    color: var(--bs-secondary-color);
+    margin: .25rem 0 0;
+}
+
+/* ---------- 4. Cards ---------- */
+.lms-card {
+    background: #fff;
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--lms-radius);
+    box-shadow: var(--lms-shadow);
+    padding: 1.25rem;
+}
+
+.lms-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: .875rem;
+}
+
+.lms-card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+}
+/* Card that contains a full-width table */
+.lms-card-table {
+    padding: 0;
+    overflow: hidden;
+}
+
+/* ---------- 5. Badges / status pills ---------- */
+.lms-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    padding: .1875rem .5625rem;
+    border-radius: 999px;
+    font-size: .75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.lms-tone-primary {
+    background: var(--lms-primary-subtle);
+    color: var(--bs-primary);
+}
+
+.lms-tone-danger {
+    background: #f8d7da;
+    color: #dc3545;
+}
+
+.lms-tone-warning {
+    background: #fff3cd;
+    color: #997404;
+}
+
+.lms-tone-success {
+    background: #d1e7dd;
+    color: #198754;
+}
+
+.lms-tone-info {
+    background: #cff4fc;
+    color: #087990;
+}
+
+.lms-tone-purple {
+    background: var(--lms-purple-subtle);
+    color: var(--lms-purple);
+}
+
+.lms-tone-muted {
+    background: #e9ecef;
+    color: #495057;
+}
+
+/* ---------- 6. Tables ---------- */
+.lms-table {
+    margin: 0;
+    --bs-table-bg: transparent;
+}
+
+    .lms-table thead th {
+        background: var(--bs-light);
+        font-size: .75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color: var(--bs-secondary-color);
+        padding: .625rem 1rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        white-space: nowrap;
+    }
+
+    .lms-table tbody td {
+        padding: .75rem 1rem;
+        vertical-align: middle;
+    }
+
+    .lms-table tr.lms-row-highlight > td {
+        background: var(--lms-row-highlight);
+    }
+
+.lms-cell-title {
+    font-weight: 600;
+}
+
+.lms-cell-sub {
+    font-size: .75rem;
+    color: var(--bs-secondary-color);
+}
+
+/* ---------- 7. Avatar ---------- */
+.lms-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--bs-primary);
+    color: #fff;
+    font-size: .75rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+    .lms-avatar.is-teacher {
+        background: var(--lms-purple);
+    }
+
+/* ---------- 8. States (empty / loading / error) ---------- */
+.lms-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: .625rem;
+    padding: 1.75rem 1rem;
+}
+
+.lms-skeleton {
+    background: linear-gradient(90deg, #e9ecef 25%, #f4f6f9 37%, #e9ecef 63%);
+    background-size: 400% 100%;
+    animation: lms-shimmer 1.4s ease infinite;
+    border-radius: 4px;
+}
+
+@keyframes lms-shimmer {
+    0% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0 50%;
+    }
+}
+
+/* ---------- 9. Forms ---------- */
+.form-label {
+    font-size: .8125rem;
+    font-weight: 500;
+}
+
+.form-control, .form-select {
+    padding: .5625rem .75rem;
+}
+
+/* Blazor validation classes -> Bootstrap look */
+.invalid {
+    border-color: var(--bs-danger) !important;
+}
+
+.validation-message {
+    color: var(--bs-danger);
+    font-size: .75rem;
+    margin-top: .25rem;
+}
+
+/* Filter chips (All / Active / Upcoming / ...) */
+.lms-chip {
+    border: 1px solid var(--bs-border-color);
+    background: #fff;
+    color: #374151;
+    border-radius: 999px;
+    padding: .375rem .875rem;
+    font-size: .8125rem;
+    font-weight: 500;
+}
+
+    .lms-chip.active {
+        background: #1f2937;
+        border-color: #1f2937;
+        color: #fff;
+    }
+
+/* ---------- 10. Responsive ---------- */
+@media (max-width: 991.98px) {
+    .lms-body {
+        flex-direction: column;
+    }
+
+    .lms-sidebar {
+        width: 100%;
+        border-right: 0;
+        border-bottom: 1px solid var(--bs-border-color);
+        padding: .5rem .75rem;
+        display: flex;
+        gap: .25rem;
+        overflow-x: auto;
+    }
+
+    .lms-sidebar-title {
+        display: none;
+    }
+
+    .lms-nav-link {
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    .lms-main {
+        padding: 1rem;
+    }
+
+    .lms-user-text {
+        display: none;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .lms-topbar {
+        padding: 0 1rem;
+    }
+
+    .lms-page-title {
+        font-size: 1.375rem;
+    }
+
+    .lms-card {
+        padding: 1rem;
+    }
+}

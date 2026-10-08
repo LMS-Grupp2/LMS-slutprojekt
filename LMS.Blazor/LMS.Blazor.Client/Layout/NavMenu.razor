@@ -1,19 +1,29 @@
 ﻿@using LMS.Shared.Constants
 
-@* Main side menu. The links depend on the role of the logged-in user. *@
+@* Main side menu. The links depend on the role of the logged-in user.
+   Styles (lms-sidebar, lms-nav-link, ...) live in wwwroot/css/lms.css.
+   NavLink adds the "active" class automatically for the current page. *@
 <nav class="lms-sidebar" aria-label="Main navigation">
 
     @* Teacher menu. Modules are reached through a course on the Courses page. *@
     <AuthorizeView Roles="@UserRoles.Teacher" Context="teacherContext">
-        <p class="sidebar-title">Teaching</p>
-        <NavLink class="lms-nav-link" href="courses"><span class="glyph">C</span> Courses</NavLink>
-        <NavLink class="lms-nav-link" href="users"><span class="glyph">U</span> Users</NavLink>
+        <p class="lms-sidebar-title">Teaching</p>
+        <NavLink class="lms-nav-link" href="courses">
+            <span class="lms-nav-glyph">C</span> Courses
+        </NavLink>
+        <NavLink class="lms-nav-link" href="users">
+            <span class="lms-nav-glyph">U</span> Users
+        </NavLink>
     </AuthorizeView>
 
-    @* Student menu. My modules opens the modules of the student's own course. *@
+    @* Student menu. Modules opens the modules of the student's own course. *@
     <AuthorizeView Roles="@UserRoles.Student" Context="studentContext">
-        <p class="sidebar-title">My learning</p>
-        <NavLink class="lms-nav-link" href="my-course"><span class="glyph">C</span> My course</NavLink>
-        <NavLink class="lms-nav-link" href="my-modules"><span class="glyph">M</span> Modules</NavLink>
+        <p class="lms-sidebar-title">My learning</p>
+        <NavLink class="lms-nav-link" href="my-course">
+            <span class="lms-nav-glyph">C</span> My course
+        </NavLink>
+        <NavLink class="lms-nav-link" href="my-modules">
+            <span class="lms-nav-glyph">M</span> Modules
+        </NavLink>
     </AuthorizeView>
 </nav>

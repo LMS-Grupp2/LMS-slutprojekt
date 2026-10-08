@@ -6,6 +6,9 @@
 @using LMS.Shared.DTOs.CourseDtos
 @using Microsoft.AspNetCore.Authorization
 
+@* Student entry point: redirects to the modules of the student's own course.
+   Shows a loading skeleton while redirecting, or a message if there is no course.
+   Styling comes from wwwroot/css/lms.css. *@
 @attribute [Authorize(Roles = UserRoles.Student)]
 @implements IDisposable
 
@@ -14,22 +17,24 @@
 
 <PageTitle>My modules</PageTitle>
 
-<div class="my-modules-page">
-    <div class="my-modules-card" role="status">
-        @if (!string.IsNullOrWhiteSpace(message))
-        {
-            <span class="my-modules-icon-tile my-modules-tone-primary">i</span>
-            <div class="my-modules-title">@message</div>
-            <div class="my-modules-sub">Ask your teacher to add you to a course.</div>
-        }
-        else
-        {
-            <div class="my-modules-skeleton" style="width: 40%; height: 16px;"></div>
-            <div class="my-modules-skeleton" style="width: 70%; height: 16px;"></div>
-            <div class="my-modules-skeleton" style="width: 55%; height: 16px;"></div>
-            <span class="visually-hidden">Loading your modules...</span>
-        }
-    </div>
+<div class="lms-card" role="status">
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="lms-state">
+            <span class="lms-badge lms-tone-primary">i</span>
+            <div class="lms-cell-title">@message</div>
+            <div class="lms-cell-sub">Ask your teacher to add you to a course.</div>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex flex-column gap-3">
+            <div class="lms-skeleton" style="width: 40%; height: 16px;"></div>
+            <div class="lms-skeleton" style="width: 70%; height: 16px;"></div>
+            <div class="lms-skeleton" style="width: 55%; height: 16px;"></div>
+        </div>
+        <span class="visually-hidden">Loading your modules...</span>
+    }
 </div>
 
 @code {
@@ -49,6 +54,7 @@
                 return;
             }
 
+            // Go to the module page of the student's own course
             NavigationManager.NavigateTo($"courses/{course.Id}/modules", replace: true);
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)

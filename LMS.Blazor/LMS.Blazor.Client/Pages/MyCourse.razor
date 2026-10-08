@@ -6,6 +6,7 @@
 @using LMS.Blazor.Client.Services.ApiProxy
 @using Microsoft.AspNetCore.Authorization
 
+@* Student view of the student's own course. Styling comes from wwwroot/css/lms.css. *@
 @attribute [Authorize(Roles = "Student")]
 @implements IDisposable
 
@@ -16,88 +17,111 @@
 
 @if (isLoading)
 {
-    <p class="mc-muted"><em>Loading your course...</em></p>
+    @* Loading skeleton while the course is fetched *@
+    <div class="lms-card">
+        <div class="d-flex flex-column gap-3">
+            <div class="lms-skeleton" style="width: 35%; height: 20px;"></div>
+            <div class="lms-skeleton" style="width: 70%; height: 16px;"></div>
+            <div class="lms-skeleton" style="width: 55%; height: 16px;"></div>
+        </div>
+    </div>
 }
 else if (course is not null)
 {
+    // Filter classmates by the search text and calculate how far into the course we are
     var participants = course.Participants
         .Where(p => string.IsNullOrWhiteSpace(searchText) ||
                     p.Name.Contains(searchText.Trim(), StringComparison.OrdinalIgnoreCase))
         .ToList();
     var progress = ProgressPercent(course.StartDate, course.EndDate);
 
-    <header class="mc-header">
-        <p class="mc-eyebrow">My course</p>
-        <h1 class="mc-title">@course.Name</h1>
-        <p class="mc-subtitle">@FormatDate(course.StartDate) – @FormatDate(course.EndDate)</p>
-    </header>
+    <div class="d-flex flex-column gap-4">
 
-    <section class="mc-card">
-        <h2 class="mc-card-title">About the course</h2>
-
-        @if (!string.IsNullOrWhiteSpace(course.Description))
-        {
-            <p class="mc-description">@course.Description</p>
-        }
-        else
-        {
-            <p class="mc-description mc-muted">No description has been added yet.</p>
-        }
-
-        <dl class="mc-facts">
+        <div class="lms-page-header">
             <div>
-                <dt>Start date</dt>
-                <dd>@FormatDate(course.StartDate)</dd>
+                <div class="lms-breadcrumb">My course</div>
+                <h1 class="lms-page-title">@course.Name</h1>
+                <p class="lms-page-subtitle">@FormatDate(course.StartDate) – @FormatDate(course.EndDate)</p>
             </div>
-            <div>
-                <dt>End date</dt>
-                <dd>@FormatDate(course.EndDate)</dd>
-            </div>
-            <div>
-                <dt>Classmates</dt>
-                <dd>@course.Participants.Count</dd>
-            </div>
-        </dl>
-
-        <div class="mc-progress" role="progressbar" aria-label="Course progress"
-             aria-valuemin="0" aria-valuemax="100" aria-valuenow="@progress">
-            <div class="mc-progress-bar" style="width:@progress%"></div>
-        </div>
-    </section>
-
-    <section class="mc-card">
-        <div class="mc-card-head">
-            <h2 class="mc-card-title">Classmates (@course.Participants.Count)</h2>
-            <input type="search"
-                   class="mc-search"
-                   placeholder="Search classmates..."
-                   aria-label="Search classmates"
-                   @bind="searchText"
-                   @bind:event="oninput" />
         </div>
 
-        @if (participants.Count > 0)
-        {
-            <ul class="mc-grid">
-                @foreach (var participant in participants)
-                {
-                    <li class="mc-person">
-                        <span class="mc-avatar" style="background-color:@AvatarColor(participant.Name)">@Initials(participant.Name)</span>
-                        <span class="mc-person-text">
-                            <span class="mc-person-name">@participant.Name</span>
-                            <span class="mc-person-role">Student</span>
-                        </span>
-                    </li>
-                }
-            </ul>
-        }
-        else
-        {
-            <p class="mc-muted">No classmates match your search.</p>
-        }
+        @* ---------- About the course ---------- *@
+        <section class="lms-card">
+            <div class="lms-card-header">
+                <h2 class="lms-card-title">About the course</h2>
+            </div>
 
-        <p class="mc-note">Only names are shown — email and other personal data are hidden from other students.</p>
-    </section>
+            @if (!string.IsNullOrWhiteSpace(course.Description))
+            {
+                <p>@course.Description</p>
+            }
+            else
+            {
+                <p class="text-secondary">No description has been added yet.</p>
+            }
+
+            <div class="row g-3 mb-3">
+                <div class="col-6 col-md-4">
+                    <div class="lms-cell-sub">Start date</div>
+                    <div class="lms-cell-title">@FormatDate(course.StartDate)</div>
+                </div>
+                <div class="col-6 col-md-4">
+                    <div class="lms-cell-sub">End date</div>
+                    <div class="lms-cell-title">@FormatDate(course.EndDate)</div>
+                </div>
+                <div class="col-6 col-md-4">
+                    <div class="lms-cell-sub">Classmates</div>
+                    <div class="lms-cell-title">@course.Participants.Count</div>
+                </div>
+            </div>
+
+            @* Share of the course period that has passed *@
+            <div class="progress" role="progressbar" aria-label="Course progress"
+                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="@progress" style="height: 8px;">
+                <div class="progress-bar" style="width:@progress%"></div>
+            </div>
+            <div class="lms-cell-sub mt-1">@progress% of the course has passed</div>
+        </section>
+
+        @* ---------- Classmates ---------- *@
+        <section class="lms-card">
+            <div class="lms-card-header">
+                <h2 class="lms-card-title">Classmates (@course.Participants.Count)</h2>
+                <input type="search"
+                       class="form-control"
+                       style="max-width: 260px;"
+                       placeholder="Search classmates..."
+                       aria-label="Search classmates"
+                       @bind="searchText"
+                       @bind:event="oninput" />
+            </div>
+
+            @if (participants.Count > 0)
+            {
+                <div class="row g-3">
+                    @foreach (var participant in participants)
+                    {
+                        <div class="col-12 col-md-6 col-xl-4">
+                            <div class="d-flex align-items-center gap-2">
+                                @* Avatar color is picked from the name so a person always gets the same color *@
+                                <span class="lms-avatar" style="background-color:@AvatarColor(participant.Name)">@Initials(participant.Name)</span>
+                                <span>
+                                    <span class="lms-cell-title d-block">@participant.Name</span>
+                                    <span class="lms-cell-sub d-block">Student</span>
+                                </span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-secondary mb-0">No classmates match your search.</p>
+            }
+
+            <p class="lms-cell-sub mt-3 mb-0">Only names are shown — email and other personal data are hidden from other students.</p>
+        </section>
+    </div>
 }
 else if (!string.IsNullOrWhiteSpace(infoMessage))
 {
