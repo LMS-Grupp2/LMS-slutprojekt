@@ -32,16 +32,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasForeignKey(s => s.StudentId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.Entity<Activity>()
-            .HasOne(a => a.ActivityType)
-            .WithMany(t => t.Activities)
-            .HasForeignKey(a => a.ActivityTypeId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        builder.Entity<ActivityType>()
-            .HasIndex(t => t.Name)
-            .IsUnique();
-
         builder.Entity<Feedback>()
             .HasOne(f => f.Teacher)
             .WithMany()
@@ -53,5 +43,49 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany()
             .HasForeignKey(d => d.UserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Activity>()
+            .HasOne(a => a.ActivityType)
+            .WithMany(t => t.Activities)
+            .HasForeignKey(a => a.ActivityTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+        
+        builder.Entity<ActivityType>()
+            .HasIndex(t => t.Name)
+            .IsUnique();
+
+        builder.Entity<ActivityType>().HasData(
+            new ActivityType
+            {
+                Id = Guid.Parse("{59FB72BF-FD37-48DC-8391-5EE265C0072C}"),
+                Name = "Lecture",
+                Description = "A teacher-led session where new material is presented."
+            },
+            new ActivityType
+            {
+                Id = Guid.Parse("{9ACBD254-D038-44B9-BA1F-EEEA65500778}"),
+                Name = "E-Learning",
+                Description = "Self-paced online material, such as a video course, done on your own time."
+            },
+            new ActivityType
+            {
+                Id = Guid.Parse("{8998F0FF-48B5-4245-943F-3579252E4D18}"),
+                Name = "Exercise",
+                Description = "A practice session where you apply what you've learned."
+            },
+            new ActivityType
+            {
+                Id = Guid.Parse("{C10E45B9-FCFE-468C-BC7E-FE29B4FB62EB}"),
+                Name = "Assignment",
+                Description = "A task to complete and hand in for review by the teacher."
+            },
+            new ActivityType
+            {
+                Id = Guid.Parse("{47C20D6B-DAF9-4180-A01C-092F5337AF72}"),
+                Name = "Other",
+                Description = "Any other scheduled activity, such as a kickoff or a meeting."
+            }
+        );
+
     }
 }
