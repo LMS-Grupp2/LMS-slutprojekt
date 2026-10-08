@@ -1,14 +1,13 @@
-﻿/* Users page styling, based on the LMS design mockups.
-   Scoped to Users.razor, so it does not affect any other page. */
+﻿/* Courses page styling, scoped to Courses.razor. Same design values as Users and Modules. */
 
-.users-page {
+.courses-page {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
 }
 
 /* ---------- Page header ---------- */
-.users-header {
+.courses-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
@@ -16,20 +15,20 @@
     flex-wrap: wrap;
 }
 
-.users-title {
+.courses-title {
     font-size: 2rem;
     font-weight: 700;
     margin: 0;
     color: #111827;
 }
 
-.users-subtitle {
+.courses-subtitle {
     color: #6c757d;
     margin: .25rem 0 0;
 }
 
 /* ---------- Cards ---------- */
-.users-card {
+.courses-card {
     background: #ffffff;
     border: 1px solid #dee2e6;
     border-radius: 10px;
@@ -38,19 +37,19 @@
 }
 
 /* Card that contains a full-width table */
-.users-card-table {
+.courses-card-table {
     padding: 0;
     overflow: hidden;
 }
 
-.users-card-header {
+.courses-card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
 }
 
-.users-card-title {
+.courses-card-title {
     font-size: 1.125rem;
     font-weight: 600;
     margin: 0;
@@ -58,13 +57,13 @@
 }
 
 /* ---------- Table ---------- */
-.users-table {
+.courses-table {
     margin: 0;
     --bs-table-bg: transparent;
     --bs-table-hover-bg: #f8f9fa;
 }
 
-    .users-table thead th {
+    .courses-table thead th {
         background: #f8f9fa;
         font-size: .75rem;
         font-weight: 600;
@@ -76,52 +75,29 @@
         white-space: nowrap;
     }
 
-    .users-table tbody td {
+    .courses-table tbody td {
         padding: .875rem 1rem;
         vertical-align: middle;
         color: #111827;
         border-color: #dee2e6;
     }
 
-    .users-table tbody tr:last-child td {
+    .courses-table tbody tr:last-child td {
         border-bottom: 0;
     }
 
-.users-cell-title {
+.courses-cell-title {
     font-weight: 600;
     color: #111827;
 }
 
-.users-cell-sub {
+.courses-cell-sub {
     font-size: .8125rem;
     color: #6c757d;
 }
 
-/* ---------- Avatar ---------- */
-.users-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: #0d6efd;
-    color: #ffffff;
-    font-size: .75rem;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-    .users-avatar.is-teacher {
-        background: #7c3aed;
-    }
-
-    .users-avatar.is-other {
-        background: #6c757d;
-    }
-
-/* ---------- Role badges (round pills) ---------- */
-.users-badge {
+/* ---------- Status badges (round pills) ---------- */
+.courses-badge {
     display: inline-flex;
     align-items: center;
     padding: .25rem .625rem;
@@ -131,23 +107,23 @@
     white-space: nowrap;
 }
 
-.users-tone-primary {
+.courses-tone-primary {
     background: #e7f0ff;
     color: #0d6efd;
 }
 
-.users-tone-purple {
-    background: #ede9fe;
-    color: #7c3aed;
+.courses-tone-success {
+    background: #dcfce7;
+    color: #15803d;
 }
 
-.users-tone-muted {
+.courses-tone-muted {
     background: #e9ecef;
     color: #495057;
 }
 
 /* ---------- Empty / loading / error states ---------- */
-.users-state {
+.courses-state {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -156,7 +132,7 @@
     padding: 2rem 1rem;
 }
 
-.users-icon-tile {
+.courses-icon-tile {
     width: 52px;
     height: 52px;
     border-radius: 10px;
@@ -167,14 +143,14 @@
     font-weight: 700;
 }
 
-.users-skeleton {
+.courses-skeleton {
     background: linear-gradient(90deg, #e9ecef 25%, #f4f6f9 37%, #e9ecef 63%);
     background-size: 400% 100%;
-    animation: users-shimmer 1.4s ease infinite;
+    animation: courses-shimmer 1.4s ease infinite;
     border-radius: 4px;
 }
 
-@keyframes users-shimmer {
+@keyframes courses-shimmer {
     0% {
         background-position: 100% 50%;
     }
@@ -185,40 +161,38 @@
 }
 
 /* ---------- Form ---------- */
-.users-page .form-label {
+.courses-page .form-label {
     font-size: .8125rem;
     font-weight: 500;
     color: #495057;
 }
 
 /* The inputs are rendered by Blazor components, so ::deep is needed. */
-.users-page ::deep .form-control,
-.users-page ::deep .form-select {
+.courses-page ::deep .form-control {
     padding: .5625rem .75rem;
     border-color: #dee2e6;
     border-radius: 8px;
 }
 
-    .users-page ::deep .form-control:focus,
-    .users-page ::deep .form-select:focus {
+    .courses-page ::deep .form-control:focus {
         border-color: #0d6efd;
         box-shadow: 0 0 0 3px rgba(13, 110, 253, .15);
     }
 
-.users-page ::deep .validation-message,
-.users-page .validation-message {
+.courses-page ::deep .validation-message,
+.courses-page .validation-message {
     color: #dc3545;
     font-size: .75rem;
     margin-top: .25rem;
 }
 
 /* ---------- Buttons ---------- */
-.users-page ::deep .btn-primary {
+.courses-page ::deep .btn-primary {
     background-color: #0d6efd;
     border-color: #0d6efd;
 }
 
-    .users-page ::deep .btn-primary:hover {
+    .courses-page ::deep .btn-primary:hover {
         background-color: #0b5ed7;
         border-color: #0a58ca;
     }

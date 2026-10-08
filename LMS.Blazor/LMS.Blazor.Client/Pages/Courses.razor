@@ -1,0 +1,403 @@
+﻿@page "/courses"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Globalization
+@using System.Net
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
+@using LMS.Shared.DTOs.CourseDtos
+@using Microsoft.AspNetCore.Authorization
+
+@* Teacher overview of all courses, with an inline form to create and edit a course. *@
+@attribute [Authorize(Roles = UserRoles.Teacher)]
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>Courses</PageTitle>
+
+<div class="courses-page">
+    <div class="courses-header">
+        <div>
+            <h1 class="courses-title">Courses</h1>
+            <p class="courses-subtitle">Manage courses and open their modules.</p>
+        </div>
+
+        @if (!showForm)
+        {
+            <button type="button" class="btn btn-primary" @onclick="StartCreate">+ New course</button>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible mb-0" role="status">
+            @successMessage
+            <button type="button" class="btn-close" aria-label="Close" @onclick="DismissSuccess"></button>
+        </div>
+    }
+
+    @* ---------- Create / edit form ---------- *@
+    @if (showForm)
+    {
+        <div class="courses-card">
+            <div class="courses-card-header">
+                <h2 class="courses-card-title">@(editingId is null ? "New course" : "Edit course")</h2>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(formError))
+            {
+                <div class="alert alert-danger" role="alert">@formError</div>
+            }
+
+            <EditForm EditContext="editContext" OnValidSubmit="SaveAsync">
+                <DataAnnotationsValidator />
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="course-name">Name</label>
+                        <InputText id="course-name" class="form-control" @bind-Value="form.Name" />
+                        <ValidationMessage For="() => form.Name" />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label" for="course-description">Description</label>
+                        <InputTextArea id="course-description" class="form-control" rows="3" @bind-Value="form.Description" />
+                        <ValidationMessage For="() => form.Description" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label" for="course-start">Start date</label>
+                        <InputDate id="course-start" class="form-control" @bind-Value="form.StartDate" />
+                        <ValidationMessage For="() => form.StartDate" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label" for="course-end">End date</label>
+                        <InputDate id="course-end" class="form-control" @bind-Value="form.EndDate" />
+                        <ValidationMessage For="() => form.EndDate" />
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                        @(isSaving ? "Saving..." : "Save")
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" disabled="@isSaving" @onclick="CloseForm">Cancel</button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    @* ---------- Loading, error, empty and list states ---------- *@
+    @if (isLoading)
+    {
+        <div class="courses-card">
+            <div class="d-flex flex-column gap-3">
+                <div class="courses-skeleton" style="width: 40%; height: 16px;"></div>
+                <div class="courses-skeleton" style="width: 70%; height: 16px;"></div>
+                <div class="courses-skeleton" style="width: 55%; height: 16px;"></div>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <div class="courses-card">
+            <div class="courses-state">
+                <span class="courses-icon-tile" style="background: #fde8e8; color: #dc3545;">!</span>
+                <div class="courses-cell-title">@loadError</div>
+                <button type="button" class="btn btn-outline-primary btn-sm" @onclick="LoadCoursesAsync">Try again</button>
+            </div>
+        </div>
+    }
+    else if (courses is { Count: 0 })
+    {
+        <div class="courses-card">
+            <div class="courses-state">
+                <span class="courses-icon-tile courses-tone-primary">+</span>
+                <div class="courses-cell-title">No courses yet</div>
+                <div class="courses-cell-sub">Create the first course with the button above.</div>
+            </div>
+        </div>
+    }
+    else if (courses is not null)
+    {
+        <div class="courses-card courses-card-table">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle courses-table">
+                    <thead>
+                        <tr>
+                            <th>Course</th>
+                            <th>Dates</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var course in courses)
+                        {
+                            var status = StatusOf(course);
+
+                            <tr>
+                                <td>
+                                    <div class="courses-cell-title">@course.Name</div>
+                                    @if (!string.IsNullOrWhiteSpace(course.Description))
+                                    {
+                                        <div class="courses-cell-sub">@course.Description</div>
+                                    }
+                                </td>
+                                <td class="text-nowrap">@FormatDate(course.StartDate) – @FormatDate(course.EndDate)</td>
+                                <td><span class="courses-badge @status.Css">@status.Text</span></td>
+                                <td class="text-end text-nowrap">
+                                    @* Links to the module page of this course (US04). *@
+                                    <a class="btn btn-sm btn-outline-primary" href="courses/@course.Id/modules">Modules</a>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => StartEdit(course)">Edit</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly CancellationTokenSource cts = new();
+
+    private List<CourseDto>? courses;
+    private bool isLoading = true;
+    private string? loadError;
+
+    private bool showForm;
+    private Guid? editingId;
+    private CourseFormModel form = new();
+    private EditContext editContext = default!;
+    private ValidationMessageStore messageStore = default!;
+    private bool isSaving;
+    private string? formError;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync() => await LoadCoursesAsync();
+
+    private async Task LoadCoursesAsync()
+    {
+        isLoading = true;
+        loadError = null;
+
+        try
+        {
+            var result = await ApiProxyClient.GetAsync<List<CourseDto>>("courses", cts.Token);
+
+            // The server-side prerender client deliberately returns null. Keep
+            // showing the loading state until WebAssembly runs this again.
+            if (result is null)
+            {
+                return;
+            }
+
+            courses = result;
+            isLoading = false;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (HttpRequestException ex)
+        {
+            loadError = ex.StatusCode == HttpStatusCode.Forbidden
+                ? "You do not have access to the courses."
+                : "Could not load the courses. Please try again.";
+            isLoading = false;
+        }
+    }
+
+    private void StartCreate()
+    {
+        editingId = null;
+
+        // Suggest today as the start date and a date one month ahead as the end date.
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        form = new CourseFormModel { StartDate = today, EndDate = today.AddMonths(1) };
+
+        CreateEditContext();
+        ResetFormErrors();
+        successMessage = null;
+        showForm = true;
+    }
+
+    private void StartEdit(CourseDto course)
+    {
+        editingId = course.Id;
+        form = new CourseFormModel
+        {
+            Name = course.Name,
+            Description = course.Description,
+            StartDate = course.StartDate,
+            EndDate = course.EndDate
+        };
+
+        CreateEditContext();
+        ResetFormErrors();
+        successMessage = null;
+        showForm = true;
+    }
+
+    private void CloseForm()
+    {
+        showForm = false;
+        editingId = null;
+        form = new CourseFormModel();
+        ResetFormErrors();
+    }
+
+    private void CreateEditContext()
+    {
+        editContext = new EditContext(form);
+        messageStore = new ValidationMessageStore(editContext);
+
+        // Clear a field's server error as soon as the user edits that field.
+        editContext.OnFieldChanged += (_, e) => messageStore.Clear(e.FieldIdentifier);
+    }
+
+    private void ResetFormErrors()
+    {
+        formError = null;
+        messageStore?.Clear();
+    }
+
+    private void DismissSuccess() => successMessage = null;
+
+    private async Task SaveAsync()
+    {
+        ResetFormErrors();
+
+        // Same rule as the API: the start date cannot be after the end date.
+        if (form.EndDate < form.StartDate)
+        {
+            messageStore.Add(editContext.Field(nameof(CourseFormModel.EndDate)),
+                "The end date cannot be before the start date.");
+            editContext.NotifyValidationStateChanged();
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            var name = form.Name.Trim();
+            var description = string.IsNullOrWhiteSpace(form.Description) ? null : form.Description.Trim();
+
+            if (editingId is null)
+            {
+                var dto = new CreateCourseDto
+                {
+                    Name = name,
+                    Description = description,
+                    StartDate = form.StartDate,
+                    EndDate = form.EndDate
+                };
+
+                await ApiProxyClient.SendAsync<CourseDto>(
+                    HttpMethod.Post, "courses", JsonContent.Create(dto), cts.Token);
+
+                successMessage = $"Course '{name}' was created.";
+            }
+            else
+            {
+                // The id is part of the route only, it is not sent in the body.
+                var dto = new UpdateCourseDto
+                {
+                    Name = name,
+                    Description = description,
+                    StartDate = form.StartDate,
+                    EndDate = form.EndDate
+                };
+
+                await ApiProxyClient.SendAsync<CourseDto>(
+                    HttpMethod.Put, $"courses/{editingId}", JsonContent.Create(dto), cts.Token);
+
+                successMessage = $"Course '{name}' was updated.";
+            }
+
+            CloseForm();
+            await LoadCoursesAsync();
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (ApiValidationException ex)
+        {
+            // Show the API's validation errors next to the matching fields.
+            foreach (var (field, messages) in ex.Errors)
+                messageStore.Add(editContext.Field(field), messages);
+
+            if (ex.Errors.Count == 0)
+                formError = ex.Message;
+
+            editContext.NotifyValidationStateChanged();
+        }
+        catch (HttpRequestException ex)
+        {
+            formError = ex.StatusCode switch
+            {
+                HttpStatusCode.NotFound => "The course no longer exists.",
+                HttpStatusCode.Forbidden => "You do not have permission to manage courses.",
+                _ => "Could not save the course. Please try again."
+            };
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void RedirectToLogin() =>
+        NavigationManager.NavigateTo(
+            $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
+            forceLoad: true);
+
+    private static string FormatDate(DateOnly date) =>
+        date.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+
+    // Status is calculated from today's date, the same way as for modules.
+    private static (string Text, string Css) StatusOf(CourseDto course)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        if (today > course.EndDate) return ("Completed", "courses-tone-muted");
+        if (today >= course.StartDate) return ("In progress", "courses-tone-success");
+        return ("Upcoming", "courses-tone-primary");
+    }
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+
+    // Client-side rules, matching CreateCourseDto on the API.
+    private sealed class CourseFormModel
+    {
+        [Required(ErrorMessage = "Name is required.")]
+        [StringLength(100, MinimumLength = 2, ErrorMessage = "Name must be between 2 and 100 characters.")]
+        public string Name { get; set; } = string.Empty;
+
+        [StringLength(1000, ErrorMessage = "Description can be at most 1000 characters.")]
+        public string? Description { get; set; }
+
+        public DateOnly StartDate { get; set; }
+
+        public DateOnly EndDate { get; set; }
+    }
+}
