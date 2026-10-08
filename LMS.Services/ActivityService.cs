@@ -32,6 +32,9 @@ public class ActivityService : IActivityService
 
     public async Task<ActivityDto> CreateAsync(CreateActivityDto dto)
     {
+        await ValidateActivityAsync(dto.ModuleId!.Value, dto.StartTime!.Value, 
+            dto.EndTime!.Value, null );
+
         var activity = new Activity
         {
             ActivityTypeId = dto.ActivityTypeId!.Value,
@@ -52,6 +55,9 @@ public class ActivityService : IActivityService
     {
         var activity = await _unitOfWork.Activities.GetByIdAsync(id)
             ?? throw new ActivityNotFoundException(id);
+
+        await ValidateActivityAsync(activity.ModuleId, dto.StartTime!.Value, dto.EndTime!.Value, 
+            activity.Id);
 
         activity.ActivityTypeId = dto.ActivityTypeId!.Value;
         activity.Name = dto.Name;
@@ -86,5 +92,19 @@ public class ActivityService : IActivityService
             activity.EndTime,
             activity.ModuleId
         );
+    }
+
+    private async Task ValidateActivityAsync(Guid moduleId, DateTime startTime, DateTime endTime,
+        Guid? excludeActivityId)
+    {
+        if (endTime <= startTime)
+            throw new BadRequestException("End time must be after start time.");
+
+        var overlapping = await _unitOfWork.Activities.FindOverlappingAsync(moduleId, startTime,
+            endTime, excludeActivityId);
+
+        if (overlapping is not null)
+            throw new ConflictException($"The activity overlaps with '{overlapping.Name}' " +
+                $"({overlapping.StartTime:g} – {overlapping.EndTime:g}).");
     }
 }
