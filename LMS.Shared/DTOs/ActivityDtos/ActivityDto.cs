@@ -2,7 +2,8 @@
 
 public sealed record ActivityDto(
     Guid Id,
-    string Type,
+    Guid ActivityTypeId,
+    string ActivityTypeName,
     string Name,
     string? Description,
     DateTime StartTime,

@@ -6,7 +6,7 @@ namespace LMS.Shared.DTOs.ActivityDtos;
 public record UpdateActivityDto 
 {
     [Required]
-    public string Type { get; init; } = null!;
+    public Guid? ActivityTypeId { get; init; } 
 
     [Required]
     [MaxLength(50)]
