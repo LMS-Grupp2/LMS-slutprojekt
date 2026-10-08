@@ -30,6 +30,18 @@ public class ActivityRepository : IActivityRepository
             .FirstOrDefaultAsync(a => a.Id == id);
     }
 
+    public async Task<Activity?> FindOverlappingAsync(Guid moduleId, 
+        DateTime startTime, 
+        DateTime endTime,
+        Guid? excludeActivityId)
+    {
+        return await _context.Activities
+            .Where(a => a.ModuleId == moduleId)
+            .Where(a => excludeActivityId == null || a.Id != excludeActivityId)
+            .Where(a => startTime < a.EndTime && endTime > a.StartTime)
+            .FirstOrDefaultAsync();
+    }
+
     public void Create(Activity activity) => _context.Activities.Add(activity);
     public void Update(Activity activity) => _context.Activities.Update(activity);
     public void Delete(Activity activity) => _context.Activities.Remove(activity);

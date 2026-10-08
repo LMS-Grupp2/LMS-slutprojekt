@@ -9,4 +9,7 @@ public interface IActivityRepository
     void Create(Activity activity);
     void Update(Activity activity);
     void Delete(Activity activity);
+
+    Task<Activity?> FindOverlappingAsync(Guid moduleId, DateTime startTime, 
+        DateTime endTime, Guid? excludeActivityId);
 }
