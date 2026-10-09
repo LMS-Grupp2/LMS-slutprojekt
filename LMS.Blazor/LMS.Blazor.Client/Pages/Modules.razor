@@ -154,7 +154,9 @@
                                                     <td class="text-nowrap">@FormatShort(module.StartDate)</td>
                                                     <td class="text-nowrap">@FormatShort(module.EndDate)</td>
                                                     <td><span class="lms-badge @status.Css">@status.Text</span></td>
-                                                    <td class="text-end">
+                                                    <td class="text-end text-nowrap">
+                                                        @* Opens the activity page of this module *@
+                                                        <a class="btn btn-link btn-sm text-decoration-none" href="modules/@module.Id/activities">Activities</a>
                                                         <button type="button" class="btn btn-link btn-sm text-decoration-none" @onclick="() => StartEdit(module)">Edit</button>
                                                     </td>
                                                 </tr>
