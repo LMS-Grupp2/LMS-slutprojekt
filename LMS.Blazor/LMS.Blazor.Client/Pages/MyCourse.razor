@@ -1,39 +1,127 @@
 @page "/my-course"
 
+@using System.Globalization
 @using System.Net
 @using LMS.Shared.DTOs.CourseDtos
 @using LMS.Blazor.Client.Services.ApiProxy
 @using Microsoft.AspNetCore.Authorization
 
+@* Student view of the student's own course. Styling comes from wwwroot/css/lms.css. *@
 @attribute [Authorize(Roles = "Student")]
 @implements IDisposable
 
 @inject IApiProxyClient ApiProxyClient
 @inject NavigationManager NavigationManager
 
-<PageTitle>Min kurs</PageTitle>
+<PageTitle>My course</PageTitle>
 
 @if (isLoading)
 {
-    <p><em>Hämtar din kurs...</em></p>
+    @* Loading skeleton while the course is fetched *@
+    <div class="lms-card">
+        <div class="d-flex flex-column gap-3">
+            <div class="lms-skeleton" style="width: 35%; height: 20px;"></div>
+            <div class="lms-skeleton" style="width: 70%; height: 16px;"></div>
+            <div class="lms-skeleton" style="width: 55%; height: 16px;"></div>
+        </div>
+    </div>
 }
 else if (course is not null)
 {
-    <h1>@course.Name</h1>
-    <p class="text-muted">@course.StartDate.ToString("yyyy-MM-dd") – @course.EndDate.ToString("yyyy-MM-dd")</p>
+    // Filter classmates by the search text and calculate how far into the course we are
+    var participants = course.Participants
+        .Where(p => string.IsNullOrWhiteSpace(searchText) ||
+                    p.Name.Contains(searchText.Trim(), StringComparison.OrdinalIgnoreCase))
+        .ToList();
+    var progress = ProgressPercent(course.StartDate, course.EndDate);
 
-    @if (!string.IsNullOrWhiteSpace(course.Description))
-    {
-        <p>@course.Description</p>
-    }
+    <div class="d-flex flex-column gap-4">
 
-    <h2 class="h4 mt-4">Kursdeltagare (@course.Participants.Count)</h2>
-    <ul class="list-group">
-        @foreach (var participant in course.Participants)
-        {
-            <li class="list-group-item">@participant.Name</li>
-        }
-    </ul>
+        <div class="lms-page-header">
+            <div>
+                <div class="lms-breadcrumb">My course</div>
+                <h1 class="lms-page-title">@course.Name</h1>
+                <p class="lms-page-subtitle">@FormatDate(course.StartDate) – @FormatDate(course.EndDate)</p>
+            </div>
+        </div>
+
+        @* ---------- About the course ---------- *@
+        <section class="lms-card">
+            <div class="lms-card-header">
+                <h2 class="lms-card-title">About the course</h2>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(course.Description))
+            {
+                <p>@course.Description</p>
+            }
+            else
+            {
+                <p class="text-secondary">No description has been added yet.</p>
+            }
+
+            <div class="row g-3 mb-3">
+                <div class="col-6 col-md-4">
+                    <div class="lms-cell-sub">Start date</div>
+                    <div class="lms-cell-title">@FormatDate(course.StartDate)</div>
+                </div>
+                <div class="col-6 col-md-4">
+                    <div class="lms-cell-sub">End date</div>
+                    <div class="lms-cell-title">@FormatDate(course.EndDate)</div>
+                </div>
+                <div class="col-6 col-md-4">
+                    <div class="lms-cell-sub">Classmates</div>
+                    <div class="lms-cell-title">@course.Participants.Count</div>
+                </div>
+            </div>
+
+            @* Share of the course period that has passed *@
+            <div class="progress" role="progressbar" aria-label="Course progress"
+                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="@progress" style="height: 8px;">
+                <div class="progress-bar" style="width:@progress%"></div>
+            </div>
+            <div class="lms-cell-sub mt-1">@progress% of the course has passed</div>
+        </section>
+
+        @* ---------- Classmates ---------- *@
+        <section class="lms-card">
+            <div class="lms-card-header">
+                <h2 class="lms-card-title">Classmates (@course.Participants.Count)</h2>
+                <input type="search"
+                       class="form-control"
+                       style="max-width: 260px;"
+                       placeholder="Search classmates..."
+                       aria-label="Search classmates"
+                       @bind="searchText"
+                       @bind:event="oninput" />
+            </div>
+
+            @if (participants.Count > 0)
+            {
+                <div class="row g-3">
+                    @foreach (var participant in participants)
+                    {
+                        <div class="col-12 col-md-6 col-xl-4">
+                            <div class="d-flex align-items-center gap-2">
+                                @* Avatar color is picked from the name so a person always gets the same color *@
+                                <span class="lms-avatar" style="background-color:@AvatarColor(participant.Name)">@Initials(participant.Name)</span>
+                                <span>
+                                    <span class="lms-cell-title d-block">@participant.Name</span>
+                                    <span class="lms-cell-sub d-block">Student</span>
+                                </span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-secondary mb-0">No classmates match your search.</p>
+            }
+
+            <p class="lms-cell-sub mt-3 mb-0">Only names are shown — email and other personal data are hidden from other students.</p>
+        </section>
+    </div>
 }
 else if (!string.IsNullOrWhiteSpace(infoMessage))
 {
@@ -45,9 +133,15 @@ else if (!string.IsNullOrWhiteSpace(errorMessage))
 }
 
 @code {
+    private static readonly string[] AvatarColors =
+    {
+        "#0d6efd", "#7c3aed", "#198754", "#d97706", "#dc3545", "#0891b2"
+    };
+
     private StudentCourseDto? course;
     private string? infoMessage;
     private string? errorMessage;
+    private string searchText = string.Empty;
     private bool isLoading = true;
     private readonly CancellationTokenSource componentCancellation = new();
 
@@ -80,18 +174,54 @@ else if (!string.IsNullOrWhiteSpace(errorMessage))
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
         {
-            infoMessage = "Du är inte registrerad på någon kurs ännu.";
+            infoMessage = "You are not enrolled in a course yet.";
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
         {
-            errorMessage = "Den här sidan är bara för studenter.";
+            errorMessage = "This page is only available to students.";
         }
         catch (HttpRequestException)
         {
-            errorMessage = "Kursen kunde inte hämtas. Försök igen senare.";
+            errorMessage = "The course could not be loaded. Please try again later.";
         }
 
         isLoading = false;
+    }
+
+    private static string FormatDate(DateOnly date) =>
+        date.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+
+    // Share of the course period that has passed, clamped to 0-100.
+    private static int ProgressPercent(DateOnly start, DateOnly end)
+    {
+        var total = end.DayNumber - start.DayNumber;
+        if (total <= 0)
+            return 100;
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var elapsed = today.DayNumber - start.DayNumber;
+
+        return Math.Clamp((int)Math.Round(elapsed * 100.0 / total), 0, 100);
+    }
+
+    private static string Initials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "?";
+
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length == 1
+            ? parts[0][..1].ToUpperInvariant()
+            : (parts[0][..1] + parts[^1][..1]).ToUpperInvariant();
+    }
+
+    private static string AvatarColor(string? name)
+    {
+        var sum = 0;
+        foreach (var c in name ?? string.Empty)
+            sum += c;
+
+        return AvatarColors[sum % AvatarColors.Length];
     }
 
     public void Dispose()

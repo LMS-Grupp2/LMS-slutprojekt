@@ -6,4 +6,9 @@ public class CourseNotFoundException : NotFoundException
         : base(message, title)
     {
     }
+
+    public CourseNotFoundException(Guid id)
+        : base($"Course with id '{id}' was not found.", "Course not found")
+    {
+    }
 }
