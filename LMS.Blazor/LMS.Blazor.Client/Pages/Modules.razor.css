@@ -1,118 +1,6 @@
-﻿/* Modules page styling, scoped to Modules.razor. */
+﻿/* Student module list. Everything else on the Modules page uses the shared lms.css classes. */
 
-.modules-page {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-/* ---------- Page header ---------- */
-.modules-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
-.modules-breadcrumb {
-    display: flex;
-    gap: .5rem;
-    margin-bottom: .5rem;
-    font-size: .875rem;
-    color: #6c757d;
-}
-
-    .modules-breadcrumb a {
-        color: #6c757d;
-        text-decoration: none;
-    }
-
-        .modules-breadcrumb a:hover {
-            color: #0d6efd;
-        }
-
-.modules-title {
-    font-size: 2rem;
-    font-weight: 700;
-    margin: 0;
-    color: #111827;
-}
-
-.modules-subtitle {
-    color: #6c757d;
-    margin: .25rem 0 0;
-}
-
-/* ---------- Cards ---------- */
-.modules-card {
-    background: #ffffff;
-    border: 1px solid #dee2e6;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
-    padding: 1.5rem;
-}
-
-.modules-card-table {
-    padding: 0;
-    overflow: hidden;
-}
-
-.modules-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.modules-card-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin: 0;
-    color: #111827;
-}
-
-/* ---------- Teacher table ---------- */
-.modules-table {
-    margin: 0;
-    --bs-table-bg: transparent;
-    --bs-table-hover-bg: #f8f9fa;
-}
-
-    .modules-table thead th {
-        background: #f8f9fa;
-        font-size: .75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: .06em;
-        color: #6c757d;
-        padding: .75rem 1rem;
-        border-bottom: 1px solid #dee2e6;
-        white-space: nowrap;
-    }
-
-    .modules-table tbody td {
-        padding: .875rem 1rem;
-        vertical-align: middle;
-        color: #111827;
-        border-color: #dee2e6;
-    }
-
-    .modules-table tbody tr:last-child td {
-        border-bottom: 0;
-    }
-
-.modules-cell-title {
-    font-weight: 600;
-    color: #111827;
-}
-
-.modules-cell-sub {
-    font-size: .8125rem;
-    color: #6c757d;
-}
-
-/* ---------- Student layout: list + detail ---------- */
+/* Two columns: module list on the left, details of the selected module on the right */
 .modules-layout {
     display: grid;
     grid-template-columns: 300px 1fr;
@@ -124,13 +12,7 @@
     padding: 1rem;
 }
 
-.modules-list-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin: 0 0 .75rem .25rem;
-    color: #111827;
-}
-
+/* Reset the default list look */
 .modules-list {
     list-style: none;
     margin: 0;
@@ -140,25 +22,27 @@
     gap: .25rem;
 }
 
+/* One clickable row per module */
 .modules-list-item {
+    width: 100%;
     display: flex;
     align-items: center;
     gap: .75rem;
-    width: 100%;
     padding: .625rem .75rem;
     border: 0;
     border-radius: 8px;
     background: transparent;
     text-align: left;
-    cursor: pointer;
+    color: inherit;
 }
 
     .modules-list-item:hover {
-        background: #f8f9fa;
+        background: var(--bs-light);
     }
 
+    /* The selected module is highlighted in blue */
     .modules-list-item.is-active {
-        background: #0d6efd;
+        background: var(--lms-primary-subtle);
     }
 
 .modules-list-text {
@@ -169,180 +53,36 @@
 
 .modules-list-name {
     font-weight: 600;
-    color: #111827;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .modules-list-dates {
-    font-size: .8125rem;
-    color: #6c757d;
+    font-size: .75rem;
+    color: var(--bs-secondary-color);
 }
 
-.modules-list-item.is-active .modules-list-name,
-.modules-list-item.is-active .modules-list-dates {
-    color: #ffffff;
-}
-
+/* Status dot in front of each module */
 .modules-dot {
-    flex: 0 0 auto;
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-    background: #adb5bd;
+    flex-shrink: 0;
+    background: #dee2e6; /* upcoming */
 }
 
     .modules-dot.is-done {
-        background: #198754;
+        background: #198754; /* completed */
     }
 
     .modules-dot.is-current {
-        background: #0d6efd;
+        background: var(--bs-primary); /* ongoing */
     }
 
     .modules-dot.is-upcoming {
-        background: #adb5bd;
+        background: #dee2e6;
     }
 
-.modules-list-item.is-active .modules-dot {
-    background: #ffffff;
-}
-
-.modules-detail-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 1rem;
-}
-
-.modules-detail-actions {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-}
-
-.modules-detail-title {
-    font-size: 1.75rem;
-    font-weight: 700;
-    margin: 0;
-    color: #111827;
-}
-
-.modules-detail-dates {
-    margin: .25rem 0 0;
-    color: #6c757d;
-}
-
-.modules-detail-description {
-    margin: 1rem 0 0;
-    color: #495057;
-    line-height: 1.5;
-}
-
-/* ---------- Status badges (round pills) ---------- */
-.modules-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: .25rem .625rem;
-    border-radius: 999px;
-    font-size: .75rem;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.modules-tone-primary {
-    background: #e7f0ff;
-    color: #0d6efd;
-}
-
-.modules-tone-success {
-    background: #dcfce7;
-    color: #15803d;
-}
-
-.modules-tone-muted {
-    background: #e9ecef;
-    color: #495057;
-}
-
-/* ---------- Empty / loading / error states ---------- */
-.modules-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: .625rem;
-    padding: 2rem 1rem;
-}
-
-.modules-icon-tile {
-    width: 52px;
-    height: 52px;
-    border-radius: 10px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.25rem;
-    font-weight: 700;
-}
-
-.modules-skeleton {
-    background: linear-gradient(90deg, #e9ecef 25%, #f4f6f9 37%, #e9ecef 63%);
-    background-size: 400% 100%;
-    animation: modules-shimmer 1.4s ease infinite;
-    border-radius: 4px;
-}
-
-@keyframes modules-shimmer {
-    0% {
-        background-position: 100% 50%;
-    }
-
-    100% {
-        background-position: 0 50%;
-    }
-}
-
-/* ---------- Form ---------- */
-.modules-page .form-label {
-    font-size: .8125rem;
-    font-weight: 500;
-    color: #495057;
-}
-
-/* The inputs are rendered by Blazor components, so ::deep is needed. */
-.modules-page ::deep .form-control {
-    padding: .5625rem .75rem;
-    border-color: #dee2e6;
-    border-radius: 8px;
-}
-
-    .modules-page ::deep .form-control:focus {
-        border-color: #0d6efd;
-        box-shadow: 0 0 0 3px rgba(13, 110, 253, .15);
-    }
-
-.modules-page ::deep .validation-message,
-.modules-page .validation-message {
-    color: #dc3545;
-    font-size: .75rem;
-    margin-top: .25rem;
-}
-
-/* ---------- Buttons ---------- */
-.modules-page ::deep .btn-primary {
-    background-color: #0d6efd;
-    border-color: #0d6efd;
-}
-
-    .modules-page ::deep .btn-primary:hover {
-        background-color: #0b5ed7;
-        border-color: #0a58ca;
-    }
-
-/* ---------- Responsive ---------- */
-@media (max-width: 900px) {
+/* Stack the columns on small screens */
+@media (max-width: 991.98px) {
     .modules-layout {
         grid-template-columns: 1fr;
     }

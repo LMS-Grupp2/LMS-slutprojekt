@@ -2,26 +2,27 @@
 
 @using System.ComponentModel.DataAnnotations
 @using System.Net
-@using System.Security.Claims
 @using LMS.Blazor.Client.Services.ApiProxy
 @using LMS.Shared.Constants
 @using LMS.Shared.DTOs.UserDtos
 @using Microsoft.AspNetCore.Authorization
 
+@* Teacher page for managing users. Styling comes from wwwroot/css/lms.css. *@
 @attribute [Authorize(Roles = UserRoles.Teacher)]
 @implements IDisposable
 
 @inject IApiProxyClient ApiProxyClient
 @inject NavigationManager NavigationManager
 
-<div class="users-page">
-    <div class="users-header">
+<PageTitle>Users</PageTitle>
+
+<div class="d-flex flex-column gap-4">
+
+    @* ---------- Page header (the title is always "Users") ---------- *@
+    <div class="lms-page-header">
         <div>
-            <AuthorizeView>
-                <PageTitle>@RoleTitle(context.User)</PageTitle>
-                <h1 class="users-title">@RoleTitle(context.User)</h1>
-            </AuthorizeView>
-            <p class="users-subtitle">Manage students and teachers.</p>
+            <h1 class="lms-page-title">Users</h1>
+            <p class="lms-page-subtitle">@UserCountText</p>
         </div>
 
         @if (!showForm)
@@ -38,163 +39,175 @@
         </div>
     }
 
-    @if (showForm)
-    {
-        <div class="users-card">
-            <div class="users-card-header">
-                <h2 class="users-card-title">@(editingId is null ? "New user" : "Edit user")</h2>
-            </div>
+    <div class="row g-3">
 
-            @if (!string.IsNullOrWhiteSpace(formError))
+        @* ---------- User list (left) ---------- *@
+        <div class="col-12 @(showForm ? "col-xl-8" : "col-xl-12")">
+            @if (isLoading)
             {
-                <div class="alert alert-danger" role="alert">@formError</div>
+                <div class="lms-card">
+                    <div class="d-flex flex-column gap-3">
+                        <div class="lms-skeleton" style="width: 40%; height: 16px;"></div>
+                        <div class="lms-skeleton" style="width: 70%; height: 16px;"></div>
+                        <div class="lms-skeleton" style="width: 55%; height: 16px;"></div>
+                    </div>
+                </div>
             }
-
-            <EditForm EditContext="editContext" OnValidSubmit="SaveAsync">
-                <DataAnnotationsValidator />
-
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label" for="user-name">Name</label>
-                        <InputText id="user-name" class="form-control" @bind-Value="form.Name" />
-                        <ValidationMessage For="() => form.Name" />
+            else if (!string.IsNullOrWhiteSpace(loadError))
+            {
+                <div class="lms-card">
+                    <div class="lms-state">
+                        <span class="lms-badge lms-tone-danger">!</span>
+                        <div class="lms-cell-title">@loadError</div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" @onclick="ReloadAsync">Try again</button>
                     </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label" for="user-email">Email</label>
-                        <InputText id="user-email" class="form-control" @bind-Value="form.Email" />
-                        <ValidationMessage For="() => form.Email" />
+                </div>
+            }
+            else if (users is { Count: 0 })
+            {
+                <div class="lms-card">
+                    <div class="lms-state">
+                        <span class="lms-badge lms-tone-primary">+</span>
+                        <div class="lms-cell-title">No users yet</div>
+                        <div class="lms-cell-sub">Create the first user with the button above.</div>
                     </div>
-
-                    @if (editingId is null)
-                    {
-                        <div class="col-md-6">
-                            <label class="form-label" for="user-password">Password</label>
-                            <InputText id="user-password" type="password" class="form-control" autocomplete="new-password" @bind-Value="form.Password" />
-                            @if (!string.IsNullOrWhiteSpace(passwordError))
-                            {
-                                <div class="validation-message">@passwordError</div>
-                            }
-                        </div>
-                    }
-
-                    <div class="col-md-6">
-                        <label class="form-label" for="user-role">Role</label>
-                        <InputSelect id="user-role" class="form-select" @bind-Value="form.Role">
-                            <option value="">Select role...</option>
-                            @foreach (var role in UserRoles.Assignable)
-                            {
-                                <option value="@role">@role</option>
-                            }
-                        </InputSelect>
-                        <ValidationMessage For="() => form.Role" />
-                    </div>
-
-                    @if (form.Role == UserRoles.Student)
-                    {
-                        <div class="col-md-6">
-                            <label class="form-label" for="user-course">Course</label>
-                            <InputSelect id="user-course" class="form-select" @bind-Value="form.CourseId">
-                                <option value="">Select course...</option>
-                                @foreach (var course in courses)
+                </div>
+            }
+            else if (users is not null)
+            {
+                <div class="lms-card lms-card-table">
+                    <div class="table-responsive">
+                        <table class="table lms-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Role</th>
+                                    <th>Course</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in users)
                                 {
-                                    <option value="@course.Id">@course.Name</option>
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="lms-avatar @AvatarClass(user.Role)" style="@AvatarStyle(user.Role)">@GetInitials(user)</span>
+                                                <div>
+                                                    <div class="lms-cell-title">@(string.IsNullOrWhiteSpace(user.Name) ? "—" : user.Name)</div>
+                                                    <div class="lms-cell-sub">@user.Email</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td><span class="lms-badge @RoleToneClass(user.Role)">@user.Role</span></td>
+                                        <td>@CourseText(user)</td>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-link btn-sm text-decoration-none" @onclick="() => StartEdit(user)">Edit</button>
+                                        </td>
+                                    </tr>
                                 }
-                            </InputSelect>
-                            @if (!string.IsNullOrWhiteSpace(courseFieldError))
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* ---------- Create / edit form (right) ---------- *@
+        @if (showForm)
+        {
+            <div class="col-12 col-xl-4">
+                <div class="lms-card">
+                    <h2 class="lms-card-title mb-3">@(editingId is null ? "New user" : "Edit user")</h2>
+
+                    @if (!string.IsNullOrWhiteSpace(formError))
+                    {
+                        <div class="alert alert-danger" role="alert">@formError</div>
+                    }
+
+                    <EditForm EditContext="editContext" OnValidSubmit="SaveAsync">
+                        <DataAnnotationsValidator />
+
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label" for="user-name">Name *</label>
+                                <InputText id="user-name" class="form-control" @bind-Value="form.Name" />
+                                <ValidationMessage For="() => form.Name" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label" for="user-email">Email *</label>
+                                <InputText id="user-email" class="form-control" @bind-Value="form.Email" />
+                                <ValidationMessage For="() => form.Email" />
+                            </div>
+
+                            @if (editingId is null)
                             {
-                                <div class="validation-message">@courseFieldError</div>
+                                <div class="col-12">
+                                    <label class="form-label" for="user-password">Temporary password *</label>
+                                    <InputText id="user-password" type="password" class="form-control" autocomplete="new-password" @bind-Value="form.Password" />
+                                    @if (!string.IsNullOrWhiteSpace(passwordError))
+                                    {
+                                        <div class="validation-message">@passwordError</div>
+                                    }
+                                </div>
                             }
-                            else if (!string.IsNullOrWhiteSpace(courseLoadError))
+
+                            <div class="col-12">
+                                <label class="form-label" for="user-role">Role *</label>
+                                <InputSelect id="user-role" class="form-select" @bind-Value="form.Role">
+                                    <option value="">Select role...</option>
+                                    @foreach (var role in UserRoles.Assignable)
+                                    {
+                                        <option value="@role">@role</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="() => form.Role" />
+                            </div>
+
+                            @* Only students belong to a course *@
+                            @if (form.Role == UserRoles.Student)
                             {
-                                <div class="validation-message">@courseLoadError</div>
+                                <div class="col-12">
+                                    <label class="form-label" for="user-course">Course *</label>
+                                    <InputSelect id="user-course" class="form-select" @bind-Value="form.CourseId">
+                                        <option value="">Select course...</option>
+                                        @foreach (var course in courses)
+                                        {
+                                            <option value="@course.Id">@course.Name</option>
+                                        }
+                                    </InputSelect>
+                                    @if (!string.IsNullOrWhiteSpace(courseFieldError))
+                                    {
+                                        <div class="validation-message">@courseFieldError</div>
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(courseLoadError))
+                                    {
+                                        <div class="validation-message">@courseLoadError</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="lms-cell-sub mt-1">A student belongs to exactly one course.</div>
+                                    }
+                                </div>
                             }
                         </div>
-                    }
-                </div>
 
-                <div class="d-flex gap-2 mt-4">
-                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
-                        @(isSaving ? "Saving..." : "Save")
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" disabled="@isSaving" @onclick="CloseForm">Cancel</button>
+                        <div class="d-flex justify-content-end gap-2 mt-3">
+                            <button type="button" class="btn btn-outline-secondary" disabled="@isSaving" @onclick="CloseForm">Cancel</button>
+                            <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                @(isSaving ? "Saving..." : (editingId is null ? "Create user" : "Save user"))
+                            </button>
+                        </div>
+                    </EditForm>
                 </div>
-            </EditForm>
-        </div>
-    }
-
-    @if (isLoading)
-    {
-        <div class="users-card">
-            <div class="d-flex flex-column gap-3">
-                <div class="users-skeleton" style="width: 40%; height: 16px;"></div>
-                <div class="users-skeleton" style="width: 70%; height: 16px;"></div>
-                <div class="users-skeleton" style="width: 55%; height: 16px;"></div>
             </div>
-        </div>
-    }
-    else if (!string.IsNullOrWhiteSpace(loadError))
-    {
-        <div class="users-card">
-            <div class="users-state">
-                <span class="users-icon-tile" style="background: #fde8e8; color: #dc3545;">!</span>
-                <div class="users-cell-title">@loadError</div>
-                <button type="button" class="btn btn-outline-primary btn-sm" @onclick="ReloadAsync">Try again</button>
-            </div>
-        </div>
-    }
-    else if (users is { Count: 0 })
-    {
-        <div class="users-card">
-            <div class="users-state">
-                <span class="users-icon-tile users-tone-primary">+</span>
-                <div class="users-cell-title">No users yet</div>
-                <div class="users-cell-sub">Create the first user with the button above.</div>
-            </div>
-        </div>
-    }
-    else if (users is not null)
-    {
-        <div class="users-card users-card-table">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle users-table">
-                    <thead>
-                        <tr>
-                            <th>User</th>
-                            <th>Role</th>
-                            <th>Course</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var user in users)
-                        {
-                            <tr>
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span class="users-avatar @AvatarClass(user.Role)">@GetInitials(user)</span>
-                                        <div>
-                                            <div class="users-cell-title">@(string.IsNullOrWhiteSpace(user.Name) ? "—" : user.Name)</div>
-                                            <div class="users-cell-sub">@user.Email</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td><span class="users-badge @RoleToneClass(user.Role)">@user.Role</span></td>
-                                <td>@CourseText(user)</td>
-                                <td class="text-end">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => StartEdit(user)">Edit</button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    }
+        }
+    </div>
 </div>
 
 @code {
-    // TODO: confirm the route when the course list endpoint exists.
+    // The course list endpoint (teacher only)
     private const string CoursesEndpoint = "courses";
 
     private readonly CancellationTokenSource cts = new();
@@ -215,6 +228,21 @@
     private string? passwordError;
     private string? courseFieldError;
     private string? successMessage;
+
+    // Subtitle under the title, e.g. "72 students · 4 teachers"
+    private string UserCountText
+    {
+        get
+        {
+            if (users is null) return string.Empty;
+
+            var students = users.Count(u => u.Role == UserRoles.Student);
+            var teachers = users.Count(u => u.Role == UserRoles.Teacher);
+
+            return $"{students} {(students == 1 ? "student" : "students")} · " +
+                   $"{teachers} {(teachers == 1 ? "teacher" : "teachers")}";
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -340,6 +368,7 @@
         editContext = new EditContext(form);
         messageStore = new ValidationMessageStore(editContext);
 
+        // Clear a field's server error as soon as the user edits that field.
         editContext.OnFieldChanged += (_, e) => messageStore.Clear(e.FieldIdentifier);
     }
 
@@ -453,31 +482,24 @@
             $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
             forceLoad: true);
 
-    // The page title shows the role of the logged-in user.
-    private static string RoleTitle(ClaimsPrincipal user)
-    {
-        if (user.IsInRole(UserRoles.Teacher)) return UserRoles.Teacher;
-        if (user.IsInRole(UserRoles.Student)) return UserRoles.Student;
-
-        return user.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
-    }
-
     private static string CourseText(UserDto user) =>
         user.CourseNames.Count == 0 ? "—" : string.Join(", ", user.CourseNames);
 
+    // Role pill colors: teachers purple, students blue
     private static string RoleToneClass(string role) => role switch
     {
-        UserRoles.Teacher => "users-tone-purple",
-        UserRoles.Student => "users-tone-primary",
-        _ => "users-tone-muted"
+        UserRoles.Teacher => "lms-tone-purple",
+        UserRoles.Student => "lms-tone-muted",
+        _ => "lms-tone-muted"
     };
 
-    private static string AvatarClass(string role) => role switch
-    {
-        UserRoles.Teacher => "is-teacher",
-        UserRoles.Student => string.Empty,
-        _ => "is-other"
-    };
+    // Teachers get a purple avatar, students the default blue one
+    private static string AvatarClass(string role) =>
+        role == UserRoles.Teacher ? "is-teacher" : string.Empty;
+
+    // Any other role gets a neutral grey avatar
+    private static string AvatarStyle(string role) =>
+        role is UserRoles.Teacher or UserRoles.Student ? string.Empty : "background:#6c757d";
 
     private static string GetInitials(UserDto user)
     {
@@ -501,6 +523,7 @@
         cts.Dispose();
     }
 
+    // Course shape returned by GET courses (only id and name are needed here)
     public sealed record CourseOption(Guid Id, string Name);
 
     private sealed class UserFormModel

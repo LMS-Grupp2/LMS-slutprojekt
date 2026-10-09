@@ -1,88 +1,29 @@
-﻿@implements IDisposable
-@using LMS.Shared.Constants
+﻿@using LMS.Shared.Constants
 
-@inject NavigationManager NavigationManager
+@* Main side menu. The links depend on the role of the logged-in user.
+   Styles (lms-sidebar, lms-nav-link, ...) live in wwwroot/css/lms.css.
+   NavLink adds the "active" class automatically for the current page. *@
+<nav class="lms-sidebar" aria-label="Main navigation">
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">Lexicon LMS</a>
-    </div>
-</div>
+    @* Teacher menu. Modules are reached through a course on the Courses page. *@
+    <AuthorizeView Roles="@UserRoles.Teacher" Context="teacherContext">
+        <p class="lms-sidebar-title">Teaching</p>
+        <NavLink class="lms-nav-link" href="courses">
+            <span class="lms-nav-glyph">C</span> Courses
+        </NavLink>
+        <NavLink class="lms-nav-link" href="users">
+            <span class="lms-nav-glyph">U</span> Users
+        </NavLink>
+    </AuthorizeView>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <AuthorizeView>
-            <Authorized>
-               <AuthorizeView Roles="@UserRoles.Teacher" Context="teacherContext">
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="users">
-                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Users
-                    </NavLink>
-                </div>
-               </AuthorizeView>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="auth">
-                        <span class="bi bi-lock-nav-menu" aria-hidden="true"></span> Auth Required
-                    </NavLink>
-                </div>
-                <AuthorizeView Roles="Student" Context="studentContext">
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="my-course">
-                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> My course
-                        </NavLink>
-                    </div>
-                    @* Opens the modules of the student's own course (US04). *@
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="my-modules">
-                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Modules
-                        </NavLink>
-                    </div>
-                </AuthorizeView>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="SomepageNotImplemented">
-                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> @context.User.Identity?.Name
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <form action="Account/Logout" method="post">
-                        <AntiforgeryToken />
-                        <input type="hidden" name="ReturnUrl" value="@currentUrl" />
-                        <button type="submit" class="nav-link">
-                            <span class="bi bi-arrow-bar-left-nav-menu" aria-hidden="true"></span> Logout
-                        </button>
-                    </form>
-                </div>
-            </Authorized>
-            <NotAuthorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Login">
-                        <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Login
-                    </NavLink>
-                </div>
-            </NotAuthorized>
-        </AuthorizeView>
-    </nav>
-</div>
-
-@code {
-    private string? currentUrl;
-
-    protected override void OnInitialized()
-    {
-        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-        NavigationManager.LocationChanged += OnLocationChanged;
-    }
-
-    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
-    {
-        currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
-        StateHasChanged();
-    }
-
-    public void Dispose()
-    {
-        NavigationManager.LocationChanged -= OnLocationChanged;
-    }
-}
+    @* Student menu. Modules opens the modules of the student's own course. *@
+    <AuthorizeView Roles="@UserRoles.Student" Context="studentContext">
+        <p class="lms-sidebar-title">My learning</p>
+        <NavLink class="lms-nav-link" href="my-course">
+            <span class="lms-nav-glyph">C</span> My course
+        </NavLink>
+        <NavLink class="lms-nav-link" href="my-modules">
+            <span class="lms-nav-glyph">M</span> Modules
+        </NavLink>
+    </AuthorizeView>
+</nav>

@@ -1,19 +1,47 @@
 ﻿@inherits LayoutComponentBase
+@using System.Security.Claims
+@using LMS.Shared.Constants
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+@* App shell: dark top bar + sidebar + main content. Styles live in wwwroot/css/lms.css *@
+<div class="lms-shell">
+    <header class="lms-topbar">
+        <a class="lms-brand" href="/"><span class="lms-logo">L</span>Lexicon LMS</a>
+
+        <AuthorizeView>
+            <Authorized>
+                <div class="lms-topbar-right">
+                    <div class="lms-user">
+                        @* Teachers get a purple avatar, students a blue one *@
+                        <span class="lms-avatar @(context.User.IsInRole(UserRoles.Teacher) ? "is-teacher" : "")">
+                            @Initials(context.User.Identity?.Name)
+                        </span>
+                        <span class="lms-user-text">
+                            <span class="lms-user-name d-block">@context.User.Identity?.Name</span>
+                            <span class="lms-user-role d-block">@RoleText(context.User)</span>
+                        </span>
+                    </div>
+
+                    @* Existing logout flow (POST + antiforgery) kept as-is, only restyled *@
+                    <form action="Account/Logout" method="post" class="m-0">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="" />
+                        <button type="submit" class="lms-logout">Log out</button>
+                    </form>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+    </header>
+
+    <div class="lms-body">
+        @* The sidebar is only shown to signed-in users *@
+        <AuthorizeView>
+            <Authorized>
+                <NavMenu />
+            </Authorized>
+        </AuthorizeView>
+
+        <main class="lms-main">@Body</main>
     </div>
-
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>
@@ -21,3 +49,27 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    // Role label under the user name in the top bar
+    private static string RoleText(ClaimsPrincipal user) =>
+        user.IsInRole(UserRoles.Teacher) ? "Teacher"
+        : user.IsInRole(UserRoles.Student) ? "Student"
+        : user.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+
+    // Initials for the avatar; if the name is an email, use the part before @
+    private static string Initials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+
+        var cleaned = name.Contains('@') ? name.Split('@')[0].Replace('.', ' ') : name;
+        var parts = cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        return parts.Length switch
+        {
+            0 => "?",
+            1 => parts[0][..1].ToUpperInvariant(),
+            _ => $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant()
+        };
+    }
+}
