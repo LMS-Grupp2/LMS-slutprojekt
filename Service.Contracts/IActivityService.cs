@@ -15,8 +15,9 @@ public interface IActivityService
     Task<IEnumerable<ActivityTypeDto>> GetActivityTypesAsync();
 
     /// <summary>
-    /// Creates an activity. Throws a 400 (BadRequestException) if end is not after start,
-    /// or a 409 (ConflictException) if it overlaps another activity in the module.
+    /// Creates an activity. Throws a 400 (BadRequestException) if end is not after start or the activity
+    /// is outside the module's dates, a 404 if the module doesn't exist, or a 409 (ConflictException)
+    /// if it overlaps another activity in the module.
     /// </summary>
     Task<ActivityDto> CreateAsync(CreateActivityDto dto);
 

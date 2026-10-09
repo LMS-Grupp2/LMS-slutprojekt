@@ -42,11 +42,9 @@ public class ActivitiesController(IServiceManager serviceManager) : ControllerBa
         return Ok(activity);
     }
 
-    /// <summary>
-    /// Creates an activity. Throws a 400 (BadRequestException) if end is not after start or the activity
-    /// is outside the module's dates, a 404 if the module doesn't exist, or a 409 (ConflictException)
-    /// if it overlaps another activity in the module.
-    /// </summary>
+    
+    /// <summary>POST api/activities - creates an activity. 400 for invalid data or dates outside 
+    /// the module,404 if the module doesn't exist, 409 on overlap.</summary>
     [HttpPost("activities")]
     [SwaggerOperation(Summary = "Create activity", Description = "Creates an activity. Must be inside " +
      "the module's dates and must not overlap another activity in the module.")]

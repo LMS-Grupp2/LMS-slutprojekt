@@ -49,6 +49,7 @@ public class ActivityRepository : IActivityRepository
             .FirstOrDefaultAsync();
     }
 
+    // Read only (the dropdown list), so tracking is turned off
     public async Task<IEnumerable<ActivityType>> GetActivityTypesAsync()
     {
         return await _context.ActivityTypes
