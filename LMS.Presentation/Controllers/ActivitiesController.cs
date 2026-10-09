@@ -20,11 +20,13 @@ public class ActivitiesController(IServiceManager serviceManager) : ControllerBa
 
     private readonly IServiceManager _serviceManager = serviceManager;
 
-    /// <summary>GET api/modules/{moduleId}/activities - the module's activities, earliest first.</summary>
+    /// <summary>GET api/modules/{moduleId}/activities - the module's activities, earliest first, 
+    /// or 404 if the module does not exist.</summary>
     [HttpGet("modules/{moduleId:guid}/activities")]
     [SwaggerOperation(Summary = "List the activities of a module", 
         Description = "Returns the module's activities, earliest start time first")]
     [ProducesResponseType(StatusCodes.Status200OK, Type =  typeof(IEnumerable<ActivityDto>))]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IEnumerable<ActivityDto>>> GetActivities(Guid moduleId)
     {
         var activities = await _serviceManager.ActivityService.GetByModuleIdAsync(moduleId);

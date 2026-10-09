@@ -23,6 +23,12 @@ public class ActivityService : IActivityService
 
     public async Task<IEnumerable<ActivityDto>> GetByModuleIdAsync(Guid moduleId)
     {
+        // An unknown module is a 404, not an empty list (same as the other endpoints)
+        var module = await _unitOfWork.Modules.GetByIdAsync(moduleId);
+        
+        if (module is null)
+            throw new ModuleNotFoundException(moduleId);
+
         var activities = await _unitOfWork.Activities.GetByModuleIdAsync(moduleId);
         return activities.Select(MapToDto).ToList();
     }

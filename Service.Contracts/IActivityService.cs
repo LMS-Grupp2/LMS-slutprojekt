@@ -5,7 +5,8 @@ namespace Service.Contracts;
 /// <summary>Business operations for activities, used by the activities controller.</summary>
 public interface IActivityService
 {
-    /// <summary>Gets a module's activities, earliest start time first.</summary>
+    /// <summary>Gets a module's activities, earliest start time first. 
+    /// Throws a 404 if the module does not exist.</summary>
     Task<IEnumerable<ActivityDto>> GetByModuleIdAsync(Guid moduleId);
    
     /// <summary>Gets one activity. Throws a 404 (ActivityNotFoundException) if it does not exist.</summary>
