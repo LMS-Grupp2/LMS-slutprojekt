@@ -8,5 +8,6 @@ public interface IUnitOfWork
     IModuleRepository Modules { get; }
     IUserRepository Users { get; }
     ICourseUserRepository CourseUsers { get; }
+    IActivityRepository Activities { get; }
     Task SaveChangesAsync();
 }

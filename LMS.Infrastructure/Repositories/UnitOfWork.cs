@@ -15,6 +15,7 @@ public class UnitOfWork : IUnitOfWork
     public IModuleRepository Modules { get; }
     public ICourseUserRepository CourseUsers { get; }
     public ICourseRepository Courses { get; }
+    public IActivityRepository Activities { get; }
 
     public UnitOfWork(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
     {
@@ -23,6 +24,7 @@ public class UnitOfWork : IUnitOfWork
         Modules = new ModuleRepository(context);
         CourseUsers = new CourseUserRepository(context);
         Courses = new CourseRepository(context);
+        Activities = new ActivityRepository(context);
     }
 
     public async Task SaveChangesAsync()

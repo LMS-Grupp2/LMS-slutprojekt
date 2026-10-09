@@ -9,6 +9,11 @@ using Microsoft.AspNetCore.Identity;
 
 namespace LMS.Services;
 
+/// <summary>
+/// Business rules for users: role must be assignable and a student needs a course (400),
+/// email must be unique (409), and a student belongs to only one course.
+/// Controllers call this service, and it talks to the database only through the unit of work.
+/// </summary>
 public class UserService : IUserService
 {
     private readonly IUnitOfWork _unitOfWork;
@@ -89,10 +94,16 @@ public class UserService : IUserService
         await ChangeRoleAsync(user, dto.Role);
         
     }
-   
+
 
 
     /* Helper methods */
+
+    /// <summary>
+    /// Single place that maps a user to its DTO. The role is passed in because Identity keeps roles
+    /// in a separate table (fetched with GetRolesAsync), not on ApplicationUser.
+    /// Requires CourseUsers.Course to be loaded.
+    /// </summary>
     private static UserDto MapToDto(ApplicationUser user, string role)
     {
         return new UserDto(
@@ -104,6 +115,10 @@ public class UserService : IUserService
         );
     }
 
+    /// <summary>
+    /// Throws a 400 if the role isn't assignable (e.g. "Demo") or a student has no course.
+    /// Runs first in create/update, before any database call.
+    /// </summary>
     private static void ValidateRoleAndCourse(string role, Guid? courseId)
     {
         if (!UserRoles.Assignable.Contains(role))
@@ -116,6 +131,10 @@ public class UserService : IUserService
             throw new BadRequestException("A student must have a course assigned.", "Course is required");
     }
 
+    /// <summary>
+    /// Identity returns a failed result instead of throwing, so it's easy to ignore by mistake.
+    /// This turns it into a 400 with Identity's own messages (e.g. password rules).
+    /// </summary>
     private static void ThrowIfFailed(IdentityResult result)
     {
         if (!result.Succeeded)
@@ -123,6 +142,11 @@ public class UserService : IUserService
                 "Validation failed");
     }
 
+    /// <summary>
+    /// Links the user to the given course. A student can only belong to one course,
+    /// so their old link is removed first. A teacher keeps their old courses and gets one more.
+    /// Does nothing if no course is given or the user is already linked to it.
+    /// </summary>
     private static void UpdateCourseLink(ApplicationUser user, string role, Guid? courseId)
     {
         if (courseId is not Guid newCourseId) return;
@@ -137,6 +161,10 @@ public class UserService : IUserService
         user.CourseUsers.Add(new CourseUser { CourseId = newCourseId });
     }
 
+    /// <summary>
+    /// Swaps the user's role: removes every old role except the new one, then adds the new one
+    /// if it's missing. Runs after the user is saved, because Identity's role methods need an existing user.
+    /// </summary>
     private async Task ChangeRoleAsync(ApplicationUser user, string newRole)
     {
         var currentRoles = await _unitOfWork.Users.GetRolesAsync(user);

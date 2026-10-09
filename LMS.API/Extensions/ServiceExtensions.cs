@@ -23,5 +23,7 @@ public static class ServiceExtensions
         services.AddLazy<IUserService>();
         services.AddScoped<ICourseService, CourseService>();
         services.AddLazy<ICourseService>();
+        services.AddScoped<IActivityService, ActivityService>();
+        services.AddLazy<IActivityService>();
     }
 }
