@@ -6,6 +6,7 @@
 @using LMS.Shared.Constants
 @using LMS.Shared.DTOs.UserDtos
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 
 @* Teacher page for managing users. Styling comes from wwwroot/css/lms.css. *@
 @attribute [Authorize(Roles = UserRoles.Teacher)]
@@ -153,7 +154,9 @@
                                 </div>
                             }
 
-                            <div class="col-12">
+                            @* NEW: when a teacher edits their own account, the role field is hidden
+                               by CSS (class "users-role-locked") and a short note is shown instead. *@
+                            <div class="col-12 @(editingSelf ? "users-role-locked" : string.Empty)">
                                 <label class="form-label" for="user-role">Role *</label>
                                 <InputSelect id="user-role" class="form-select" @bind-Value="form.Role">
                                     <option value="">Select role...</option>
@@ -164,6 +167,13 @@
                                 </InputSelect>
                                 <ValidationMessage For="() => form.Role" />
                             </div>
+
+                            @if (editingSelf)
+                            {
+                                <div class="col-12">
+                                    <div class="lms-cell-sub">You cannot change your own role.</div>
+                                </div>
+                            }
 
                             @* Only students belong to a course *@
                             @if (form.Role == UserRoles.Student)
@@ -212,6 +222,13 @@
 
     private readonly CancellationTokenSource cts = new();
 
+    // NEW: the signed-in user, used to detect when a teacher edits their own account
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private string? currentUserName;
+    private bool editingSelf;
+
     private List<UserDto>? users;
     private List<CourseOption> courses = [];
     private bool isLoading = true;
@@ -246,6 +263,13 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // NEW: remember who is signed in (the identity name is the email address)
+        if (AuthState is not null)
+        {
+            var state = await AuthState;
+            currentUserName = state.User.Identity?.Name;
+        }
+
         await LoadUsersAsync();
         await LoadCoursesAsync();
     }
@@ -324,6 +348,7 @@
     private void StartCreate()
     {
         editingId = null;
+        editingSelf = false;
         form = new UserFormModel();
         CreateEditContext();
         ResetFormErrors();
@@ -334,6 +359,10 @@
     private void StartEdit(UserDto user)
     {
         editingId = user.Id;
+
+        // NEW: true when the signed-in teacher edits their own account
+        editingSelf = !string.IsNullOrWhiteSpace(currentUserName) &&
+                      string.Equals(user.Email, currentUserName, StringComparison.OrdinalIgnoreCase);
 
         // The user DTO only contains course names, so the course is matched by name.
         var courseName = user.CourseNames.FirstOrDefault();
@@ -359,6 +388,7 @@
     {
         showForm = false;
         editingId = null;
+        editingSelf = false;
         form = new UserFormModel();
         ResetFormErrors();
     }
@@ -485,7 +515,7 @@
     private static string CourseText(UserDto user) =>
         user.CourseNames.Count == 0 ? "—" : string.Join(", ", user.CourseNames);
 
-    // Role pill colors: teachers purple, students blue
+    // Role pill colors: teachers purple, everyone else grey
     private static string RoleToneClass(string role) => role switch
     {
         UserRoles.Teacher => "lms-tone-purple",
