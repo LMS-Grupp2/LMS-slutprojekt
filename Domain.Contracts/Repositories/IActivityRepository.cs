@@ -10,6 +10,10 @@ public interface IActivityRepository
 {
     Task<IEnumerable<Activity>> GetByModuleIdAsync(Guid moduleId);
     Task<Activity?> GetByIdAsync(Guid id);
+
+    /// <summary>True if an activity type with this id exists.</summary>
+    Task<bool> ActivityTypeExistsAsync(Guid acitvityTypeId);
+   
     void Create(Activity activity);
     void Update(Activity activity);
     void Delete(Activity activity);

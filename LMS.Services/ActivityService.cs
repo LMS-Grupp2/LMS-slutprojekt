@@ -46,6 +46,8 @@ public class ActivityService : IActivityService
 
     public async Task<ActivityDto> CreateAsync(CreateActivityDto dto)
     {
+        await EnsureActivityTypeExistsAsync(dto.ActivityTypeId!.Value);
+
         await ValidateActivityAsync(dto.ModuleId!.Value, dto.StartTime!.Value, 
             dto.EndTime!.Value, null );
 
@@ -71,6 +73,8 @@ public class ActivityService : IActivityService
     {
         var activity = await _unitOfWork.Activities.GetByIdAsync(id)
             ?? throw new ActivityNotFoundException(id);
+
+        await EnsureActivityTypeExistsAsync(dto.ActivityTypeId!.Value);
 
         await ValidateActivityAsync(activity.ModuleId, dto.StartTime!.Value, dto.EndTime!.Value, 
             activity.Id);
@@ -142,5 +146,15 @@ public class ActivityService : IActivityService
         if (overlapping is not null)
             throw new ConflictException($"The activity overlaps with '{overlapping.Name}' " +
                 $"({overlapping.StartTime:g} – {overlapping.EndTime:g}).");
+    }
+
+    /// <summary>
+    /// Throws a 404 if the activity type doesn't exist. Without this check, an unknown id
+    /// would hit the foreign key on save and return a 500.
+    /// </summary>
+    private async Task EnsureActivityTypeExistsAsync(Guid activityTypeId)
+    {
+        if (!await _unitOfWork.Activities.ActivityTypeExistsAsync(activityTypeId))
+            throw new ActivityTypeNotFoundException(activityTypeId);
     }
 }

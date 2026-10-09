@@ -58,6 +58,12 @@ public class ActivityRepository : IActivityRepository
             .ToListAsync();
     }
 
+    public async Task<bool> ActivityTypeExistsAsync(Guid activityTypeId)
+    {
+        return await _context.ActivityTypes
+            .AnyAsync(t => t.Id == activityTypeId);
+    }
+
     public void Create(Activity activity) => _context.Activities.Add(activity);
     public void Update(Activity activity) => _context.Activities.Update(activity);
     public void Delete(Activity activity) => _context.Activities.Remove(activity);
