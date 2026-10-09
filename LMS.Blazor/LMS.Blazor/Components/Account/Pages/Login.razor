@@ -1,4 +1,5 @@
 @page "/Account/Login"
+@layout LMS.Blazor.Components.Layout.LoginLayout
 
 @using System.ComponentModel.DataAnnotations
 @using LMS.Shared.DTOs.AuthDtos
@@ -8,50 +9,49 @@
 @inject AccountRedirectManager RedirectManager
 @inject RemoteAuthenticationService AuthenticationService
 
-<PageTitle>Log in</PageTitle>
+<PageTitle>Sign in · Lexicon LMS</PageTitle>
 
-<h1>Log in</h1>
-<div class="row">
-    <div class="col-lg-6">
-        <section>
-            <StatusMessage Message="@errorMessage" />
-            <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login">
-                <DataAnnotationsValidator />
-                <h2>Use your account to log in.</h2>
-                <hr />
-                <div class="form-floating mb-3">
-                    <InputText @bind-Value="Input.Email"
-                               id="Input.Email"
-                               class="form-control"
-                               autocomplete="username"
-                               aria-required="true"
-                               placeholder="name@example.com" />
-                    <label for="Input.Email" class="form-label">Email</label>
-                    <ValidationMessage For="() => Input.Email" class="text-danger" />
-                </div>
-                <div class="form-floating mb-3">
-                    <InputText type="password"
-                               @bind-Value="Input.Password"
-                               id="Input.Password"
-                               class="form-control"
-                               autocomplete="current-password"
-                               aria-required="true"
-                               placeholder="password" />
-                    <label for="Input.Password" class="form-label">Password</label>
-                    <ValidationMessage For="() => Input.Password" class="text-danger" />
-                </div>
-                <div class="checkbox mb-3">
-                    <label class="form-label">
-                        <InputCheckbox @bind-Value="Input.RememberMe"
-                                       class="darker-border-checkbox form-check-input" />
-                        Remember me
-                    </label>
-                </div>
-                <button type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
-            </EditForm>
-        </section>
-    </div>
+<div>
+    <h2 class="lms-login-title">Sign in</h2>
+    <p class="text-secondary mb-0">Use the account your teacher created for you.</p>
 </div>
+
+<StatusMessage Message="@errorMessage" />
+
+<EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login" class="d-flex flex-column gap-3">
+    <DataAnnotationsValidator />
+
+    <div>
+        <label for="Input.Email" class="form-label">Email</label>
+        <InputText @bind-Value="Input.Email"
+                   id="Input.Email"
+                   class="form-control"
+                   autocomplete="username"
+                   aria-required="true"
+                   placeholder="name@lexicon.se" />
+        <ValidationMessage For="() => Input.Email" />
+    </div>
+
+    <div>
+        <label for="Input.Password" class="form-label">Password</label>
+        <InputText type="password"
+                   @bind-Value="Input.Password"
+                   id="Input.Password"
+                   class="form-control"
+                   autocomplete="current-password"
+                   aria-required="true" />
+        <ValidationMessage For="() => Input.Password" />
+    </div>
+
+    <div class="form-check">
+        <InputCheckbox @bind-Value="Input.RememberMe"
+                       id="Input.RememberMe"
+                       class="form-check-input" />
+        <label class="form-check-label" for="Input.RememberMe">Remember me</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Sign in</button>
+</EditForm>
 
 @code {
     private string? errorMessage;

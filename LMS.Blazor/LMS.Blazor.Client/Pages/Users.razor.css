@@ -1,0 +1,6 @@
+﻿/* Users page: when a teacher edits their own account, the role field is hidden.
+   The "users-role-locked" class is set in Users.razor (editingSelf).
+   This is only a visual safeguard; the API check comes in a separate change. */
+.users-role-locked {
+    display: none;
+}

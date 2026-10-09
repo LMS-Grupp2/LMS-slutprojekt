@@ -28,6 +28,9 @@ namespace LMS.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("ActivityTypeId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
@@ -44,15 +47,66 @@ namespace LMS.Infrastructure.Migrations
                     b.Property<DateTime>("StartTime")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("Id");
+
+                    b.HasIndex("ActivityTypeId");
 
                     b.HasIndex("ModuleId");
 
                     b.ToTable("Activities");
+                });
+
+            modelBuilder.Entity("Domain.Models.Entities.ActivityType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("ActivityTypes");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("59fb72bf-fd37-48dc-8391-5ee265c0072c"),
+                            Description = "A teacher-led session where new material is presented.",
+                            Name = "Lecture"
+                        },
+                        new
+                        {
+                            Id = new Guid("9acbd254-d038-44b9-ba1f-eeea65500778"),
+                            Description = "Self-paced online material, such as a video course, done on your own time.",
+                            Name = "E-Learning"
+                        },
+                        new
+                        {
+                            Id = new Guid("8998f0ff-48b5-4245-943f-3579252e4d18"),
+                            Description = "A practice session where you apply what you've learned.",
+                            Name = "Exercise"
+                        },
+                        new
+                        {
+                            Id = new Guid("c10e45b9-fcfe-468c-bc7e-fe29b4fb62eb"),
+                            Description = "A task to complete and hand in for review by the teacher.",
+                            Name = "Assignment"
+                        },
+                        new
+                        {
+                            Id = new Guid("47c20d6b-daf9-4180-a01c-092f5337af72"),
+                            Description = "Any other scheduled activity, such as a kickoff or a meeting.",
+                            Name = "Other"
+                        });
                 });
 
             modelBuilder.Entity("Domain.Models.Entities.ApplicationUser", b =>
@@ -485,11 +539,19 @@ namespace LMS.Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Models.Entities.Activity", b =>
                 {
+                    b.HasOne("Domain.Models.Entities.ActivityType", "ActivityType")
+                        .WithMany("Activities")
+                        .HasForeignKey("ActivityTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Domain.Models.Entities.Module", "Module")
                         .WithMany("Activities")
                         .HasForeignKey("ModuleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("ActivityType");
 
                     b.Navigation("Module");
                 });
@@ -664,6 +726,11 @@ namespace LMS.Infrastructure.Migrations
                     b.Navigation("Documents");
 
                     b.Navigation("Submissions");
+                });
+
+            modelBuilder.Entity("Domain.Models.Entities.ActivityType", b =>
+                {
+                    b.Navigation("Activities");
                 });
 
             modelBuilder.Entity("Domain.Models.Entities.ApplicationUser", b =>
