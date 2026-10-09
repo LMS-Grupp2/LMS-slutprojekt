@@ -8,8 +8,8 @@ using LMS.Shared.DTOs.ActivityDtos;
 namespace LMS.Services;
 
 /// <summary>
-/// Business rules for activities: end must be after start (400) and no overlap
-/// within the same module (409). Controllers call this service through the interface,
+/// Business rules for activities: end must be after start (400), inside the module's dates (400)
+/// and no overlap within the same module (409). Controllers call this service through the interface,
 /// and it talks to the database only through the unit of work.
 /// </summary>
 public class ActivityService : IActivityService
@@ -107,6 +107,7 @@ public class ActivityService : IActivityService
 
     /// <summary>
     /// Runs the activity rules before create/update: 400 if end is not after start,
+    /// 404 if the module doesn't exist, 400 if the activity is outside the module's dates,
     /// 409 if it overlaps another activity in the module. excludeActivityId = own id on update, null on create.
     /// </summary>
     private async Task ValidateActivityAsync(Guid moduleId, DateTime startTime, DateTime endTime,
@@ -114,6 +115,17 @@ public class ActivityService : IActivityService
     {
         if (endTime <= startTime)
             throw new BadRequestException("End time must be after start time.");
+
+        var module = await _unitOfWork.Modules.GetByIdAsync(moduleId)
+            ?? throw new ModuleNotFoundException(moduleId);
+
+        // Module dates are DateOnly and activity times are DateTime, so compare on the date part only.
+        // That way an activity at 16:00 on the module's last day still counts as inside.
+        var activityStart = DateOnly.FromDateTime(startTime);
+        var activityEnd = DateOnly.FromDateTime(endTime);
+
+        if (activityStart < module.StartDate || activityEnd > module.EndDate)
+            throw new BadRequestException("The activity must be within the module's dates.");
 
         var overlapping = await _unitOfWork.Activities.FindOverlappingAsync(moduleId, startTime,
             endTime, excludeActivityId);
