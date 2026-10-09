@@ -12,7 +12,7 @@ public interface IActivityRepository
     Task<Activity?> GetByIdAsync(Guid id);
 
     /// <summary>True if an activity type with this id exists.</summary>
-    Task<bool> ActivityTypeExistsAsync(Guid acitvityTypeId);
+    Task<bool> ActivityTypeExistsAsync(Guid activityTypeId);
    
     void Create(Activity activity);
     void Update(Activity activity);

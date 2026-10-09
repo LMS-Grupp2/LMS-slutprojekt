@@ -15,13 +15,14 @@ public interface IActivityService
     Task<IEnumerable<ActivityTypeDto>> GetActivityTypesAsync();
 
     /// <summary>
-    /// Creates an activity. Throws a 400 (BadRequestException) if end is not after start or the activity
-    /// is outside the module's dates, a 404 if the module doesn't exist, or a 409 (ConflictException)
-    /// if it overlaps another activity in the module.
+    /// Creates an activity. Throws a 404 if the activity type or the module doesn't exist,
+    /// a 400 (BadRequestException) if end is not after start or the activity is outside the
+    /// module's dates, or a 409 (ConflictException) if it overlaps another activity in the module.
     /// </summary>
     Task<ActivityDto> CreateAsync(CreateActivityDto dto);
 
-    /// <summary>Updates an activity. Throws a 404 if it does not exist, plus the same 400/409 as create.</summary>
+    /// <summary>Updates an activity. Throws a 404 if the activity or its type does not exist, 
+    /// plus the same 400/409 as create.</summary>
     Task UpdateAsync(Guid id, UpdateActivityDto dto);
 
     /// <summary>Deletes an activity. Throws a 404 if it does not exist.</summary>
