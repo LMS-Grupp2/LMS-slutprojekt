@@ -11,6 +11,9 @@ public interface IActivityService
     /// <summary>Gets one activity. Throws a 404 (ActivityNotFoundException) if it does not exist.</summary>
     Task<ActivityDto> GetByIdAsync(Guid id);
 
+    /// <summary>Gets all activity types, sorted by name. Used for the type dropdown.</summary>
+    Task<IEnumerable<ActivityTypeDto>> GetActivityTypesAsync();
+
     /// <summary>
     /// Creates an activity. Throws a 400 (BadRequestException) if end is not after start,
     /// or a 409 (ConflictException) if it overlaps another activity in the module.

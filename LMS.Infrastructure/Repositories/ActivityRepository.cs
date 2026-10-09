@@ -49,6 +49,14 @@ public class ActivityRepository : IActivityRepository
             .FirstOrDefaultAsync();
     }
 
+    public async Task<IEnumerable<ActivityType>> GetActivityTypesAsync()
+    {
+        return await _context.ActivityTypes
+            .AsNoTracking()
+            .OrderBy(t => t.Name)
+            .ToListAsync();
+    }
+
     public void Create(Activity activity) => _context.Activities.Add(activity);
     public void Update(Activity activity) => _context.Activities.Update(activity);
     public void Delete(Activity activity) => _context.Activities.Remove(activity);

@@ -35,6 +35,15 @@ public class ActivityService : IActivityService
         return MapToDto(activity);
     }
 
+    public async Task<IEnumerable<ActivityTypeDto>> GetActivityTypesAsync()
+    {
+        var types = await _unitOfWork.Activities.GetActivityTypesAsync();
+
+        return types
+            .Select(t => new ActivityTypeDto(t.Id, t.Name, t.Description))
+            .ToList();
+    }
+
     public async Task<ActivityDto> CreateAsync(CreateActivityDto dto)
     {
         await ValidateActivityAsync(dto.ModuleId!.Value, dto.StartTime!.Value, 

@@ -42,8 +42,11 @@ public class ActivitiesController(IServiceManager serviceManager) : ControllerBa
         return Ok(activity);
     }
 
-    /// <summary>POST api/activities - creates an activity. 400 for invalid data, 
-    /// 404 if the module doesn't exist, 409 on overlap.</summary>
+    /// <summary>
+    /// Creates an activity. Throws a 400 (BadRequestException) if end is not after start or the activity
+    /// is outside the module's dates, a 404 if the module doesn't exist, or a 409 (ConflictException)
+    /// if it overlaps another activity in the module.
+    /// </summary>
     [HttpPost("activities")]
     [SwaggerOperation(Summary = "Create activity", Description = "Creates an activity. Must be inside " +
      "the module's dates and must not overlap another activity in the module.")]
@@ -80,5 +83,15 @@ public class ActivitiesController(IServiceManager serviceManager) : ControllerBa
     {
         await _serviceManager.ActivityService.DeleteAsync(id);
         return NoContent();
+    }
+
+    /// <summary>GET api/activity-types - all activity types, sorted by name (for the type dropdown).</summary>
+    [HttpGet("activity-types")]                                                             
+    [SwaggerOperation(Summary = "List activity types", Description = "Returns all activity types, sorted by name.")]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<ActivityTypeDto>))]
+    public async Task<ActionResult<IEnumerable<ActivityTypeDto>>> GetActivityTypes()
+    {
+        var types = await _serviceManager.ActivityService.GetActivityTypesAsync();
+        return Ok(types);
     }
 }
