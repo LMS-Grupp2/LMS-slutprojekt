@@ -156,7 +156,8 @@
                                                     <td><span class="lms-badge @status.Css">@status.Text</span></td>
                                                     <td class="text-end text-nowrap">
                                                         @* Opens the activity page of this module *@
-                                                        <a class="btn btn-link btn-sm text-decoration-none" href="modules/@module.Id/activities">Activities</a>
+                                                        @* === TEMPORARE - LINK TO ACTIVITIES === *@
+                                                        <a class="btn btn-link btn-sm text-decoration-none" style="display: none;" href="modules/@module.Id/activities">Activities</a>
                                                         <button type="button" class="btn btn-link btn-sm text-decoration-none" @onclick="() => StartEdit(module)">Edit</button>
                                                     </td>
                                                 </tr>
