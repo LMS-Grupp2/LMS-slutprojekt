@@ -8,7 +8,7 @@ public interface IActivityService
     /// <summary>Gets a module's activities, earliest start time first. 
     /// Throws a 404 if the module does not exist.</summary>
     Task<IEnumerable<ActivityDto>> GetByModuleIdAsync(Guid moduleId);
-   
+
     /// <summary>Gets one activity. Throws a 404 (ActivityNotFoundException) if it does not exist.</summary>
     Task<ActivityDto> GetByIdAsync(Guid id);
 
@@ -28,4 +28,12 @@ public interface IActivityService
 
     /// <summary>Deletes an activity. Throws a 404 if it does not exist.</summary>
     Task DeleteAsync(Guid id);
+
+    // NEW (#177): read-only access for students.
+    /// <summary>
+    /// Gets a module's activities for a student, earliest start time first. The student must
+    /// belong to the module's course. Otherwise this throws the same 404 as for a module that
+    /// does not exist, so it does not reveal that the module exists.
+    /// </summary>
+    Task<IEnumerable<ActivityDto>> GetForStudentAsync(Guid moduleId, string userId);
 }
