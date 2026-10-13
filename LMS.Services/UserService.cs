@@ -5,6 +5,7 @@ using LMS.Shared.DTOs.UserDtos;
 using Service.Contracts;
 using LMS.Shared.Constants;
 using Microsoft.AspNetCore.Identity;
+using System.Runtime.InteropServices;
 
 
 namespace LMS.Services;
@@ -27,6 +28,7 @@ public class UserService : IUserService
     public async Task<UserDto> CreateAsync(CreateUserDto dto)
     {
         ValidateRoleAndCourse(dto.Role, dto.CourseId);
+        await EnsureCourseExistsAsync(dto.CourseId);
 
         if (await _unitOfWork.Users.FindByEmailAsync(dto.Email) is not null)
             throw new ConflictException($"The email '{dto.Email}' is already in use.", "Email in use.");
@@ -47,18 +49,31 @@ public class UserService : IUserService
         return await GetByIdAsync(user.Id);
     }
 
+
+    /// <summary>
+    /// Gets all users with their role.
+    /// Roles are fetched in one query up front and looked up per user,
+    /// so it's always 2 queries no matter how many users (no N+1).
+    /// </summary>
     public async Task<IEnumerable<UserDto>> GetAllAsync()
     {
         var users = await _unitOfWork.Users.GetAllAsync();
+
+        var roleNames = await _unitOfWork.Users.GetRoleNamesByUserIdAsync();
 
         var result = new List<UserDto>();
 
         foreach (var user in users)
         {
-            var roles = await _unitOfWork.Users.GetRolesAsync(user);
-            result.Add(MapToDto(user, roles.FirstOrDefault() ?? "Role not assigned"));
-        }
+            var role = "Role not assigned";
+            if (roleNames.ContainsKey(user.Id))
+            {
+                role = roleNames[user.Id];
+            }
 
+            result.Add(MapToDto(user, role));
+        }
+        
         return result;
     }
 
@@ -75,6 +90,7 @@ public class UserService : IUserService
     public async Task UpdateAsync(string id, UpdateUserDto dto)
     {
         ValidateRoleAndCourse(dto.Role, dto.CourseId);
+        await EnsureCourseExistsAsync(dto.CourseId);
 
         var user = await _unitOfWork.Users.FindByIdWithCourseAsync(id)
             ?? throw new UserNotFoundException(id);
@@ -174,5 +190,20 @@ public class UserService : IUserService
 
         if (!currentRoles.Contains(newRole))
             ThrowIfFailed(await _unitOfWork.Users.AddToRoleAsync(user, newRole));
+    }
+
+    /// <summary>
+    /// Throws CourseNotFoundException (404) if a course id is given but doesn't exist.
+    /// No course id (e.g. a teacher) is fine and does nothing.
+    /// </summary>
+    private async Task EnsureCourseExistsAsync(Guid? courseId)
+    {
+        if (courseId is null)
+            return;
+
+        var course = await _unitOfWork.Courses.GetCourseByIdAsync(courseId.Value);
+
+        if (course is null)
+            throw new CourseNotFoundException(courseId.Value);
     }
 }

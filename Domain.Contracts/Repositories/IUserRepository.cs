@@ -14,4 +14,5 @@ public interface IUserRepository
     Task<IEnumerable<string>> GetRolesAsync(ApplicationUser user);
     Task<IdentityResult> AddToRoleAsync(ApplicationUser user, string role);
     Task<IdentityResult> RemoveFromRoleAsync(ApplicationUser user, string role);
+    Task<IDictionary<string, string>> GetRoleNamesByUserIdAsync();
 }
