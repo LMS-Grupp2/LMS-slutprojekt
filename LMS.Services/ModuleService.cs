@@ -98,20 +98,20 @@ public class ModuleService(IUnitOfWork unitOfWork) : IModuleService
 
     /* Helper methods */
 
-    //<summary>Checks that all activities are inside the new dates
-    // Returns true if all activities fits within new dates, else false.
-    //</summary>
+    ///<summary>Checks that all activities are inside the new dates
+    /// Returns true if all activities fits within new dates, else false.
+    ///</summary>
     private async Task<bool> DatesFitsActivities(Guid id, DateOnly newStartDate, DateOnly newEndDate)
     {
         var activities = await unitOfWork.Activities.GetByModuleIdAsync(id);
 
-        if (activities is not null)
+        if (activities.Any())
         {
-            Activity first = activities.First();
-            if (newStartDate > DateOnly.FromDateTime(first.StartTime)) return false;
+            DateOnly firstStartDate = DateOnly.FromDateTime(activities.Min(a => a.StartTime));
+            if (newStartDate > firstStartDate) return false;
 
-            Activity last = activities.Count() > 1 ? activities.Last() : first;
-            if (newEndDate <  DateOnly.FromDateTime(last.EndTime)) return false;
+            DateOnly lastEndDate = DateOnly.FromDateTime(activities.Max(a => a.EndTime));
+            if (newEndDate < lastEndDate) return false;
         }
 
         return true;

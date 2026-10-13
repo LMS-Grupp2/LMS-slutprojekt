@@ -80,22 +80,21 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
         await unitOfWork.SaveChangesAsync();
     }
 
-    //<summary>Checks if course has modules that is outside course dates
-    //Returns true if no module is before/after new dates, else return false
-    //</summary>
+    /// <summary>Checks if course has modules that is outside course dates
+    /// Returns true if no module is before/after new dates, else return false
+    /// </summary>
     private async Task<bool> DatesFitsModules(Guid id, DateOnly newStartDate, DateOnly newEndDate)
     {
         // Get modules for the course - order by Startdate
         var modules = await unitOfWork.Modules.GetByCourseIdAsync(id);
 
-        if (modules is not null)
+        if (modules.Any())
         {
-            Module first = modules.First();
-            if (newStartDate > first.StartDate) return false;
+            DateOnly firstStartDate = modules.Min(m => m.StartDate);
+            if (newStartDate > firstStartDate) return false;
 
-            // If only one module then first are last also
-            Module last = modules.Count() > 1 ? modules.Last() : first;
-            if (newEndDate < last.EndDate) return false;
+            DateOnly lastEndDate = modules.Max(m => m.EndDate);
+            if (newEndDate < lastEndDate) return false;
         }
 
         return true;
