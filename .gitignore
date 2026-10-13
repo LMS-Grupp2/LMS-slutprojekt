@@ -366,3 +366,4 @@ MigrationBackup/
 FodyWeavers.xsd
 # Uploaded course documents (US06)
 **/Uploads/
+/.idea/.idea.LMS/.idea

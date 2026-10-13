@@ -63,6 +63,13 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
         var course = await unitOfWork.Courses.GetCourseByIdAsync(id)
             ?? throw new CourseNotFoundException($"Course with id '{id}' was not found.", "Course not found");
 
+        // Check that no module are outside new start/end dates
+        bool modulesInsideNewDates = await DatesFitsModules(id, updateCourseDto.StartDate, updateCourseDto.EndDate);
+        if (modulesInsideNewDates == false)
+            throw new BadRequestException(
+                $"The course has modules that starts before new start date or after new end date.",
+                "Invalid dates");
+
         // The course is tracked by the context, so changing the properties
         // and saving is enough. No explicit Update call is needed.
         course.Name = updateCourseDto.Name.Trim();
@@ -71,6 +78,26 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
         course.EndDate = updateCourseDto.EndDate;
 
         await unitOfWork.SaveChangesAsync();
+    }
+
+    /// <summary>Checks if course has modules that is outside course dates
+    /// Returns true if no module is before/after new dates, else return false
+    /// </summary>
+    private async Task<bool> DatesFitsModules(Guid id, DateOnly newStartDate, DateOnly newEndDate)
+    {
+        // Get modules for the course - order by Startdate
+        var modules = await unitOfWork.Modules.GetByCourseIdAsync(id);
+
+        if (modules.Any())
+        {
+            DateOnly firstStartDate = modules.Min(m => m.StartDate);
+            if (newStartDate > firstStartDate) return false;
+
+            DateOnly lastEndDate = modules.Max(m => m.EndDate);
+            if (newEndDate < lastEndDate) return false;
+        }
+
+        return true;
     }
 
     /// <summary>Throws a 400 (BadRequestException) if the start date is after the end date.</summary>

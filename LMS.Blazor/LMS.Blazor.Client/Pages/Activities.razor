@@ -11,6 +11,7 @@
 
 @* Teacher page: list, create, edit, delete and view the activities of one module.
    The activity endpoints are teacher-only, so the whole page is teacher-only.
+   An activity has its own start date + time and end date + time, so it can span several days.
    Shared styling comes from wwwroot/css/lms.css. *@
 @attribute [Authorize(Roles = UserRoles.Teacher)]
 @implements IDisposable
@@ -95,8 +96,9 @@
                             <table class="table lms-table align-middle">
                                 <thead>
                                     <tr>
-                                        <th>Date</th>
-                                        <th>Time</th>
+                                        @* Start and end each show date and time, so multi-day activities are clear *@
+                                        <th>Start</th>
+                                        <th>End</th>
                                         <th>Activity</th>
                                         <th>Type</th>
                                         <th></th>
@@ -107,11 +109,13 @@
                                     {
                                         @* The activity open in the detail card is highlighted *@
                                         <tr class="@(item.Id == selected?.Id ? "lms-row-highlight" : string.Empty)">
-                                            <td class="text-nowrap">@FormatDate(item.StartTime)</td>
-                                            <td class="text-nowrap">@FormatTime(item.StartTime) – @FormatTime(item.EndTime)</td>
+                                            <td class="text-nowrap">@FormatDateTime(item.StartTime)</td>
+                                            <td class="text-nowrap">@FormatDateTime(item.EndTime)</td>
                                             <td>
                                                 <button type="button" class="btn btn-link p-0 text-decoration-none lms-cell-title text-start"
-                                                        @onclick="() => Select(item)">@item.Name</button>
+                                                        @onclick="() => Select(item)">
+                                                    @item.Name
+                                                </button>
                                             </td>
                                             <td><span class="lms-badge @ToneOf(item.ActivityTypeName)">@item.ActivityTypeName</span></td>
                                             <td class="text-end text-nowrap">
@@ -167,21 +171,29 @@
                                     <ValidationMessage For="() => form.Description" />
                                 </div>
 
-                                <div class="col-12">
-                                    <label class="form-label" for="activity-date">Date *</label>
-                                    <InputDate id="activity-date" class="form-control" @bind-Value="form.Date" />
-                                    <ValidationMessage For="() => form.Date" />
+                                @* Start: date and time *@
+                                <div class="col-6">
+                                    <label class="form-label" for="activity-start-date">Start date *</label>
+                                    <InputDate id="activity-start-date" class="form-control" @bind-Value="form.StartDate" />
+                                    <ValidationMessage For="() => form.StartDate" />
                                 </div>
 
                                 <div class="col-6">
-                                    <label class="form-label" for="activity-start">Start time *</label>
-                                    <InputDate id="activity-start" Type="InputDateType.Time" class="form-control" @bind-Value="form.StartTime" />
+                                    <label class="form-label" for="activity-start-time">Start time *</label>
+                                    <InputDate id="activity-start-time" Type="InputDateType.Time" class="form-control" @bind-Value="form.StartTime" />
                                     <ValidationMessage For="() => form.StartTime" />
                                 </div>
 
+                                @* End: date and time (may be a later day than the start) *@
                                 <div class="col-6">
-                                    <label class="form-label" for="activity-end">End time *</label>
-                                    <InputDate id="activity-end" Type="InputDateType.Time" class="form-control" @bind-Value="form.EndTime" />
+                                    <label class="form-label" for="activity-end-date">End date *</label>
+                                    <InputDate id="activity-end-date" class="form-control" @bind-Value="form.EndDate" />
+                                    <ValidationMessage For="() => form.EndDate" />
+                                </div>
+
+                                <div class="col-6">
+                                    <label class="form-label" for="activity-end-time">End time *</label>
+                                    <InputDate id="activity-end-time" Type="InputDateType.Time" class="form-control" @bind-Value="form.EndTime" />
                                     <ValidationMessage For="() => form.EndTime" />
                                 </div>
                             </div>
@@ -204,7 +216,7 @@
                         <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
                             <div>
                                 <h2 class="lms-card-title mb-1">@selected.Name</h2>
-                                <div class="lms-cell-sub">@FormatDate(selected.StartTime), @FormatTime(selected.StartTime) – @FormatTime(selected.EndTime)</div>
+                                <div class="lms-cell-sub">@FormatRange(selected.StartTime, selected.EndTime)</div>
                             </div>
                             <span class="lms-badge @ToneOf(selected.ActivityTypeName)">@selected.ActivityTypeName</span>
                         </div>
@@ -373,11 +385,12 @@
         editingId = null;
         selected = null;
 
-        // Suggest the module's first day, from 09:00 to 10:00
+        // Suggest the module's first day, from 09:00 to 10:00 (the teacher can pick a later end date)
         form = new ActivityFormModel
         {
-            Date = module!.StartDate,
+            StartDate = module!.StartDate,
             StartTime = new TimeOnly(9, 0),
+            EndDate = module.StartDate,
             EndTime = new TimeOnly(10, 0)
         };
 
@@ -392,13 +405,15 @@
         editingId = item.Id;
         selected = null;
 
+        // Split the stored start and end into separate date and time fields
         form = new ActivityFormModel
         {
             ActivityTypeId = item.ActivityTypeId,
             Name = item.Name,
             Description = item.Description,
-            Date = DateOnly.FromDateTime(item.StartTime),
+            StartDate = DateOnly.FromDateTime(item.StartTime),
             StartTime = TimeOnly.FromDateTime(item.StartTime),
+            EndDate = DateOnly.FromDateTime(item.EndTime),
             EndTime = TimeOnly.FromDateTime(item.EndTime)
         };
 
@@ -442,11 +457,32 @@
             messageStore.Add(editContext.Field(nameof(ActivityFormModel.ActivityTypeId)), "Select a type.");
         }
 
-        if (form.EndTime <= form.StartTime)
+        // Combine each date with its time. The end may be on a later day than the start.
+        var start = form.StartDate.ToDateTime(form.StartTime);
+        var end = form.EndDate.ToDateTime(form.EndTime);
+
+        if (end <= start)
         {
-            messageStore.Add(editContext.Field(nameof(ActivityFormModel.EndTime)),
-                "The end time must be after the start time.");
-            editContext.NotifyValidationStateChanged();
+            messageStore.Add(editContext.Field(nameof(ActivityFormModel.EndDate)),
+                "The end must be after the start.");
+        }
+
+        // The activity must stay inside the module's dates (the API checks this too)
+        if (module is not null)
+        {
+            var range = $"{FormatDate(module.StartDate)} – {FormatDate(module.EndDate)}";
+
+            if (form.StartDate < module.StartDate || form.StartDate > module.EndDate)
+            {
+                messageStore.Add(editContext.Field(nameof(ActivityFormModel.StartDate)),
+                    $"The start date must be inside the module ({range}).");
+            }
+
+            if (form.EndDate < module.StartDate || form.EndDate > module.EndDate)
+            {
+                messageStore.Add(editContext.Field(nameof(ActivityFormModel.EndDate)),
+                    $"The end date must be inside the module ({range}).");
+            }
         }
 
         // Stop here if any client-side check failed
@@ -462,10 +498,6 @@
         {
             var name = form.Name.Trim();
             var description = string.IsNullOrWhiteSpace(form.Description) ? null : form.Description.Trim();
-
-            // Combine the chosen day with the start and end time
-            var start = form.Date.ToDateTime(form.StartTime);
-            var end = form.Date.ToDateTime(form.EndTime);
 
             if (editingId is null)
             {
@@ -587,14 +619,27 @@
             $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
             forceLoad: true);
 
+    // "Mon 12 Oct"
     private static string FormatDate(DateTime value) =>
         value.ToString("ddd d MMM", CultureInfo.InvariantCulture);
 
+    // "12 Oct 2026"
     private static string FormatDate(DateOnly value) =>
         value.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
 
+    // "09:00"
     private static string FormatTime(DateTime value) =>
         value.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    // "Mon 12 Oct, 09:00" (used in the table, where start and end have their own column)
+    private static string FormatDateTime(DateTime value) =>
+        $"{FormatDate(value)}, {FormatTime(value)}";
+
+    // Same day: "Mon 12 Oct, 09:00 – 10:00". Several days: "Mon 12 Oct, 09:00 – Wed 14 Oct, 16:00".
+    private static string FormatRange(DateTime start, DateTime end) =>
+        start.Date == end.Date
+            ? $"{FormatDate(start)}, {FormatTime(start)} – {FormatTime(end)}"
+            : $"{FormatDateTime(start)} – {FormatDateTime(end)}";
 
     // Badge colour per activity type (falls back to muted for unknown types)
     private static string ToneOf(string typeName) => typeName switch
@@ -625,9 +670,12 @@
         [MaxLength(400, ErrorMessage = "Description can be at most 400 characters.")]
         public string? Description { get; set; }
 
-        public DateOnly Date { get; set; }
+        // Start and end are split into date + time so the activity can span several days
+        public DateOnly StartDate { get; set; }
 
         public TimeOnly StartTime { get; set; }
+
+        public DateOnly EndDate { get; set; }
 
         public TimeOnly EndTime { get; set; }
     }

@@ -1,0 +1,172 @@
+﻿@using System.Globalization
+@using System.Net
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.DTOs.ActivityDtos
+
+@* Student view of one module's activities (#177). Read only, no create/edit/delete.
+   Used inside the student module detail card in Modules.razor:
+   <StudentModuleActivities ModuleId="selected.Id" />
+   It calls the student endpoint, which only allows modules in the student's own course.
+   Styling comes from wwwroot/css/lms.css. *@
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient
+@inject NavigationManager NavigationManager
+
+<div class="mt-4">
+    <h3 class="lms-card-title mb-3">Activities</h3>
+
+    @if (isLoading)
+    {
+        @* Loading skeleton *@
+        <div class="d-flex flex-column gap-3" role="status">
+            <div class="lms-skeleton" style="width: 60%; height: 16px;"></div>
+            <div class="lms-skeleton" style="width: 80%; height: 16px;"></div>
+            <span class="visually-hidden">Loading activities...</span>
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        @* Error state with a retry button *@
+        <div class="lms-state">
+            <span class="lms-badge lms-tone-danger">!</span>
+            <div class="lms-cell-title">@loadError</div>
+            <button type="button" class="btn btn-outline-primary btn-sm" @onclick="LoadAsync">Try again</button>
+        </div>
+    }
+    else if (activities is null || activities.Count == 0)
+    {
+        @* Empty state *@
+        <p class="lms-cell-sub mb-0">No activities have been planned for this module yet.</p>
+    }
+    else
+    {
+        @* One row per activity, earliest first *@
+        <ul class="list-unstyled d-flex flex-column gap-3 mb-0">
+            @foreach (var item in activities)
+            {
+                <li>
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="lms-cell-title">@item.Name</div>
+                            <div class="lms-cell-sub">@FormatRange(item.StartTime, item.EndTime)</div>
+                        </div>
+                        <span class="lms-badge @ToneOf(item.ActivityTypeName)">@item.ActivityTypeName</span>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(item.Description))
+                    {
+                        <p class="mb-0 mt-1">@item.Description</p>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private readonly CancellationTokenSource cts = new();
+
+    // The module whose activities are shown. Set by the parent page.
+    [Parameter]
+    public Guid ModuleId { get; set; }
+
+    private Guid loadedModuleId;
+    private List<ActivityDto>? activities;
+    private bool isLoading = true;
+    private string? loadError;
+
+    // Reload when the parent selects another module.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedModuleId == ModuleId) return;
+
+        loadedModuleId = ModuleId;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        // Remember which module this request is for, so a slow answer for a
+        // module the student has already left does not overwrite the new list.
+        var requestedModuleId = ModuleId;
+
+        isLoading = true;
+        loadError = null;
+
+        try
+        {
+            var result = await ApiProxyClient.GetAsync<List<ActivityDto>>(
+                $"student/modules/{requestedModuleId}/activities", cts.Token);
+
+            // The server-side prerender client deliberately returns null. Keep
+            // showing the loading state until WebAssembly runs this again.
+            if (result is null)
+            {
+                return;
+            }
+
+            if (requestedModuleId != ModuleId) return;
+
+            // Show them in time order, regardless of the order the API returns.
+            activities = result.OrderBy(a => a.StartTime).ToList();
+            isLoading = false;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            NavigationManager.NavigateTo(
+                $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
+                forceLoad: true);
+        }
+        catch (HttpRequestException ex)
+        {
+            if (requestedModuleId != ModuleId) return;
+
+            loadError = ex.StatusCode switch
+            {
+                HttpStatusCode.NotFound => "The activities of this module were not found.",
+                HttpStatusCode.Forbidden => "You do not have access to these activities.",
+                _ => "Could not load the activities. Please try again."
+            };
+            isLoading = false;
+        }
+    }
+
+    // "Mon 12 Oct"
+    private static string FormatDate(DateTime value) =>
+        value.ToString("ddd d MMM", CultureInfo.InvariantCulture);
+
+    // "09:00"
+    private static string FormatTime(DateTime value) =>
+        value.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    // "Mon 12 Oct, 09:00"
+    private static string FormatDateTime(DateTime value) =>
+        $"{FormatDate(value)}, {FormatTime(value)}";
+
+    // Same day: "Mon 12 Oct, 09:00 – 10:00". Several days: "Mon 12 Oct, 09:00 – Wed 14 Oct, 16:00".
+    private static string FormatRange(DateTime start, DateTime end) =>
+        start.Date == end.Date
+            ? $"{FormatDate(start)}, {FormatTime(start)} – {FormatTime(end)}"
+            : $"{FormatDateTime(start)} – {FormatDateTime(end)}";
+
+    // Badge colour per activity type (falls back to muted for unknown types)
+    private static string ToneOf(string typeName) => typeName switch
+    {
+        "Lecture" => "lms-tone-primary",
+        "E-Learning" => "lms-tone-info",
+        "Exercise" => "lms-tone-success",
+        "Assignment" => "lms-tone-warning",
+        _ => "lms-tone-muted"
+    };
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+}
