@@ -9,5 +9,6 @@ public interface IUnitOfWork
     IUserRepository Users { get; }
     ICourseUserRepository CourseUsers { get; }
     IActivityRepository Activities { get; }
+    IDocumentRepository Documents { get; } // NEW (US06): access to document metadata
     Task SaveChangesAsync();
 }

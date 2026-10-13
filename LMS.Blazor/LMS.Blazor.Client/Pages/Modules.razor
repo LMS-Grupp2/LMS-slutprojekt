@@ -33,6 +33,8 @@
                     </div>
                     <h1 class="lms-page-title">@(courseName ?? "Modules")</h1>
                     <p class="lms-page-subtitle">@TeacherSubtitle</p>
+                    @* NEW (US06): link to the course documents *@
+                    <a class="btn btn-outline-primary btn-sm mt-2" href="courses/@CourseId/documents">Documents</a>
                 </Authorized>
                 <NotAuthorized>
                     <div class="lms-breadcrumb">
