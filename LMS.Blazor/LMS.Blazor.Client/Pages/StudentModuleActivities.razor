@@ -7,6 +7,7 @@
    Used inside the student module detail card in Modules.razor:
    <StudentModuleActivities ModuleId="selected.Id" />
    It calls the student endpoint, which only allows modules in the student's own course.
+   Each activity also lists its documents (download only) via ActivityDocuments (US06).
    Styling comes from wwwroot/css/lms.css. *@
 @implements IDisposable
 
@@ -58,6 +59,9 @@
                     {
                         <p class="mb-0 mt-1">@item.Description</p>
                     }
+
+                    @* Documents of this activity (US06): students can only download, nothing shows when there are none *@
+                    <ActivityDocuments @key="item.Id" ActivityId="item.Id" CanManage="false" />
                 </li>
             }
         </ul>
