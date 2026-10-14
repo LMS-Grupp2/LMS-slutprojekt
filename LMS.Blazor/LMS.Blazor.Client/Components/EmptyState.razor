@@ -1,0 +1,60 @@
+﻿@* Reusable empty state: a round badge, a title, an optional description and optional extra content such as a button.
+   Replaces the "No courses yet" style blocks every list page repeated.
+   Styling comes from wwwroot/css/lms.css (lms-card, lms-state, lms-badge, lms-cell-title, lms-cell-sub).
+
+   Usage:
+   <EmptyState Title="No courses yet" Description="Create the first course with the button above." />
+   <EmptyState Title="No activities yet" Icon="i" Tone="muted" InCard="false" />
+
+   Tone is the colour name from lms.css: primary, success, warning, danger, info or muted. *@
+
+@* Built once so the same content can be shown with or without the card around it *@
+@{
+    RenderFragment content = @<div class="lms-state">
+        <span class="lms-badge lms-tone-@Tone">@Icon</span>
+        <div class="lms-cell-title">@Title</div>
+
+        @if (!string.IsNullOrWhiteSpace(Description))
+        {
+            <div class="lms-cell-sub">@Description</div>
+        }
+
+        @* Optional extra content, e.g. a button *@
+        @ChildContent
+    </div>;
+}
+
+@if (InCard)
+{
+    <div class="lms-card">@content</div>
+}
+else
+{
+    @content
+}
+
+@code {
+    // Headline, e.g. "No courses yet"
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    // Smaller grey text under the title
+    [Parameter]
+    public string? Description { get; set; }
+
+    // The character shown in the round badge
+    [Parameter]
+    public string Icon { get; set; } = "+";
+
+    // Badge colour name: primary, success, warning, danger, info or muted
+    [Parameter]
+    public string Tone { get; set; } = "primary";
+
+    // true = wrap the content in a white card (default), false = only the content
+    [Parameter]
+    public bool InCard { get; set; } = true;
+
+    // Optional extra content below the text, e.g. a button
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}
