@@ -515,4 +515,132 @@
                 messageStore.Add(editContext.Field(field), messages);
 
             if (ex.Errors.Count == 0)
-                formError =
+                formError = ex.Message;
+
+            editContext.NotifyValidationStateChanged();
+        }
+        catch (HttpRequestException ex)
+        {
+            formError = ex.StatusCode switch
+            {
+                HttpStatusCode.BadRequest => "The activity must be inside the module dates and end after it starts.",
+                HttpStatusCode.Conflict => "The activity overlaps another activity in this module.",
+                HttpStatusCode.NotFound => "The module, the activity or the type no longer exists.",
+                HttpStatusCode.Forbidden => "You do not have permission to manage activities.",
+                _ => "Could not save the activity. Please try again."
+            };
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void AskDelete(ActivityDto item)
+    {
+        deleting = item;
+        deleteError = null;
+    }
+
+    private void CancelDelete() => deleting = null;
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (deleting is null) return;
+
+        isDeleting = true;
+        deleteError = null;
+
+        try
+        {
+            await ApiProxyClient.SendAsync<ActivityDto>(
+                HttpMethod.Delete, $"activities/{deleting.Id}", null, cts.Token);
+
+            successMessage = $"Activity '{deleting.Name}' was deleted.";
+            deleting = null;
+            await ReloadActivitiesAsync();
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (HttpRequestException)
+        {
+            deleteError = "Could not delete the activity. Please try again.";
+        }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+
+    private void RedirectToLogin() =>
+        NavigationManager.NavigateTo(
+            $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
+            forceLoad: true);
+
+    // "Mon 12 Oct"
+    private static string FormatDate(DateTime value) =>
+        value.ToString("ddd d MMM", CultureInfo.InvariantCulture);
+
+    // "12 Oct 2026"
+    private static string FormatDate(DateOnly value) =>
+        value.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+
+    // "09:00"
+    private static string FormatTime(DateTime value) =>
+        value.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    // "Mon 12 Oct, 09:00" (used in the table, where start and end have their own column)
+    private static string FormatDateTime(DateTime value) =>
+        $"{FormatDate(value)}, {FormatTime(value)}";
+
+    // Same day: "Mon 12 Oct, 09:00 – 10:00". Several days: "Mon 12 Oct, 09:00 – Wed 14 Oct, 16:00".
+    private static string FormatRange(DateTime start, DateTime end) =>
+        start.Date == end.Date
+            ? $"{FormatDate(start)}, {FormatTime(start)} – {FormatTime(end)}"
+            : $"{FormatDateTime(start)} – {FormatDateTime(end)}";
+
+    // Badge colour name per activity type (falls back to muted for unknown types)
+    private static string ToneOf(string typeName) => typeName switch
+    {
+        "Lecture" => "primary",
+        "E-Learning" => "info",
+        "Exercise" => "success",
+        "Assignment" => "warning",
+        _ => "muted"
+    };
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+
+    // Client-side rules, matching the activity DTOs on the API.
+    private sealed class ActivityFormModel
+    {
+        // Guid.Empty means "nothing selected yet" (checked in SaveAsync)
+        public Guid ActivityTypeId { get; set; }
+
+        [Required(ErrorMessage = "Name is required.")]
+        [MaxLength(50, ErrorMessage = "Name can be at most 50 characters.")]
+        public string Name { get; set; } = string.Empty;
+
+        [MaxLength(400, ErrorMessage = "Description can be at most 400 characters.")]
+        public string? Description { get; set; }
+
+        // Start and end are split into date + time so the activity can span several days
+        public DateOnly StartDate { get; set; }
+
+        public TimeOnly StartTime { get; set; }
+
+        public DateOnly EndDate { get; set; }
+
+        public TimeOnly EndTime { get; set; }
+    }
+}
