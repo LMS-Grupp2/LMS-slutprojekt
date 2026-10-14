@@ -14,75 +14,91 @@ public class SubmissionStatusCalculatorTests
     [Fact]
     public void NoSubmission_BeforeDeadline_IsNotSubmitted()
     {
+        //ACT
         var status = SubmissionStatusCalculator.Calculate(null, Deadline, now: BeforeDeadline);
-
+        
+        //ASSERT
         Assert.Equal(SubmissionStatus.NotSubmitted, status);
     }
 
     [Fact]
     public void NoSubmission_AfterDeadline_IsMissing()
-    {
+    {   
+        //ACT
         var status = SubmissionStatusCalculator.Calculate(null, Deadline, now: AfterDeadline);
-
+        
+        //ASSERT
         Assert.Equal(SubmissionStatus.Missing, status);
     }
 
     [Fact]
     public void SubmittedInTime_WithoutFeedback_IsAwaitingFeedback()
     {
+        //ARRANGE
         var submission = new Submission { SubmittedAt = BeforeDeadline };
 
-        // "now" is after the deadline: once handed in, the status must not change because time passes
+        //ACT
         var status = SubmissionStatusCalculator.Calculate(submission, Deadline, now: AfterDeadline);
 
+        //ASSERT
         Assert.Equal(SubmissionStatus.AwaitingFeedback, status);
     }
 
     [Fact]
     public void SubmittedExactlyAtDeadline_IsNotLate()
     {
+        //ARRANGE
         var submission = new Submission { SubmittedAt = Deadline };
-
+        //ACT
         var status = SubmissionStatusCalculator.Calculate(submission, Deadline, now: AfterDeadline);
 
+        //ASSERT
         Assert.Equal(SubmissionStatus.AwaitingFeedback, status);
     }
 
     [Fact]
     public void SubmittedAfterDeadline_WithoutFeedback_IsLate()
     {
+        //ARRANGE
         var submission = new Submission { SubmittedAt = AfterDeadline };
 
+        //ACT
         var status = SubmissionStatusCalculator.Calculate(submission, Deadline, now: AfterDeadline.AddDays(1));
 
+        //ASSERT
         Assert.Equal(SubmissionStatus.Late, status);
     }
 
     [Fact]
     public void SubmittedInTime_WithFeedback_IsFeedbackGiven()
     {
+        //ARRANGE
         var submission = new Submission
         {
             SubmittedAt = BeforeDeadline,
-            Feedbacks = [new Feedback { Text = "Good work" }]
+            Feedbacks = [new Feedback { Text = "Bra jobbat!" }]
         };
 
+        //ACT
         var status = SubmissionStatusCalculator.Calculate(submission, Deadline, now: AfterDeadline);
 
+        //ASSERT
         Assert.Equal(SubmissionStatus.FeedbackGiven, status);
     }
 
     [Fact]
     public void SubmittedLate_WithFeedback_IsFeedbackGiven()
-    {
+    {   
+        //ARRANGE
         var submission = new Submission
         {
             SubmittedAt = AfterDeadline,
-            Feedbacks = [new Feedback { Text = "Late, but approved" }]
+            Feedbacks = [new Feedback { Text = "Godkänt + kompletteringsuppgift." }]
         };
-
+        //ACT
         var status = SubmissionStatusCalculator.Calculate(submission, Deadline, now: AfterDeadline.AddDays(1));
 
+        //ASSERT
         Assert.Equal(SubmissionStatus.FeedbackGiven, status);
     }
 }
