@@ -21,7 +21,8 @@ public class AssignmentRepository : IAssignmentRepository
             .Include(a => a.Module)
                 .ThenInclude(m => m.Course)
             .Include(a => a.Submissions.Where(s => s.StudentId == studentId))
-            .Where(a => a.ActivityType.Name == "Assignment")
+            .Where(a => a.ActivityType.Name == "Assignment"
+                        && a.Module.Course.CourseUsers.Any(cu => cu.UserId == studentId))
             .OrderBy(a => a.EndTime)
             .ToListAsync();
 

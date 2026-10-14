@@ -1,4 +1,4 @@
-﻿namespace LMS.Shared.DTOs.ActivityDtos;
+﻿namespace LMS.Shared.DTOs.AssignmentDtos;
 
 public record StudentAssignmentDto
 {
