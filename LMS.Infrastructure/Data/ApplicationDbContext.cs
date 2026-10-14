@@ -21,8 +21,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         base.OnModelCreating(builder);
 
         builder.Entity<CourseUser>()
-            .HasIndex(cu => new { cu.CourseId, cu.UserId })
-            .IsUnique();
+            .HasKey(cu => new { cu.CourseId, cu.UserId });
+            
 
         // Restrict: SQL Server rejects multiple cascade paths from AspNetUsers,
         // and deleting a user must not silently delete course content.

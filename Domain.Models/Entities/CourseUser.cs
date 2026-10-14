@@ -2,7 +2,6 @@
 
 public class CourseUser
 {
-    public Guid Id { get; set; }
 
     public Guid CourseId { get; set; }
     public Course Course { get; set; } = null!;
