@@ -8,6 +8,7 @@ namespace Domain.Contracts.Repositories;
 /// </summary>
 public interface IActivityRepository
 {
+    Task<IEnumerable<Activity>> GetAssignmentsForStudentAsync(string studentId);
     Task<IEnumerable<Activity>> GetByModuleIdAsync(Guid moduleId);
     Task<Activity?> GetByIdAsync(Guid id);
 

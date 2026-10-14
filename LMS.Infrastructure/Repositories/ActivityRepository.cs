@@ -2,6 +2,7 @@
 using Domain.Contracts.Repositories;
 using LMS.Infrastructure.Data;
 using Domain.Models.Entities;
+using Microsoft.Identity.Client;
 
 namespace LMS.Infrastructure.Repositories;
 
@@ -12,6 +13,23 @@ public class ActivityRepository : IActivityRepository
     public ActivityRepository(ApplicationDbContext context)
     {
         _context = context;
+    }
+
+    public async Task<IEnumerable<Activity>> GetAssignmentsForStudentAsync(string studentId)
+    {
+        //private const string ActivityType = "Assignment";  
+
+        var assignments = await _context.Activities
+            .AsNoTracking()
+            .Include(a => a.ActivityType)
+            .Include(a => a.Module)
+                .ThenInclude(m => m.Course)
+            .Include(a => a.Submissions.Where(s => s.StudentId == studentId)) // EF Core filtered include
+            .Where(a => a.ActivityType.Name == "Assignment")          // filter by id (stable & indexed)
+            .OrderBy(a => a.EndTime)
+            .ToListAsync();
+
+        return assignments;
     }
 
     // Read only (the schedule list), so tracking is turned off.          

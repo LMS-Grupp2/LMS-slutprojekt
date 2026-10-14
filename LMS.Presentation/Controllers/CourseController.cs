@@ -66,8 +66,6 @@ public class CourseController(IServiceManager serviceManager) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult> UpdateCourse([FromRoute] Guid id, UpdateCourseDto course)
     {
-
-
         await _serviceManager.CourseService.UpdateCourseAsync(id, course);
 
         return NoContent();

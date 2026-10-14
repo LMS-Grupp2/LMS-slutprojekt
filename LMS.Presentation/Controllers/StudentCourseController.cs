@@ -29,6 +29,9 @@ public class StudentCourseController(IServiceManager serviceManager) : Controlle
         if (userId is null)
             return Unauthorized();
 
+        // TODO - test of GetAssignmentsForStudentAsync
+        var assignments = await _serviceManager.AssignmentService.GetAssignmentsForStudentAsync(userId);
+
         var course = await _serviceManager.StudentCourseService.GetMyCourseAsync(userId);
         return Ok(course);
     }

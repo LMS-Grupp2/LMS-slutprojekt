@@ -8,4 +8,5 @@ public interface IServiceManager
     IUserService UserService { get; }
     ICourseService CourseService { get; }
     IActivityService ActivityService { get;  }
+    IAssignmentService AssignmentService { get; }
 }
