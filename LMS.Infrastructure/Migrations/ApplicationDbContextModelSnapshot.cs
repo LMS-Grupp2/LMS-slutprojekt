@@ -400,9 +400,10 @@ namespace LMS.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ActivityId");
-
                     b.HasIndex("StudentId");
+
+                    b.HasIndex("ActivityId", "StudentId")
+                        .IsUnique();
 
                     b.ToTable("Submissions");
                 });

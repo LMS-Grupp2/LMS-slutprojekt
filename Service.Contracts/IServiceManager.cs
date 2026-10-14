@@ -3,6 +3,7 @@
 public interface IServiceManager
 {
     IAuthService AuthService { get; }
+    ISubmissionService SubmissionService { get; } // NEW (US09)
     IModuleService ModuleService { get; }
     IStudentCourseService StudentCourseService { get; }
     IUserService UserService { get; }
