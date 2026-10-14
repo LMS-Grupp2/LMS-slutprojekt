@@ -8,7 +8,7 @@
 
 @* Student entry point: redirects to the modules of the student's own course.
    Shows a loading skeleton while redirecting, or a message if there is no course.
-   Styling comes from wwwroot/css/lms.css. *@
+   Built with the shared LoadingSkeleton and EmptyState components. Styling comes from wwwroot/css/lms.css. *@
 @attribute [Authorize(Roles = UserRoles.Student)]
 @implements IDisposable
 
@@ -17,25 +17,18 @@
 
 <PageTitle>My modules</PageTitle>
 
-<div class="lms-card" role="status">
-    @if (!string.IsNullOrWhiteSpace(message))
-    {
-        <div class="lms-state">
-            <span class="lms-badge lms-tone-primary">i</span>
-            <div class="lms-cell-title">@message</div>
-            <div class="lms-cell-sub">Ask your teacher to add you to a course.</div>
-        </div>
-    }
-    else
-    {
-        <div class="d-flex flex-column gap-3">
-            <div class="lms-skeleton" style="width: 40%; height: 16px;"></div>
-            <div class="lms-skeleton" style="width: 70%; height: 16px;"></div>
-            <div class="lms-skeleton" style="width: 55%; height: 16px;"></div>
-        </div>
-        <span class="visually-hidden">Loading your modules...</span>
-    }
-</div>
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    @* No course (or the request failed): show the reason *@
+    <EmptyState Icon="i"
+                Title="@message"
+                Description="Ask your teacher to add you to a course." />
+}
+else
+{
+    @* Shown while the redirect to the modules page is in progress *@
+    <LoadingSkeleton Label="Loading your modules..." />
+}
 
 @code {
     private readonly CancellationTokenSource cts = new();
