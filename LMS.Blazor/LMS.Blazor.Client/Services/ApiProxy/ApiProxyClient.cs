@@ -26,10 +26,8 @@ public sealed class ApiProxyClient(HttpClient httpClient) : IApiProxyClient
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
 
-        EnsureAuthenticated(response);
-
-        if (response.StatusCode == HttpStatusCode.BadRequest)
-            throw await CreateValidationExceptionAsync(response, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            throw await CreateExceptionAsync(response, cancellationToken);
 
         response.EnsureSuccessStatusCode();
 
@@ -99,21 +97,26 @@ public sealed class ApiProxyClient(HttpClient httpClient) : IApiProxyClient
         return $"api/proxy/{endpoint}";
     }
 
-    private static async Task<ApiValidationException> CreateValidationExceptionAsync(
+    private static async Task<HttpRequestException> CreateExceptionAsync(
         HttpResponseMessage response, CancellationToken cancellationToken)
     {
         try
         {
             var problem = await response.Content.ReadFromJsonAsync<ProblemResponse>(cancellationToken);
 
-            return new ApiValidationException(
-                problem?.Errors ?? new Dictionary<string, string[]>(),
-                problem?.Detail ?? problem?.Title
-            );
+            // Validation error: the API sent field errors → show them next to the fields
+            if (problem?.Errors is not null)
+            {
+                return new ApiValidationException(problem.Errors, problem.Detail ?? problem.Title);
+                
+            }
+            
+            // Any other error (404, 409, 403…): keep the API's message AND the real status code
+            return new HttpRequestException(problem?.Detail ?? problem?.Title, null, response.StatusCode);
         }
         catch (JsonException)
         {
-            return new ApiValidationException(new Dictionary<string, string[]>(), null);
+            return new HttpRequestException(null, null, response.StatusCode);
         }
 
     }
