@@ -20,7 +20,7 @@ public class UnitOfWork : IUnitOfWork
     public UnitOfWork(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
     {
         _context = context;
-        Users = new UserRepository(userManager);
+        Users = new UserRepository(userManager, context);
         Modules = new ModuleRepository(context);
         CourseUsers = new CourseUserRepository(context);
         Courses = new CourseRepository(context);

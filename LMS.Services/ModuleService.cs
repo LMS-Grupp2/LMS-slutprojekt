@@ -1,6 +1,7 @@
 using Domain.Contracts;
 using Domain.Models.Entities;
 using Domain.Models.Exceptions;
+using LMS.Shared.DTOs.CourseDtos;
 using LMS.Shared.DTOs.ModuleDtos;
 using Service.Contracts;
 
@@ -80,6 +81,13 @@ public class ModuleService(IUnitOfWork unitOfWork) : IModuleService
         // so it can be saved without changing its dates.
         await ValidateDatesAsync(start, end, course, excludeModuleId: module.Id);
 
+        // All activities must fit inside new module dates
+        bool modulesInsideNewDates = await DatesFitsActivities(id, start, end);
+        if (modulesInsideNewDates == false)
+            throw new BadRequestException(
+                $"The module has activities that starts before new start date or after new end date.",
+                "Invalid dates");
+
         module.Name = dto.Name.Trim();
         module.Description = dto.Description?.Trim();
         module.StartDate = start;
@@ -89,6 +97,25 @@ public class ModuleService(IUnitOfWork unitOfWork) : IModuleService
     }
 
     /* Helper methods */
+
+    ///<summary>Checks that all activities are inside the new dates
+    /// Returns true if all activities fits within new dates, else false.
+    ///</summary>
+    private async Task<bool> DatesFitsActivities(Guid id, DateOnly newStartDate, DateOnly newEndDate)
+    {
+        var activities = await unitOfWork.Activities.GetByModuleIdAsync(id);
+
+        if (activities.Any())
+        {
+            DateOnly firstStartDate = DateOnly.FromDateTime(activities.Min(a => a.StartTime));
+            if (newStartDate > firstStartDate) return false;
+
+            DateOnly lastEndDate = DateOnly.FromDateTime(activities.Max(a => a.EndTime));
+            if (newEndDate < lastEndDate) return false;
+        }
+
+        return true;
+    }
 
     /// <summary>Teachers can access every course. A student can only access a course they belong to.</summary>
     private async Task<bool> CanAccessCourseAsync(Guid courseId, string userId, bool isTeacher)
