@@ -1,0 +1,59 @@
+﻿@* Reusable "are you sure?" box shown before something is deleted.
+   Replaces the yellow delete confirmation every page repeated.
+   Nothing is shown while ItemName is null, so the page does not need its own if-check.
+
+   Usage:
+   <ConfirmDeleteAlert Entity="activity"
+                       ItemName="@deleting?.Name"
+                       IsDeleting="isDeleting"
+                       ErrorMessage="@deleteError"
+                       OnConfirm="ConfirmDeleteAsync"
+                       OnCancel="CancelDelete" />
+
+   The page sets ItemName to the name of the item to delete, and back to null when it is cancelled or done. *@
+
+@if (ItemName is not null)
+{
+    <div class="alert alert-warning mb-0" role="alert">
+        <div class="mb-2">Delete the @Entity <strong>@ItemName</strong>? This cannot be undone.</div>
+
+        @* An error from a failed delete is shown above the buttons *@
+        @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+        {
+            <div class="text-danger mb-2">@ErrorMessage</div>
+        }
+
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-danger btn-sm" disabled="@IsDeleting" @onclick="OnConfirm">
+                @(IsDeleting ? "Deleting..." : "Delete")
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@IsDeleting" @onclick="OnCancel">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    // What kind of item it is, used in the sentence, e.g. "activity", "module" or "course"
+    [Parameter]
+    public string Entity { get; set; } = "item";
+
+    // The name of the item to delete. null hides the box.
+    [Parameter]
+    public string? ItemName { get; set; }
+
+    // true while the delete request is running (buttons are disabled)
+    [Parameter]
+    public bool IsDeleting { get; set; }
+
+    // Error text from a failed delete
+    [Parameter]
+    public string? ErrorMessage { get; set; }
+
+    // Runs when the user confirms
+    [Parameter]
+    public EventCallback OnConfirm { get; set; }
+
+    // Runs when the user cancels
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+}

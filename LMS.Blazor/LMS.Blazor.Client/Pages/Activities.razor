@@ -16,7 +16,8 @@
    An activity has its own start date + time and end date + time, so it can span several days.
    Documents (US06): the detail card and the edit form show the activity's documents (ActivityDocuments).
    When creating an activity the teacher can also pick one optional document, uploaded right after the save.
-   Shared styling comes from wwwroot/css/lms.css. *@
+   Built with the shared components in Components/ (PageHeader, SuccessAlert, LoadingSkeleton, ErrorState, EmptyState,
+   StatusBadge, ConfirmDeleteAlert). Shared styling comes from wwwroot/css/lms.css. *@
 @attribute [Authorize(Roles = UserRoles.Teacher)]
 @implements IDisposable
 
@@ -28,54 +29,33 @@
 <div class="d-flex flex-column gap-4">
 
     @* ---------- Page header ---------- *@
-    <div class="lms-page-header">
-        <div>
+    <PageHeader Title="@(module?.Name ?? "Activities")" Subtitle="@Subtitle">
+        <Breadcrumb>
             @* Back link to the module list of the course *@
-            <div class="lms-breadcrumb">
-                <a href="courses">Courses</a>
-                @if (module is not null)
-                {
-                    <span> / </span><a href="courses/@module.CourseId/modules">Modules</a><span> / @module.Name</span>
-                }
-            </div>
-            <h1 class="lms-page-title">@(module?.Name ?? "Activities")</h1>
-            <p class="lms-page-subtitle">@Subtitle</p>
-        </div>
+            <a href="courses">Courses</a>
+            @if (module is not null)
+            {
+                <span> / </span><a href="courses/@module.CourseId/modules">Modules</a><span> / @module.Name</span>
+            }
+        </Breadcrumb>
+        <Actions>
+            @if (!showForm && module is not null)
+            {
+                <button type="button" class="btn btn-primary" @onclick="StartCreate">+ Add activity</button>
+            }
+        </Actions>
+    </PageHeader>
 
-        @if (!showForm && module is not null)
-        {
-            <button type="button" class="btn btn-primary" @onclick="StartCreate">+ Add activity</button>
-        }
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(successMessage))
-    {
-        <div class="alert alert-success alert-dismissible mb-0" role="status">
-            @successMessage
-            <button type="button" class="btn-close" aria-label="Close" @onclick="DismissSuccess"></button>
-        </div>
-    }
+    <SuccessAlert Message="@successMessage" OnDismiss="DismissSuccess" />
 
     @* ---------- Loading, error, empty and list states ---------- *@
     @if (isLoading)
     {
-        <div class="lms-card">
-            <div class="d-flex flex-column gap-3">
-                <div class="lms-skeleton" style="width: 40%; height: 16px;"></div>
-                <div class="lms-skeleton" style="width: 70%; height: 16px;"></div>
-                <div class="lms-skeleton" style="width: 55%; height: 16px;"></div>
-            </div>
-        </div>
+        <LoadingSkeleton />
     }
     else if (!string.IsNullOrWhiteSpace(loadError))
     {
-        <div class="lms-card">
-            <div class="lms-state">
-                <span class="lms-badge lms-tone-danger">!</span>
-                <div class="lms-cell-title">@loadError</div>
-                <button type="button" class="btn btn-outline-primary btn-sm" @onclick="LoadAllAsync">Try again</button>
-            </div>
-        </div>
+        <ErrorState Message="@loadError" OnRetry="LoadAllAsync" />
     }
     else if (activities is not null)
     {
@@ -85,13 +65,7 @@
             <div class="col-12 @(showForm || selected is not null ? "col-xl-8" : "col-xl-12")">
                 @if (activities.Count == 0)
                 {
-                    <div class="lms-card">
-                        <div class="lms-state">
-                            <span class="lms-badge lms-tone-primary">+</span>
-                            <div class="lms-cell-title">No activities yet</div>
-                            <div class="lms-cell-sub">Add the first activity with the button above.</div>
-                        </div>
-                    </div>
+                    <EmptyState Title="No activities yet" Description="Add the first activity with the button above." />
                 }
                 else
                 {
@@ -121,7 +95,7 @@
                                                     @item.Name
                                                 </button>
                                             </td>
-                                            <td><span class="lms-badge @ToneOf(item.ActivityTypeName)">@item.ActivityTypeName</span></td>
+                                            <td><StatusBadge Text="@item.ActivityTypeName" Tone="@ToneOf(item.ActivityTypeName)" /></td>
                                             <td class="text-end text-nowrap">
                                                 <button type="button" class="btn btn-link btn-sm text-decoration-none" @onclick="() => StartEdit(item)">Edit</button>
                                                 <button type="button" class="btn btn-link btn-sm text-decoration-none text-danger" @onclick="() => AskDelete(item)">Delete</button>
@@ -241,7 +215,7 @@
                                 <h2 class="lms-card-title mb-1">@selected.Name</h2>
                                 <div class="lms-cell-sub">@FormatRange(selected.StartTime, selected.EndTime)</div>
                             </div>
-                            <span class="lms-badge @ToneOf(selected.ActivityTypeName)">@selected.ActivityTypeName</span>
+                            <StatusBadge Text="@selected.ActivityTypeName" Tone="@ToneOf(selected.ActivityTypeName)" />
                         </div>
 
                         @if (!string.IsNullOrWhiteSpace(selected.Description))
@@ -268,22 +242,12 @@
     }
 
     @* ---------- Delete confirmation ---------- *@
-    @if (deleting is not null)
-    {
-        <div class="alert alert-warning mb-0" role="alert">
-            <div class="mb-2">Delete the activity <strong>@deleting.Name</strong>? This cannot be undone.</div>
-            @if (!string.IsNullOrWhiteSpace(deleteError))
-            {
-                <div class="text-danger mb-2">@deleteError</div>
-            }
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-danger btn-sm" disabled="@isDeleting" @onclick="ConfirmDeleteAsync">
-                    @(isDeleting ? "Deleting..." : "Delete")
-                </button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@isDeleting" @onclick="CancelDelete">Cancel</button>
-            </div>
-        </div>
-    }
+    <ConfirmDeleteAlert Entity="activity"
+                        ItemName="@deleting?.Name"
+                        IsDeleting="isDeleting"
+                        ErrorMessage="@deleteError"
+                        OnConfirm="ConfirmDeleteAsync"
+                        OnCancel="CancelDelete" />
 </div>
 
 @code {
@@ -742,14 +706,14 @@
             ? $"{FormatDate(start)}, {FormatTime(start)} – {FormatTime(end)}"
             : $"{FormatDateTime(start)} – {FormatDateTime(end)}";
 
-    // Badge colour per activity type (falls back to muted for unknown types)
+    // Badge colour name per activity type (falls back to muted for unknown types)
     private static string ToneOf(string typeName) => typeName switch
     {
-        "Lecture" => "lms-tone-primary",
-        "E-Learning" => "lms-tone-info",
-        "Exercise" => "lms-tone-success",
-        "Assignment" => "lms-tone-warning",
-        _ => "lms-tone-muted"
+        "Lecture" => "primary",
+        "E-Learning" => "info",
+        "Exercise" => "success",
+        "Assignment" => "warning",
+        _ => "muted"
     };
 
     public void Dispose()
