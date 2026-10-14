@@ -9,7 +9,8 @@
 @using Microsoft.AspNetCore.Authorization
 
 @* Teacher overview of all courses, with an inline form to create and edit a course.
-   Styling comes from the shared design system in wwwroot/css/lms.css. *@
+   Built with the shared components in Components/ (PageHeader, SuccessAlert, LoadingSkeleton, ErrorState,
+   EmptyState, StatusBadge). Shared styling comes from wwwroot/css/lms.css. *@
 @attribute [Authorize(Roles = UserRoles.Teacher)]
 @implements IDisposable
 
@@ -20,35 +21,24 @@
 
 <div class="d-flex flex-column gap-4">
 
-    @* ---------- Page header ---------- *@
-    <div class="lms-page-header">
-        <div>
-            @if (showForm)
-            {
-                <div class="lms-breadcrumb">Courses / @(editingId is null ? "New course" : "Edit course")</div>
-                <h1 class="lms-page-title">@(editingId is null ? "New course" : "Edit course")</h1>
-                <p class="lms-page-subtitle">Fill in the course details. You can add modules afterwards.</p>
-            }
-            else
-            {
-                <h1 class="lms-page-title">Courses</h1>
-                <p class="lms-page-subtitle">@CourseCountText</p>
-            }
-        </div>
-
-        @if (!showForm)
-        {
-            <button type="button" class="btn btn-primary" @onclick="StartCreate">+ New course</button>
-        }
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(successMessage))
+    @* ---------- Page header (different in form mode and list mode) ---------- *@
+    @if (showForm)
     {
-        <div class="alert alert-success alert-dismissible mb-0" role="status">
-            @successMessage
-            <button type="button" class="btn-close" aria-label="Close" @onclick="DismissSuccess"></button>
-        </div>
+        <PageHeader Title="@(editingId is null ? "New course" : "Edit course")"
+                    Subtitle="Fill in the course details. You can add modules afterwards.">
+            <Breadcrumb>Courses / @(editingId is null ? "New course" : "Edit course")</Breadcrumb>
+        </PageHeader>
     }
+    else
+    {
+        <PageHeader Title="Courses" Subtitle="@CourseCountText">
+            <Actions>
+                <button type="button" class="btn btn-primary" @onclick="StartCreate">+ New course</button>
+            </Actions>
+        </PageHeader>
+    }
+
+    <SuccessAlert Message="@successMessage" OnDismiss="DismissSuccess" />
 
     @* ---------- Create / edit form with a rules card next to it ---------- *@
     @if (showForm)
@@ -122,33 +112,15 @@
     @* ---------- Loading, error, empty and list states ---------- *@
     @if (isLoading)
     {
-        <div class="lms-card">
-            <div class="d-flex flex-column gap-3">
-                <div class="lms-skeleton" style="width: 40%; height: 16px;"></div>
-                <div class="lms-skeleton" style="width: 70%; height: 16px;"></div>
-                <div class="lms-skeleton" style="width: 55%; height: 16px;"></div>
-            </div>
-        </div>
+        <LoadingSkeleton />
     }
     else if (!string.IsNullOrWhiteSpace(loadError))
     {
-        <div class="lms-card">
-            <div class="lms-state">
-                <span class="lms-badge lms-tone-danger">!</span>
-                <div class="lms-cell-title">@loadError</div>
-                <button type="button" class="btn btn-outline-primary btn-sm" @onclick="LoadCoursesAsync">Try again</button>
-            </div>
-        </div>
+        <ErrorState Message="@loadError" OnRetry="LoadCoursesAsync" />
     }
     else if (courses is { Count: 0 })
     {
-        <div class="lms-card">
-            <div class="lms-state">
-                <span class="lms-badge lms-tone-primary">+</span>
-                <div class="lms-cell-title">No courses yet</div>
-                <div class="lms-cell-sub">Create the first course with the button above.</div>
-            </div>
-        </div>
+        <EmptyState Title="No courses yet" Description="Create the first course with the button above." />
     }
     else if (courses is not null)
     {
@@ -179,7 +151,7 @@
                                 <td class="text-nowrap">@FormatDate(course.StartDate)</td>
                                 <td class="text-nowrap">@FormatDate(course.EndDate)</td>
                                 <td class="text-end text-nowrap">
-                                    <span class="lms-badge @status.Css">@status.Text</span>
+                                    <StatusBadge Text="@status.Text" Tone="@status.Tone" />
                                     @* Links to the module page of this course (US04). *@
                                     <a class="btn btn-link btn-sm text-decoration-none ms-2" href="courses/@course.Id/modules">Modules</a>
                                     <button type="button" class="btn btn-link btn-sm text-decoration-none" @onclick="() => StartEdit(course)">Edit</button>
@@ -407,13 +379,14 @@
         date.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
 
     // Status is calculated from today's date: Upcoming / Active / Finished (as in the mockups).
-    private static (string Text, string Css) StatusOf(CourseDto course)
+    // Tone is the badge colour name used by StatusBadge.
+    private static (string Text, string Tone) StatusOf(CourseDto course)
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
 
-        if (today > course.EndDate) return ("Finished", "lms-tone-muted");
-        if (today >= course.StartDate) return ("Active", "lms-tone-success");
-        return ("Upcoming", "lms-tone-info");
+        if (today > course.EndDate) return ("Finished", "muted");
+        if (today >= course.StartDate) return ("Active", "success");
+        return ("Upcoming", "info");
     }
 
     public void Dispose()
