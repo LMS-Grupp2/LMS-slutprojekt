@@ -1,8 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Domain.Contracts.Repositories;
-using LMS.Infrastructure.Data;
+﻿using Domain.Contracts.Repositories;
 using Domain.Models.Entities;
-using Microsoft.Identity.Client;
+using LMS.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace LMS.Infrastructure.Repositories;
 
@@ -13,23 +12,6 @@ public class ActivityRepository : IActivityRepository
     public ActivityRepository(ApplicationDbContext context)
     {
         _context = context;
-    }
-
-    public async Task<IEnumerable<Activity>> GetAssignmentsForStudentAsync(string studentId)
-    {
-        //private const string ActivityType = "Assignment";  
-
-        var assignments = await _context.Activities
-            .AsNoTracking()
-            .Include(a => a.ActivityType)
-            .Include(a => a.Module)
-                .ThenInclude(m => m.Course)
-            .Include(a => a.Submissions.Where(s => s.StudentId == studentId)) // EF Core filtered include
-            .Where(a => a.ActivityType.Name == "Assignment")          // filter by id (stable & indexed)
-            .OrderBy(a => a.EndTime)
-            .ToListAsync();
-
-        return assignments;
     }
 
     // Read only (the schedule list), so tracking is turned off.          
@@ -52,11 +34,11 @@ public class ActivityRepository : IActivityRepository
             .Include(a => a.ActivityType)
             .FirstOrDefaultAsync(a => a.Id == id);
     }
-    
+
     // Overlap = starts before the other ends AND ends after the other starts.
     // Strict < and > so back-to-back activities (10:00 end, 10:00 start) are allowed.
-    public async Task<Activity?> FindOverlappingAsync(Guid moduleId, 
-        DateTime startTime, 
+    public async Task<Activity?> FindOverlappingAsync(Guid moduleId,
+        DateTime startTime,
         DateTime endTime,
         Guid? excludeActivityId)
     {

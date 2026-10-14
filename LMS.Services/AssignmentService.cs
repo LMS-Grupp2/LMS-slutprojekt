@@ -15,11 +15,8 @@ public class AssignmentService : IAssignmentService
 
     public async Task<IEnumerable<StudentAssignmentDto>> GetAssignmentsForStudentAsync(string studentId)
     {
-        IEnumerable<Activity> activities = await _unitOfWork.Activities.GetAssignmentsForStudentAsync(studentId);
+        IEnumerable<Activity> activities = await _unitOfWork.Assignment.GetAssignmentsForStudentAsync(studentId);
 
-
-
-        //return activities.Select(a =>
         var activityList = activities.Select(a =>
         {
             var submission = a.Submissions.FirstOrDefault();
@@ -46,7 +43,4 @@ public class AssignmentService : IAssignmentService
 
         return activityList;
     }
-
-
-
 }

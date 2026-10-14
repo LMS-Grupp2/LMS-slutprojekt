@@ -8,13 +8,12 @@ namespace Domain.Contracts.Repositories;
 /// </summary>
 public interface IActivityRepository
 {
-    Task<IEnumerable<Activity>> GetAssignmentsForStudentAsync(string studentId);
     Task<IEnumerable<Activity>> GetByModuleIdAsync(Guid moduleId);
     Task<Activity?> GetByIdAsync(Guid id);
 
     /// <summary>True if an activity type with this id exists.</summary>
     Task<bool> ActivityTypeExistsAsync(Guid activityTypeId);
-   
+
     void Create(Activity activity);
     void Update(Activity activity);
     void Delete(Activity activity);
@@ -26,6 +25,6 @@ public interface IActivityRepository
     /// Returns the first activity in the module that overlaps the given times, or null if the slot is free.
     /// On update, pass the activity's own id so it doesn't clash with itself. On create, pass null.
     /// </summary>
-    Task<Activity?> FindOverlappingAsync(Guid moduleId, DateTime startTime, 
+    Task<Activity?> FindOverlappingAsync(Guid moduleId, DateTime startTime,
         DateTime endTime, Guid? excludeActivityId);
 }

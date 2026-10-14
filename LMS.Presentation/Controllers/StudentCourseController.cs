@@ -1,10 +1,10 @@
-using System.Security.Claims;
 using LMS.Shared.DTOs.CourseDtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Service.Contracts;
 using Swashbuckle.AspNetCore.Annotations;
+using System.Security.Claims;
 
 namespace LMS.Presentation.Controllers;
 
@@ -28,9 +28,6 @@ public class StudentCourseController(IServiceManager serviceManager) : Controlle
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (userId is null)
             return Unauthorized();
-
-        // TODO - test of GetAssignmentsForStudentAsync
-        var assignments = await _serviceManager.AssignmentService.GetAssignmentsForStudentAsync(userId);
 
         var course = await _serviceManager.StudentCourseService.GetMyCourseAsync(userId);
         return Ok(course);
