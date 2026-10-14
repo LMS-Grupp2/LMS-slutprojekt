@@ -7,6 +7,7 @@
    Used inside the student module detail card in Modules.razor:
    <StudentModuleActivities ModuleId="selected.Id" />
    It calls the student endpoint, which only allows modules in the student's own course.
+   Built with the shared LoadingSkeleton, ErrorState and StatusBadge components.
    Styling comes from wwwroot/css/lms.css. *@
 @implements IDisposable
 
@@ -18,21 +19,13 @@
 
     @if (isLoading)
     {
-        @* Loading skeleton *@
-        <div class="d-flex flex-column gap-3" role="status">
-            <div class="lms-skeleton" style="width: 60%; height: 16px;"></div>
-            <div class="lms-skeleton" style="width: 80%; height: 16px;"></div>
-            <span class="visually-hidden">Loading activities...</span>
-        </div>
+        @* Loading skeleton (no card, it is already inside the module card) *@
+        <LoadingSkeleton Lines="2" InCard="false" Label="Loading activities..." />
     }
     else if (!string.IsNullOrWhiteSpace(loadError))
     {
         @* Error state with a retry button *@
-        <div class="lms-state">
-            <span class="lms-badge lms-tone-danger">!</span>
-            <div class="lms-cell-title">@loadError</div>
-            <button type="button" class="btn btn-outline-primary btn-sm" @onclick="LoadAsync">Try again</button>
-        </div>
+        <ErrorState Message="@loadError" OnRetry="LoadAsync" InCard="false" />
     }
     else if (activities is null || activities.Count == 0)
     {
@@ -51,7 +44,7 @@
                             <div class="lms-cell-title">@item.Name</div>
                             <div class="lms-cell-sub">@FormatRange(item.StartTime, item.EndTime)</div>
                         </div>
-                        <span class="lms-badge @ToneOf(item.ActivityTypeName)">@item.ActivityTypeName</span>
+                        <StatusBadge Text="@item.ActivityTypeName" Tone="@ToneOf(item.ActivityTypeName)" />
                     </div>
 
                     @if (!string.IsNullOrWhiteSpace(item.Description))
@@ -154,14 +147,14 @@
             ? $"{FormatDate(start)}, {FormatTime(start)} – {FormatTime(end)}"
             : $"{FormatDateTime(start)} – {FormatDateTime(end)}";
 
-    // Badge colour per activity type (falls back to muted for unknown types)
+    // Badge colour name per activity type (falls back to muted for unknown types)
     private static string ToneOf(string typeName) => typeName switch
     {
-        "Lecture" => "lms-tone-primary",
-        "E-Learning" => "lms-tone-info",
-        "Exercise" => "lms-tone-success",
-        "Assignment" => "lms-tone-warning",
-        _ => "lms-tone-muted"
+        "Lecture" => "primary",
+        "E-Learning" => "info",
+        "Exercise" => "success",
+        "Assignment" => "warning",
+        _ => "muted"
     };
 
     public void Dispose()
