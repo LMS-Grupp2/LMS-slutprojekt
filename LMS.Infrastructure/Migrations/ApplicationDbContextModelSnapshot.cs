@@ -213,23 +213,15 @@ namespace LMS.Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Models.Entities.CourseUser", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<Guid>("CourseId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("UserId")
-                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.HasKey("Id");
+                    b.HasKey("CourseId", "UserId");
 
                     b.HasIndex("UserId");
-
-                    b.HasIndex("CourseId", "UserId")
-                        .IsUnique();
 
                     b.ToTable("CourseUsers");
                 });
