@@ -6,7 +6,9 @@
 @using LMS.Blazor.Client.Services.ApiProxy
 @using Microsoft.AspNetCore.Authorization
 
-@* Student view of the student's own course. Styling comes from wwwroot/css/lms.css. *@
+@* Student view of the student's own course.
+   Built with the shared components in Components/ (PageHeader, LoadingSkeleton, EmptyState, ErrorState).
+   Styling comes from wwwroot/css/lms.css. *@
 @attribute [Authorize(Roles = "Student")]
 @implements IDisposable
 
@@ -18,13 +20,7 @@
 @if (isLoading)
 {
     @* Loading skeleton while the course is fetched *@
-    <div class="lms-card">
-        <div class="d-flex flex-column gap-3">
-            <div class="lms-skeleton" style="width: 35%; height: 20px;"></div>
-            <div class="lms-skeleton" style="width: 70%; height: 16px;"></div>
-            <div class="lms-skeleton" style="width: 55%; height: 16px;"></div>
-        </div>
-    </div>
+    <LoadingSkeleton Label="Loading your course..." />
 }
 else if (course is not null)
 {
@@ -37,13 +33,9 @@ else if (course is not null)
 
     <div class="d-flex flex-column gap-4">
 
-        <div class="lms-page-header">
-            <div>
-                <div class="lms-breadcrumb">My course</div>
-                <h1 class="lms-page-title">@course.Name</h1>
-                <p class="lms-page-subtitle">@FormatDate(course.StartDate) – @FormatDate(course.EndDate)</p>
-            </div>
-        </div>
+        <PageHeader Title="@course.Name" Subtitle="@($"{FormatDate(course.StartDate)} – {FormatDate(course.EndDate)}")">
+            <Breadcrumb>My course</Breadcrumb>
+        </PageHeader>
 
         @* ---------- About the course ---------- *@
         <section class="lms-card">
@@ -125,11 +117,13 @@ else if (course is not null)
 }
 else if (!string.IsNullOrWhiteSpace(infoMessage))
 {
-    <div class="alert alert-info" role="status">@infoMessage</div>
+    @* Not enrolled in a course yet *@
+    <EmptyState Icon="i" Title="@infoMessage" Description="Ask your teacher to add you to a course." />
 }
 else if (!string.IsNullOrWhiteSpace(errorMessage))
 {
-    <div class="alert alert-danger" role="alert">@errorMessage</div>
+    @* No retry button here: the page is reloaded to try again *@
+    <ErrorState Message="@errorMessage" />
 }
 
 @code {
