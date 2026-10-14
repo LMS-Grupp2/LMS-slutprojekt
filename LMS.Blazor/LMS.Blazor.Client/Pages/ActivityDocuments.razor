@@ -10,6 +10,7 @@
    Used in Activities.razor (teacher detail card) and StudentModuleActivities.razor (student view):
    <ActivityDocuments ActivityId="item.Id" CanManage="false" />
    Files are fetched through the BFF proxy: api/proxy/documents/{id}/download.
+   Built with the shared LoadingSkeleton, ErrorState, SuccessAlert, StatusBadge and ConfirmDeleteAlert components.
    Styling comes from wwwroot/css/lms.css. *@
 @implements IDisposable
 
@@ -23,19 +24,12 @@
         @* Only teachers see a loading state. For students the list just appears if there is something. *@
         @if (CanManage)
         {
-            <div class="d-flex flex-column gap-2" role="status">
-                <div class="lms-skeleton" style="width: 50%; height: 14px;"></div>
-                <div class="lms-skeleton" style="width: 70%; height: 14px;"></div>
-                <span class="visually-hidden">Loading documents...</span>
-            </div>
+            <LoadingSkeleton Lines="2" InCard="false" Label="Loading documents..." />
         }
     }
     else if (!string.IsNullOrWhiteSpace(loadError))
     {
-        <div class="lms-cell-sub">
-            @loadError
-            <button type="button" class="btn btn-link btn-sm p-0 ms-1 text-decoration-none" @onclick="LoadAsync">Try again</button>
-        </div>
+        <ErrorState Message="@loadError" OnRetry="LoadAsync" InCard="false" />
     }
     else
     {
@@ -51,7 +45,9 @@
 
         @if (!string.IsNullOrWhiteSpace(successMessage))
         {
-            <div class="alert alert-success py-2 mb-2" role="status">@successMessage</div>
+            <div class="mb-2">
+                <SuccessAlert Message="@successMessage" OnDismiss="DismissSuccess" />
+            </div>
         }
 
         @* ---------- Document list ---------- *@
@@ -67,7 +63,7 @@
                             <div class="lms-cell-sub">@FormatSize(item.SizeBytes) · @item.UploadedByName</div>
                         </div>
                         <div class="text-nowrap">
-                            <span class="lms-badge @ToneOf(item.FileType)">@item.FileType</span>
+                            <StatusBadge Text="@item.FileType" Tone="@ToneOf(item.FileType)" />
                             <a class="btn btn-link btn-sm text-decoration-none" href="api/proxy/documents/@item.Id/download">Download</a>
                             @if (CanManage)
                             {
@@ -84,22 +80,12 @@
         }
 
         @* ---------- Delete confirmation (teachers) ---------- *@
-        @if (deleting is not null)
-        {
-            <div class="alert alert-warning py-2" role="alert">
-                <div class="mb-2">Delete <strong>@deleting.Name</strong>? This cannot be undone.</div>
-                @if (!string.IsNullOrWhiteSpace(deleteError))
-                {
-                    <div class="text-danger mb-2">@deleteError</div>
-                }
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-danger btn-sm" disabled="@isDeleting" @onclick="ConfirmDeleteAsync">
-                        @(isDeleting ? "Deleting..." : "Delete")
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@isDeleting" @onclick="CancelDelete">Cancel</button>
-                </div>
-            </div>
-        }
+        <ConfirmDeleteAlert Entity="document"
+                            ItemName="@deleting?.Name"
+                            IsDeleting="isDeleting"
+                            ErrorMessage="@deleteError"
+                            OnConfirm="ConfirmDeleteAsync"
+                            OnCancel="CancelDelete" />
 
         @* ---------- Upload (teachers) ---------- *@
         @if (CanManage)
@@ -220,6 +206,8 @@
         documents = await ApiProxyClient.GetAsync<List<DocumentDto>>(
             $"activities/{ActivityId}/documents", cts.Token) ?? new();
     }
+
+    private void DismissSuccess() => successMessage = null;
 
     // Remembers the chosen file. The upload itself starts with the button.
     private void OnFileSelected(InputFileChangeEventArgs e)
@@ -370,14 +358,14 @@
             $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
             forceLoad: true);
 
-    // Badge colour per file type
+    // Badge colour name per file type (used by StatusBadge)
     private static string ToneOf(string fileType) => fileType switch
     {
-        "Pdf" => "lms-tone-danger",
-        "Word" => "lms-tone-primary",
-        "PowerPoint" => "lms-tone-warning",
-        "Image" => "lms-tone-success",
-        _ => "lms-tone-muted"
+        "Pdf" => "danger",
+        "Word" => "primary",
+        "PowerPoint" => "warning",
+        "Image" => "success",
+        _ => "muted"
     };
 
     // "1.2 MB", "340 KB"
