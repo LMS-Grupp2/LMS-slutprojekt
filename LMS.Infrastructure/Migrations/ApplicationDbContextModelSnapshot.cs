@@ -235,6 +235,10 @@ namespace LMS.Infrastructure.Migrations
                     b.Property<Guid?>("ActivityId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid?>("CourseId")
                         .HasColumnType("uniqueidentifier");
 
@@ -245,6 +249,13 @@ namespace LMS.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoredFileName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 

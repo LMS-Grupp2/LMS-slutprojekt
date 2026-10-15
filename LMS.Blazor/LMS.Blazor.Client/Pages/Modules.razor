@@ -32,6 +32,8 @@
                     <a href="courses">Courses</a> / @(courseName ?? "Course")
                 </Breadcrumb>
                 <Actions>
+                    @* NEW (US06): link to the course documents *@
+                    <a class="btn btn-outline-primary" href="courses/@CourseId/documents">Documents</a>
                     @if (!showForm)
                     {
                         <button type="button" class="btn btn-primary" @onclick="StartCreate">+ Add module</button>
