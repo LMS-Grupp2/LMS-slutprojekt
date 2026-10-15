@@ -105,17 +105,20 @@ public class SubmissionService : ISubmissionService
             .Select(d => new SubmissionFileDto(d.Id, d.Name))
             .ToList() ?? [];
 
+        // The deadline is stored as Swedish time, SubmittedAt and now are UTC: compare everything in UTC
+        var deadlineUtc = CourseTime.ToUtc(activity.EndTime);
+
         // The "late" rule lives in the calculator, so the flag and the status word can never disagree
-        var isLate = submission is not null && SubmissionStatusCalculator.IsLate(submission, activity.EndTime);
+        var isLate = submission is not null && SubmissionStatusCalculator.IsLate(submission, deadlineUtc);
 
         return new StudentSubmissionDto(
             submission?.Id,
             activity.Id,
             activity.Name,
-            activity.EndTime,
+            activity.EndTime, // as entered (Swedish time), so the page shows it unconverted
             submission?.SubmittedAt,
             isLate,
-            SubmissionStatusCalculator.Calculate(submission, activity.EndTime, now),
+            SubmissionStatusCalculator.Calculate(submission, deadlineUtc, now),
             submission is not null && SubmissionStatusCalculator.IsLocked(submission),
             files);
     }

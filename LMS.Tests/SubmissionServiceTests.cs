@@ -130,6 +130,21 @@ public class SubmissionServiceTests
     }
 
     [Fact]
+    public async Task Deadline_IsSwedishTime_SoHandInAfterItIsLate()
+    {
+        //ARRANGE: the deadline's wall-clock reads 30 minutes ahead of UTC now. In Sweden (UTC+1 or UTC+2)
+        // that deadline has already passed, so a hand-in now is late. Compared as plain UTC it would look on time.
+        var activity = GivenActivity(deadline: DateTime.SpecifyKind(DateTime.UtcNow.AddMinutes(30), DateTimeKind.Unspecified));
+
+        //ACT
+        var result = await SubmitAsync(activity.Id);
+
+        //ASSERT
+        Assert.True(result.IsLate);
+        Assert.Equal(SubmissionStatus.Late, result.Status);
+    }
+
+    [Fact]
     public async Task AssignmentInAnotherCourse_Is404_AndNothingIsStored()
     {
         //ARRANGE

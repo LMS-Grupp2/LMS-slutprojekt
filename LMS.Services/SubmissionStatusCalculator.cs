@@ -21,7 +21,7 @@ public static class SubmissionStatusCalculator
     /// Returns one of the SubmissionStatus constants.
     /// submission is null when the student has not handed in anything. When it is not null,
     /// its Feedbacks collection must be loaded (Include in the repository).
-    /// deadline is Activity.EndTime and now is the current UTC time.
+    /// All times are UTC: deadline is CourseTime.ToUtc(Activity.EndTime) and now is DateTime.UtcNow.
     /// </summary>
     public static string Calculate(Submission? submission, DateTime deadline, DateTime now)
     {
