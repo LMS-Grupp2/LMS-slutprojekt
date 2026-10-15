@@ -1,0 +1,584 @@
+﻿@page "/courses/{CourseId:guid}/documents"
+
+@using System.Globalization
+@using System.Net
+@using System.Net.Http.Headers
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
+@using LMS.Shared.DTOs.ActivityDtos
+@using LMS.Shared.DTOs.CourseDtos
+@using LMS.Shared.DTOs.DocumentDtos
+@using LMS.Shared.DTOs.ModuleDtos
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+
+@* Course documents. Teachers and students see the list and can download.
+   Only teachers can upload (to the course, a module or an activity) and delete.
+   Files are fetched through the BFF proxy: api/proxy/documents/{id}/download.
+   Built with the shared components in Components/ (PageHeader, SuccessAlert, LoadingSkeleton, ErrorState,
+   EmptyState, StatusBadge, ConfirmDeleteAlert). Shared styling comes from wwwroot/css/lms.css. *@
+@attribute [Authorize(Roles = UserRoles.Teacher + "," + UserRoles.Student)]
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>Documents</PageTitle>
+
+<div class="d-flex flex-column gap-4">
+
+    @* ---------- Page header ---------- *@
+    <PageHeader Title="Documents" Subtitle="@Subtitle">
+        <Breadcrumb>
+            @if (isTeacher)
+            {
+                <a href="courses">Courses</a><span> / @(courseName ?? "Course") / Documents</span>
+            }
+            else
+            {
+                <a href="my-course">My course</a><span> / Documents</span>
+            }
+        </Breadcrumb>
+    </PageHeader>
+
+    <SuccessAlert Message="@successMessage" OnDismiss="DismissSuccess" />
+
+    @* ---------- Loading and error states ---------- *@
+    @if (isLoading)
+    {
+        <LoadingSkeleton />
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <ErrorState Message="@loadError" OnRetry="LoadAllAsync" />
+    }
+    else if (documents is not null)
+    {
+        <div class="row g-3">
+
+            @* ---------- Document table (left) ---------- *@
+            <div class="col-12 @(isTeacher ? "col-xl-8" : "col-xl-12")">
+                @if (documents.Count == 0)
+                {
+                    <EmptyState Title="No documents yet"
+                                Description="@(isTeacher ? "Upload the first document with the form." : "Your teacher has not shared any documents yet.")" />
+                }
+                else
+                {
+                    <div class="lms-card lms-card-table">
+                        <div class="table-responsive">
+                            <table class="table lms-table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Attached to</th>
+                                        <th>Type</th>
+                                        <th>Size</th>
+                                        <th>Uploaded</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in documents)
+                                    {
+                                        <tr>
+                                            <td>
+                                                @* A normal link: the browser sends the login cookie and the BFF adds the token *@
+                                                <a class="lms-cell-title text-decoration-none" href="api/proxy/documents/@item.Id/download">@item.Name</a>
+                                            </td>
+                                            <td class="text-nowrap">@TargetOf(item)</td>
+                                            <td><StatusBadge Text="@item.FileType" Tone="@ToneOf(item.FileType)" /></td>
+                                            <td class="text-nowrap">@FormatSize(item.SizeBytes)</td>
+                                            <td class="text-nowrap">
+                                                <div>@FormatDate(item.UploadedAt)</div>
+                                                <div class="lms-cell-sub">@item.UploadedByName</div>
+                                            </td>
+                                            <td class="text-end text-nowrap">
+                                                <a class="btn btn-link btn-sm text-decoration-none" href="api/proxy/documents/@item.Id/download">Download</a>
+                                                @if (isTeacher)
+                                                {
+                                                    <button type="button" class="btn btn-link btn-sm text-decoration-none text-danger" @onclick="() => AskDelete(item)">Delete</button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @* ---------- Upload form (right, teachers only) ---------- *@
+            @if (isTeacher)
+            {
+                <div class="col-12 col-xl-4">
+                    <div class="lms-card">
+                        <h2 class="lms-card-title mb-3">Upload document</h2>
+
+                        @if (!string.IsNullOrWhiteSpace(uploadError))
+                        {
+                            <div class="alert alert-danger" role="alert">@uploadError</div>
+                        }
+
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label" for="doc-target">Attach to *</label>
+                                <select id="doc-target" class="form-select" @bind="targetKind">
+                                    <option value="@TargetKind.Course">The whole course</option>
+                                    <option value="@TargetKind.Module">A module</option>
+                                    <option value="@TargetKind.Activity">An activity</option>
+                                </select>
+                            </div>
+
+                            @if (targetKind == TargetKind.Module)
+                            {
+                                <div class="col-12">
+                                    <label class="form-label" for="doc-module">Module *</label>
+                                    <select id="doc-module" class="form-select" @bind="selectedModuleId">
+                                        <option value="@Guid.Empty">Select a module</option>
+                                        @foreach (var module in modules)
+                                        {
+                                            <option value="@module.Id">@module.Name</option>
+                                        }
+                                    </select>
+                                </div>
+                            }
+
+                            @if (targetKind == TargetKind.Activity)
+                            {
+                                <div class="col-12">
+                                    <label class="form-label" for="doc-activity">Activity *</label>
+                                    <select id="doc-activity" class="form-select" @bind="selectedActivityId">
+                                        <option value="@Guid.Empty">Select an activity</option>
+                                        @foreach (var module in modules)
+                                        {
+                                            @* Activities are grouped by the module they belong to *@
+                                            <optgroup label="@module.Name">
+                                                @foreach (var activity in ActivitiesOf(module.Id))
+                                                {
+                                                    <option value="@activity.Id">@activity.Name</option>
+                                                }
+                                            </optgroup>
+                                        }
+                                    </select>
+                                </div>
+                            }
+
+                            <div class="col-12">
+                                <label class="form-label" for="doc-file">File *</label>
+                                @* The key changes after an upload, which clears the chosen file *@
+                                <InputFile @key="fileInputKey" id="doc-file" class="form-control"
+                                           accept="@AcceptedExtensions" OnChange="OnFileSelected" />
+                                <div class="lms-cell-sub mt-1">
+                                    PDF, Word, PowerPoint, Excel, text or images. Max @MaxFileSizeMb MB.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 mt-3">
+                            <button type="button" class="btn btn-primary" disabled="@isUploading" @onclick="UploadAsync">
+                                @(isUploading ? "Uploading..." : "Upload")
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @* ---------- Delete confirmation ---------- *@
+    <ConfirmDeleteAlert Entity="document"
+                        ItemName="@deleting?.Name"
+                        IsDeleting="isDeleting"
+                        ErrorMessage="@deleteError"
+                        OnConfirm="ConfirmDeleteAsync"
+                        OnCancel="CancelDelete" />
+</div>
+
+@code {
+    // Must match the limit and the allowed types in DocumentService (the API checks them again)
+    private const int MaxFileSizeMb = 10;
+    private const long MaxFileBytes = MaxFileSizeMb * 1024L * 1024L;
+    private const string AcceptedExtensions = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.png,.jpg,.jpeg,.gif";
+
+    private enum TargetKind { Course, Module, Activity }
+
+    private readonly CancellationTokenSource cts = new();
+
+    [Parameter]
+    public Guid CourseId { get; set; }
+
+    // Used to find out if the signed-in user is a teacher
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private Guid loadedCourseId;
+    private bool isTeacher;
+    private bool isLoading = true;
+    private string? loadError;
+    private string? courseName;
+
+    private List<DocumentDto>? documents;
+    private List<ModuleDto> modules = new();
+
+    // Activity names, so a document can say which activity it belongs to (teachers only, see LoadAllAsync)
+    private readonly Dictionary<Guid, List<ActivityDto>> activitiesByModule = new();
+
+    private string? successMessage;
+
+    // Upload form state
+    private TargetKind targetKind = TargetKind.Course;
+    private Guid selectedModuleId = Guid.Empty;
+    private Guid selectedActivityId = Guid.Empty;
+    private IBrowserFile? selectedFile;
+    private Guid fileInputKey = Guid.NewGuid();
+    private bool isUploading;
+    private string? uploadError;
+
+    // Delete state
+    private DocumentDto? deleting;
+    private bool isDeleting;
+    private string? deleteError;
+
+    // "3 documents" or the course name for teachers
+    private string Subtitle
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(courseName))
+                parts.Add(courseName);
+            if (documents is not null)
+                parts.Add($"{documents.Count} {(documents.Count == 1 ? "document" : "documents")}");
+
+            return parts.Count > 0 ? string.Join(" · ", parts) : "Course material.";
+        }
+    }
+
+    // Reload when the course id in the URL changes.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedCourseId == CourseId) return;
+
+        loadedCourseId = CourseId;
+        await LoadAllAsync();
+    }
+
+    private async Task LoadAllAsync()
+    {
+        isLoading = true;
+        loadError = null;
+
+        try
+        {
+            var state = AuthState is null ? null : await AuthState;
+            isTeacher = state?.User.IsInRole(UserRoles.Teacher) == true;
+
+            var result = await ApiProxyClient.GetAsync<List<DocumentDto>>(
+                $"courses/{CourseId}/documents", cts.Token);
+
+            // The server-side prerender client deliberately returns null. Keep
+            // showing the loading state until WebAssembly runs this again.
+            if (result is null)
+            {
+                return;
+            }
+
+            documents = result;
+
+            await LoadCourseInfoAsync();
+            await LoadModulesAndActivitiesAsync();
+
+            isLoading = false;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (HttpRequestException ex)
+        {
+            loadError = ex.StatusCode switch
+            {
+                // Also returned for a student who asks for a course they do not belong to.
+                HttpStatusCode.NotFound => "This course was not found.",
+                HttpStatusCode.Forbidden => "You do not have access to the documents.",
+                _ => "Could not load the documents. Please try again."
+            };
+            isLoading = false;
+        }
+    }
+
+    // The course name is only a nicety in the header, so a failure here is ignored.
+    private async Task LoadCourseInfoAsync()
+    {
+        try
+        {
+            if (isTeacher)
+            {
+                var course = await ApiProxyClient.GetAsync<CourseDto>($"courses/{CourseId}", cts.Token);
+                courseName = course?.Name;
+            }
+            else
+            {
+                var course = await ApiProxyClient.GetAsync<StudentCourseDto>("student/course", cts.Token);
+                courseName = course?.Name;
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or UnauthorizedAccessException)
+        {
+            // Ignore: the header just shows a generic title.
+        }
+    }
+
+    // Modules are needed for the "Attached to" column and the upload form.
+    // Activities are teacher only on the API, so students only see "Activity" in the column.
+    private async Task LoadModulesAndActivitiesAsync()
+    {
+        try
+        {
+            modules = await ApiProxyClient.GetAsync<List<ModuleDto>>(
+                $"courses/{CourseId}/modules", cts.Token) ?? new();
+
+            activitiesByModule.Clear();
+
+            if (!isTeacher) return;
+
+            foreach (var module in modules)
+            {
+                var activities = await ApiProxyClient.GetAsync<List<ActivityDto>>(
+                    $"modules/{module.Id}/activities", cts.Token);
+
+                activitiesByModule[module.Id] = activities ?? new();
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or UnauthorizedAccessException)
+        {
+            // Ignore: the list still works, names just fall back to "Module" and "Activity".
+        }
+    }
+
+    private List<ActivityDto> ActivitiesOf(Guid moduleId) =>
+        activitiesByModule.TryGetValue(moduleId, out var list) ? list : new();
+
+    // Remembers the chosen file. The upload itself starts with the button.
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        uploadError = null;
+    }
+
+    private async Task UploadAsync()
+    {
+        uploadError = null;
+        successMessage = null;
+
+        // Client-side checks for a quick answer. The API checks everything again.
+        if (selectedFile is null)
+        {
+            uploadError = "Choose a file first.";
+            return;
+        }
+
+        if (selectedFile.Size == 0)
+        {
+            uploadError = "The file is empty.";
+            return;
+        }
+
+        if (selectedFile.Size > MaxFileBytes)
+        {
+            uploadError = $"The file is too large. The maximum size is {MaxFileSizeMb} MB.";
+            return;
+        }
+
+        if (targetKind == TargetKind.Module && selectedModuleId == Guid.Empty)
+        {
+            uploadError = "Select a module.";
+            return;
+        }
+
+        if (targetKind == TargetKind.Activity && selectedActivityId == Guid.Empty)
+        {
+            uploadError = "Select an activity.";
+            return;
+        }
+
+        isUploading = true;
+
+        try
+        {
+            // The form fields match UploadDocumentRequest on the API. Exactly one target is sent.
+            // The proxy client disposes the content after the request.
+            var form = new MultipartFormDataContent();
+
+            var fileContent = new StreamContent(selectedFile.OpenReadStream(MaxFileBytes, cts.Token));
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(
+                string.IsNullOrWhiteSpace(selectedFile.ContentType) ? "application/octet-stream" : selectedFile.ContentType);
+            form.Add(fileContent, "File", selectedFile.Name);
+
+            switch (targetKind)
+            {
+                case TargetKind.Course:
+                    form.Add(new StringContent(CourseId.ToString()), "CourseId");
+                    break;
+                case TargetKind.Module:
+                    form.Add(new StringContent(selectedModuleId.ToString()), "ModuleId");
+                    break;
+                default:
+                    form.Add(new StringContent(selectedActivityId.ToString()), "ActivityId");
+                    break;
+            }
+
+            await ApiProxyClient.SendAsync<DocumentDto>(HttpMethod.Post, "documents", form, cts.Token);
+
+            successMessage = $"Document '{selectedFile.Name}' was uploaded.";
+
+            // Clear the file input and reload the list
+            selectedFile = null;
+            fileInputKey = Guid.NewGuid();
+            await ReloadDocumentsAsync();
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (ApiValidationException ex)
+        {
+            // 400: the API's message says what was wrong (file type, size, target)
+            uploadError = ex.Errors.Count > 0
+                ? string.Join(" ", ex.Errors.SelectMany(e => e.Value))
+                : ex.Message;
+        }
+        catch (HttpRequestException ex)
+        {
+            uploadError = ex.StatusCode switch
+            {
+                HttpStatusCode.NotFound => "The course, module or activity no longer exists.",
+                HttpStatusCode.Forbidden => "You do not have permission to upload documents.",
+                HttpStatusCode.RequestEntityTooLarge => $"The file is too large. The maximum size is {MaxFileSizeMb} MB.",
+                _ => "Could not upload the document. Please try again."
+            };
+        }
+        catch (IOException)
+        {
+            // Thrown when the browser file is bigger than allowed or can no longer be read
+            uploadError = "The file could not be read. Choose it again and retry.";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private async Task ReloadDocumentsAsync()
+    {
+        documents = await ApiProxyClient.GetAsync<List<DocumentDto>>(
+            $"courses/{CourseId}/documents", cts.Token) ?? new();
+    }
+
+    private void AskDelete(DocumentDto item)
+    {
+        deleting = item;
+        deleteError = null;
+    }
+
+    private void CancelDelete() => deleting = null;
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (deleting is null) return;
+
+        isDeleting = true;
+        deleteError = null;
+
+        try
+        {
+            await ApiProxyClient.SendAsync<DocumentDto>(
+                HttpMethod.Delete, $"documents/{deleting.Id}", null, cts.Token);
+
+            successMessage = $"Document '{deleting.Name}' was deleted.";
+            deleting = null;
+            await ReloadDocumentsAsync();
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (HttpRequestException)
+        {
+            deleteError = "Could not delete the document. Please try again.";
+        }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+
+    private void DismissSuccess() => successMessage = null;
+
+    private void RedirectToLogin() =>
+        NavigationManager.NavigateTo(
+            $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
+            forceLoad: true);
+
+    // "Course", "Module: Backend" or "Activity: Intro lecture"
+    private string TargetOf(DocumentDto item)
+    {
+        if (item.ActivityId is { } activityId)
+        {
+            var activity = activitiesByModule.Values
+                .SelectMany(list => list)
+                .FirstOrDefault(a => a.Id == activityId);
+
+            return activity is null ? "Activity" : $"Activity: {activity.Name}";
+        }
+
+        if (item.ModuleId is { } moduleId)
+        {
+            var module = modules.FirstOrDefault(m => m.Id == moduleId);
+            return module is null ? "Module" : $"Module: {module.Name}";
+        }
+
+        return "Course";
+    }
+
+    // Badge colour name per file type (used by StatusBadge)
+    private static string ToneOf(string fileType) => fileType switch
+    {
+        "Pdf" => "danger",
+        "Word" => "primary",
+        "PowerPoint" => "warning",
+        "Image" => "success",
+        _ => "muted"
+    };
+
+    // "1.2 MB", "340 KB"
+    private static string FormatSize(long bytes) =>
+        bytes >= 1024 * 1024
+            ? $"{bytes / 1024d / 1024d:0.#} MB"
+            : $"{Math.Max(1, bytes / 1024d):0.#} KB";
+
+    // The API stores UTC, show it in the user's local time
+    private static string FormatDate(DateTime value) =>
+        value.ToLocalTime().ToString("d MMM yyyy, HH:mm", CultureInfo.InvariantCulture);
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+}

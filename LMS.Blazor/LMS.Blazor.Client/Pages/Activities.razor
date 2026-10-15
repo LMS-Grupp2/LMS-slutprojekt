@@ -3,15 +3,19 @@
 @using System.ComponentModel.DataAnnotations
 @using System.Globalization
 @using System.Net
+@using System.Net.Http.Headers
 @using LMS.Blazor.Client.Services.ApiProxy
 @using LMS.Shared.Constants
 @using LMS.Shared.DTOs.ActivityDtos
+@using LMS.Shared.DTOs.DocumentDtos
 @using LMS.Shared.DTOs.ModuleDtos
 @using Microsoft.AspNetCore.Authorization
 
 @* Teacher page: list, create, edit, delete and view the activities of one module.
    The activity endpoints are teacher-only, so the whole page is teacher-only.
    An activity has its own start date + time and end date + time, so it can span several days.
+   Documents (US06): the detail card and the edit form show the activity's documents (ActivityDocuments).
+   When creating an activity the teacher can also pick one optional document, uploaded right after the save.
    Built with the shared components in Components/ (PageHeader, SuccessAlert, LoadingSkeleton, ErrorState, EmptyState,
    StatusBadge, ConfirmDeleteAlert). Shared styling comes from wwwroot/css/lms.css. *@
 @attribute [Authorize(Roles = UserRoles.Teacher)]
@@ -170,6 +174,19 @@
                                     <InputDate id="activity-end-time" Type="InputDateType.Time" class="form-control" @bind-Value="form.EndTime" />
                                     <ValidationMessage For="() => form.EndTime" />
                                 </div>
+
+                                @* Optional document, only when creating. It is uploaded right after the activity is saved.
+                                   When editing, the documents are managed below the form instead. *@
+                                @if (editingId is null)
+                                {
+                                    <div class="col-12">
+                                        <label class="form-label" for="activity-new-document">Document (optional)</label>
+                                        @* The key changes when the form is reset, which clears the chosen file *@
+                                        <InputFile @key="newFileKey" id="activity-new-document" class="form-control form-control-sm"
+                                                   accept="@AcceptedExtensions" OnChange="OnNewFileSelected" />
+                                        <div class="lms-cell-sub mt-1">PDF, Word, PowerPoint, Excel, text or images. Max @MaxFileSizeMb MB.</div>
+                                    </div>
+                                }
                             </div>
 
                             <div class="d-flex justify-content-end gap-2 mt-3">
@@ -179,6 +196,12 @@
                                 </button>
                             </div>
                         </EditForm>
+
+                        @* ---------- Documents of the activity being edited (US06) ---------- *@
+                        @if (editingId is not null)
+                        {
+                            <ActivityDocuments @key="editingId.Value" ActivityId="editingId.Value" CanManage="true" />
+                        }
                     </div>
                 </div>
             }
@@ -203,6 +226,10 @@
                         {
                             <p class="lms-cell-sub">No description has been added yet.</p>
                         }
+
+                        @* ---------- Documents (US06): upload, download and delete for this activity ---------- *@
+                        @* The key makes a fresh component per activity, so messages and a chosen file do not carry over *@
+                        <ActivityDocuments @key="selected.Id" ActivityId="selected.Id" CanManage="true" />
 
                         <div class="d-flex justify-content-end gap-2 mt-3">
                             <button type="button" class="btn btn-outline-secondary" @onclick="CloseDetail">Close</button>
@@ -245,6 +272,13 @@
     private bool isSaving;
     private string? formError;
     private string? successMessage;
+
+    // Optional document picked in the create form (US06). Must match the limits in DocumentService.
+    private const int MaxFileSizeMb = 10;
+    private const long MaxFileBytes = MaxFileSizeMb * 1024L * 1024L;
+    private const string AcceptedExtensions = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.png,.jpg,.jpeg,.gif";
+    private IBrowserFile? newFile;
+    private Guid newFileKey = Guid.NewGuid();
 
     private ActivityDto? deleting;
     private bool isDeleting;
@@ -391,6 +425,8 @@
     {
         showForm = false;
         editingId = null;
+        newFile = null;
+        newFileKey = Guid.NewGuid();
         form = new ActivityFormModel();
         ResetFormErrors();
     }
@@ -411,6 +447,9 @@
     }
 
     private void DismissSuccess() => successMessage = null;
+
+    // Remembers the document chosen in the create form
+    private void OnNewFileSelected(InputFileChangeEventArgs e) => newFile = e.File;
 
     private async Task SaveAsync()
     {
@@ -449,6 +488,21 @@
             }
         }
 
+        // Check the optional document before anything is saved (the API checks it again)
+        if (editingId is null && newFile is not null)
+        {
+            if (newFile.Size == 0)
+            {
+                formError = "The document is empty. Choose another file or remove it.";
+            }
+            else if (newFile.Size > MaxFileBytes)
+            {
+                formError = $"The document is too large. The maximum size is {MaxFileSizeMb} MB.";
+            }
+
+            if (formError is not null) return;
+        }
+
         // Stop here if any client-side check failed
         if (editContext.GetValidationMessages().Any())
         {
@@ -475,10 +529,23 @@
                     ModuleId = ModuleId
                 };
 
-                await ApiProxyClient.SendAsync<ActivityDto>(
+                var created = await ApiProxyClient.SendAsync<ActivityDto>(
                     HttpMethod.Post, "activities", JsonContent.Create(dto), cts.Token);
 
                 successMessage = $"Activity '{name}' was created.";
+
+                // Upload the optional document to the new activity. The activity is already saved,
+                // so a failed upload only changes the message; the teacher can retry in the detail card.
+                if (newFile is not null)
+                {
+                    var uploadError = created is null
+                        ? "The new activity could not be found."
+                        : await UploadNewDocumentAsync(created.Id, newFile);
+
+                    successMessage = uploadError is null
+                        ? $"Activity '{name}' was created with the document '{newFile.Name}'."
+                        : $"Activity '{name}' was created, but the document was not uploaded: {uploadError} Open the activity to try again.";
+                }
             }
             else
             {
@@ -533,6 +600,40 @@
         finally
         {
             isSaving = false;
+        }
+    }
+
+    // Uploads one document to an activity. Returns null on success, otherwise a short error text.
+    private async Task<string?> UploadNewDocumentAsync(Guid activityId, IBrowserFile file)
+    {
+        try
+        {
+            // The form fields match UploadDocumentRequest on the API (exactly one target: the activity)
+            var content = new MultipartFormDataContent();
+
+            var fileContent = new StreamContent(file.OpenReadStream(MaxFileBytes, cts.Token));
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(
+                string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType);
+            content.Add(fileContent, "File", file.Name);
+            content.Add(new StringContent(activityId.ToString()), "ActivityId");
+
+            await ApiProxyClient.SendAsync<DocumentDto>(HttpMethod.Post, "documents", content, cts.Token);
+            return null;
+        }
+        catch (ApiValidationException ex)
+        {
+            // 400: the API says what was wrong (file type, size)
+            return ex.Errors.Count > 0
+                ? string.Join(" ", ex.Errors.SelectMany(e => e.Value))
+                : ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            return "The upload failed.";
+        }
+        catch (IOException)
+        {
+            return "The file could not be read.";
         }
     }
 

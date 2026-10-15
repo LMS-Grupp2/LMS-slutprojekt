@@ -1,12 +1,14 @@
 ﻿@using System.Globalization
 @using System.Net
 @using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
 @using LMS.Shared.DTOs.ActivityDtos
 
 @* Student view of one module's activities (#177). Read only, no create/edit/delete.
    Used inside the student module detail card in Modules.razor:
    <StudentModuleActivities ModuleId="selected.Id" />
    It calls the student endpoint, which only allows modules in the student's own course.
+   Each activity also lists its documents (download only) via ActivityDocuments (US06).
    Built with the shared LoadingSkeleton, ErrorState and StatusBadge components.
    Styling comes from wwwroot/css/lms.css. *@
 @implements IDisposable
@@ -51,6 +53,15 @@
                     {
                         <p class="mb-0 mt-1">@item.Description</p>
                     }
+
+                    @* Only assignments can be handed in to (US09) *@
+                    @if (item.ActivityTypeName == ActivityTypeNames.Assignment)
+                    {
+                        <a class="btn btn-outline-primary btn-sm mt-2" href="assignments/@item.Id">Hand in</a>
+                    }
+
+                    @* Documents of this activity (US06): students can only download, nothing shows when there are none *@
+                    <ActivityDocuments @key="item.Id" ActivityId="item.Id" CanManage="false" />
                 </li>
             }
         </ul>
