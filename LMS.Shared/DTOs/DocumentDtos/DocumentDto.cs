@@ -15,6 +15,10 @@ public sealed record DocumentDto(
     Guid? CourseId,
     Guid? ModuleId,
     Guid? ActivityId,
-    // The id of the user who uploaded the file (US07). The UI uses it to show the delete
-    // button only on the student's own documents. Added last so existing usages keep their order.
-    string UploadedById);
+    // True when the signed-in user may delete this document (US07): a teacher always,
+    // a student only their own. The UI uses it to show the delete button.
+    bool CanDelete,
+    // True when a student uploaded the document (US07). The UI uses it to put the document
+    // under "Shared by students" instead of "Course material".
+    // Both of these are added last so existing usages keep their order.
+    bool UploadedByStudent);

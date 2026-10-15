@@ -3,6 +3,7 @@ using Domain.Models.Configurations;
 using Domain.Models.Entities;
 using Domain.Models.Enums;
 using Domain.Models.Exceptions;
+using LMS.Shared.Constants;
 using LMS.Shared.DTOs.DocumentDtos;
 using Microsoft.Extensions.Options;
 using Service.Contracts;
@@ -59,7 +60,7 @@ public class DocumentService : IDocumentService
             throw new CourseNotFoundException(courseId);
 
         var documents = await _unitOfWork.Documents.GetByCourseIdAsync(courseId);
-        return documents.Select(MapToDto).ToList();
+        return await MapToDtosAsync(documents, userId, isTeacher);
     }
 
     public async Task<IEnumerable<DocumentDto>> GetByModuleAsync(Guid moduleId, string userId, bool isTeacher)
@@ -71,7 +72,7 @@ public class DocumentService : IDocumentService
             throw new ModuleNotFoundException(moduleId);
 
         var documents = await _unitOfWork.Documents.GetByModuleIdAsync(moduleId);
-        return documents.Select(MapToDto).ToList();
+        return await MapToDtosAsync(documents, userId, isTeacher);
     }
 
     public async Task<IEnumerable<DocumentDto>> GetByActivityAsync(Guid activityId, string userId, bool isTeacher)
@@ -87,7 +88,7 @@ public class DocumentService : IDocumentService
             throw new ActivityNotFoundException(activityId);
 
         var documents = await _unitOfWork.Documents.GetByActivityIdAsync(activityId);
-        return documents.Select(MapToDto).ToList();
+        return await MapToDtosAsync(documents, userId, isTeacher);
     }
 
     // Who may upload where (US07). A teacher may upload anywhere. A student may only upload to their own
@@ -198,8 +199,10 @@ public class DocumentService : IDocumentService
             _unitOfWork.Documents.Create(document);
             await _unitOfWork.SaveChangesAsync();
 
+            // The uploader can always delete their own document
             var uploader = await _unitOfWork.Users.FindByIdAsync(userId);
-            return ToDto(document, uploader?.Name ?? "Unknown");
+            var roleNames = await _unitOfWork.Users.GetRoleNamesByUserIdAsync();
+            return ToDto(document, uploader?.Name ?? "Unknown", canDelete: true, IsStudent(roleNames, userId));
         }
         catch
         {
@@ -281,10 +284,29 @@ public class DocumentService : IDocumentService
         ?? document.Module?.CourseId
         ?? document.Activity?.Module?.CourseId;
 
-    // Needs User to be loaded (Include in the repository) for the uploader's name.
-    private static DocumentDto MapToDto(Document document) => ToDto(document, document.User.Name);
+    // Maps a list of documents. The roles of all users are fetched once (one query) and looked up per
+    // document, so the UI can tell student-shared documents from teacher material (US07).
+    private async Task<List<DocumentDto>> MapToDtosAsync(
+        IEnumerable<Document> documents, string userId, bool isTeacher)
+    {
+        var roleNames = await _unitOfWork.Users.GetRoleNamesByUserIdAsync();
 
-    private static DocumentDto ToDto(Document document, string uploadedByName) =>
+        return documents
+            .Select(d => MapToDto(d, userId, isTeacher, roleNames))
+            .ToList();
+    }
+
+    // Needs User to be loaded (Include in the repository) for the uploader's name.
+    // CanDelete (US07): a teacher may delete everything, a student only their own documents.
+    private static DocumentDto MapToDto(
+        Document document, string userId, bool isTeacher, IDictionary<string, string> roleNames) =>
+        ToDto(
+            document,
+            document.User.Name,
+            isTeacher || document.UserId == userId,
+            IsStudent(roleNames, document.UserId));
+
+    private static DocumentDto ToDto(Document document, string uploadedByName, bool canDelete, bool uploadedByStudent) =>
         new(
             document.Id,
             document.Name,
@@ -296,7 +318,12 @@ public class DocumentService : IDocumentService
             document.CourseId,
             document.ModuleId,
             document.ActivityId,
-            document.UserId);
+            canDelete,
+            uploadedByStudent);
+
+    // True when the user has the Student role (roleNames maps user id to role name)
+    private static bool IsStudent(IDictionary<string, string> roleNames, string userId) =>
+        roleNames.TryGetValue(userId, out var role) && role == UserRoles.Student;
 
     private static void DeleteFileQuietly(string path)
     {
