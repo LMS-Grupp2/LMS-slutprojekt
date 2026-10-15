@@ -1,0 +1,56 @@
+﻿@* Reusable page header: optional breadcrumb, title, optional subtitle and optional action buttons.
+   Replaces the "lms-page-header" block that every page repeated.
+   Styling comes from wwwroot/css/lms.css (lms-page-header, lms-breadcrumb, lms-page-title, lms-page-subtitle).
+
+   Usage:
+   <PageHeader Title="Courses" Subtitle="3 courses">
+       <Actions>
+           <button type="button" class="btn btn-primary" @onclick="StartCreate">+ New course</button>
+       </Actions>
+   </PageHeader>
+
+   With a breadcrumb (links are written by the page):
+   <PageHeader Title="@module.Name" Subtitle="@Subtitle">
+       <Breadcrumb><a href="courses">Courses</a> / Modules</Breadcrumb>
+   </PageHeader> *@
+
+<div class="lms-page-header">
+    <div>
+        @* Breadcrumb is optional, e.g. "Courses / Modules / Module 1" *@
+        @if (Breadcrumb is not null)
+        {
+            <div class="lms-breadcrumb">@Breadcrumb</div>
+        }
+
+        <h1 class="lms-page-title">@Title</h1>
+
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <p class="lms-page-subtitle">@Subtitle</p>
+        }
+    </div>
+
+    @* Action buttons (e.g. "+ New course") are shown on the right when the page provides them *@
+    @if (Actions is not null)
+    {
+        <div class="d-flex align-items-center gap-2">@Actions</div>
+    }
+</div>
+
+@code {
+    // The page title (required)
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    // Grey line under the title, e.g. "4 May 2026 – 12 Jun 2026 · 5 activities"
+    [Parameter]
+    public string? Subtitle { get; set; }
+
+    // Content above the title, usually links. The page writes the markup.
+    [Parameter]
+    public RenderFragment? Breadcrumb { get; set; }
+
+    // Buttons shown to the right of the title
+    [Parameter]
+    public RenderFragment? Actions { get; set; }
+}

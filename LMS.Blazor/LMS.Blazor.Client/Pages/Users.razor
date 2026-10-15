@@ -8,7 +8,9 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 
-@* Teacher page for managing users. Styling comes from wwwroot/css/lms.css. *@
+@* Teacher page for managing users.
+   Built with the shared components in Components/ (PageHeader, SuccessAlert, LoadingSkeleton, ErrorState,
+   EmptyState, StatusBadge). Styling comes from wwwroot/css/lms.css. *@
 @attribute [Authorize(Roles = UserRoles.Teacher)]
 @implements IDisposable
 
@@ -20,25 +22,16 @@
 <div class="d-flex flex-column gap-4">
 
     @* ---------- Page header (the title is always "Users") ---------- *@
-    <div class="lms-page-header">
-        <div>
-            <h1 class="lms-page-title">Users</h1>
-            <p class="lms-page-subtitle">@UserCountText</p>
-        </div>
+    <PageHeader Title="Users" Subtitle="@UserCountText">
+        <Actions>
+            @if (!showForm)
+            {
+                <button type="button" class="btn btn-primary" @onclick="StartCreate">+ New user</button>
+            }
+        </Actions>
+    </PageHeader>
 
-        @if (!showForm)
-        {
-            <button type="button" class="btn btn-primary" @onclick="StartCreate">+ New user</button>
-        }
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(successMessage))
-    {
-        <div class="alert alert-success alert-dismissible mb-0" role="status">
-            @successMessage
-            <button type="button" class="btn-close" aria-label="Close" @onclick="DismissSuccess"></button>
-        </div>
-    }
+    <SuccessAlert Message="@successMessage" OnDismiss="DismissSuccess" />
 
     <div class="row g-3">
 
@@ -46,33 +39,15 @@
         <div class="col-12 @(showForm ? "col-xl-8" : "col-xl-12")">
             @if (isLoading)
             {
-                <div class="lms-card">
-                    <div class="d-flex flex-column gap-3">
-                        <div class="lms-skeleton" style="width: 40%; height: 16px;"></div>
-                        <div class="lms-skeleton" style="width: 70%; height: 16px;"></div>
-                        <div class="lms-skeleton" style="width: 55%; height: 16px;"></div>
-                    </div>
-                </div>
+                <LoadingSkeleton />
             }
             else if (!string.IsNullOrWhiteSpace(loadError))
             {
-                <div class="lms-card">
-                    <div class="lms-state">
-                        <span class="lms-badge lms-tone-danger">!</span>
-                        <div class="lms-cell-title">@loadError</div>
-                        <button type="button" class="btn btn-outline-primary btn-sm" @onclick="ReloadAsync">Try again</button>
-                    </div>
-                </div>
+                <ErrorState Message="@loadError" OnRetry="ReloadAsync" />
             }
             else if (users is { Count: 0 })
             {
-                <div class="lms-card">
-                    <div class="lms-state">
-                        <span class="lms-badge lms-tone-primary">+</span>
-                        <div class="lms-cell-title">No users yet</div>
-                        <div class="lms-cell-sub">Create the first user with the button above.</div>
-                    </div>
-                </div>
+                <EmptyState Title="No users yet" Description="Create the first user with the button above." />
             }
             else if (users is not null)
             {
@@ -100,7 +75,7 @@
                                                 </div>
                                             </div>
                                         </td>
-                                        <td><span class="lms-badge @RoleToneClass(user.Role)">@user.Role</span></td>
+                                        <td><StatusBadge Text="@user.Role" Tone="@RoleTone(user.Role)" /></td>
                                         <td>@CourseText(user)</td>
                                         <td class="text-end">
                                             <button type="button" class="btn btn-link btn-sm text-decoration-none" @onclick="() => StartEdit(user)">Edit</button>
@@ -515,12 +490,12 @@
     private static string CourseText(UserDto user) =>
         user.CourseNames.Count == 0 ? "—" : string.Join(", ", user.CourseNames);
 
-    // Role pill colors: teachers purple, everyone else grey
-    private static string RoleToneClass(string role) => role switch
+    // Role badge colour name used by StatusBadge: teachers purple, everyone else grey
+    private static string RoleTone(string role) => role switch
     {
-        UserRoles.Teacher => "lms-tone-purple",
-        UserRoles.Student => "lms-tone-muted",
-        _ => "lms-tone-muted"
+        UserRoles.Teacher => "purple",
+        UserRoles.Student => "muted",
+        _ => "muted"
     };
 
     // Teachers get a purple avatar, students the default blue one

@@ -1,0 +1,45 @@
+﻿@* Reusable loading placeholder: grey shimmering lines shown while data is loading.
+   Replaces the three "lms-skeleton" lines every page repeated.
+   Styling comes from wwwroot/css/lms.css (lms-card, lms-skeleton).
+
+   Usage:
+   <LoadingSkeleton />                            three lines inside a card
+   <LoadingSkeleton InCard="false" Lines="2" />   two lines without a card, e.g. inside another card *@
+
+@* Built once so the same lines can be shown with or without the card around them *@
+@{
+    RenderFragment lines = @<div class="d-flex flex-column gap-3" role="status">
+        @for (var i = 0; i < Lines; i++)
+        {
+            <div class="lms-skeleton" style="width: @(Widths[i % Widths.Length])%; height: 16px;"></div>
+        }
+        @* Read by screen readers only *@
+        <span class="visually-hidden">@Label</span>
+    </div>;
+}
+
+@if (InCard)
+{
+    <div class="lms-card">@lines</div>
+}
+else
+{
+    @lines
+}
+
+@code {
+    // Line widths in percent. The lines repeat this pattern if Lines is larger.
+    private static readonly int[] Widths = [40, 70, 55, 60, 45];
+
+    // Number of grey lines
+    [Parameter]
+    public int Lines { get; set; } = 3;
+
+    // true = wrap the lines in a white card (default), false = only the lines
+    [Parameter]
+    public bool InCard { get; set; } = true;
+
+    // Hidden text for screen readers
+    [Parameter]
+    public string Label { get; set; } = "Loading...";
+}

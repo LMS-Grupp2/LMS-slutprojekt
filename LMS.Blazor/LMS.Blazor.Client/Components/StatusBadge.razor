@@ -1,0 +1,21 @@
+﻿@* Reusable coloured badge, e.g. the activity type or a status label.
+   Replaces the "lms-badge lms-tone-*" spans every page repeated.
+   Styling comes from wwwroot/css/lms.css (lms-badge and lms-tone-*).
+
+   Usage:
+   <StatusBadge Text="@item.ActivityTypeName" Tone="@ToneOf(item.ActivityTypeName)" />
+
+   Tone is the colour name from lms.css: primary, success, warning, danger, info or muted.
+   Each page keeps its own small method that picks the tone, so the colours stay in one place per page. *@
+
+<span class="lms-badge lms-tone-@Tone">@Text</span>
+
+@code {
+    // The label inside the badge
+    [Parameter, EditorRequired]
+    public string Text { get; set; } = string.Empty;
+
+    // Colour name: primary, success, warning, danger, info or muted (default)
+    [Parameter]
+    public string Tone { get; set; } = "muted";
+}
