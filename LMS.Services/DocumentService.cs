@@ -191,13 +191,22 @@ public class DocumentService : IDocumentService
         var document = await _unitOfWork.Documents.GetByIdAsync(id)
             ?? throw new DocumentNotFoundException(id);
 
-        // A student only gets documents from their own course. Everything else is a 404.
+        // A student only gets documents from their own course, and of hand-ins only their own (US09).
+        // Everything else is a 404, so a student cannot find out which files exist.
         if (!isTeacher)
         {
-            var courseId = GetCourseId(document);
+            if (document.Submission is not null)
+            {
+                if (document.Submission.StudentId != userId)
+                    throw new DocumentNotFoundException(id);
+            }
+            else
+            {
+                var courseId = GetCourseId(document);
 
-            if (courseId is null || !await CanAccessCourseAsync(courseId.Value, userId, isTeacher))
-                throw new DocumentNotFoundException(id);
+                if (courseId is null || !await CanAccessCourseAsync(courseId.Value, userId, isTeacher))
+                    throw new DocumentNotFoundException(id);
+            }
         }
 
         var path = Path.Combine(_uploadsRoot, document.StoredFileName);

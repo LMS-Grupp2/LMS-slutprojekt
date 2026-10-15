@@ -16,10 +16,12 @@ public class DocumentRepository : IDocumentRepository
 
     // Tracked on purpose: the service deletes the entity after loading it.
     // Module and Activity.Module are included so the service can work out the document's course.
+    // Submission is included so the service can see whose hand-in a file is (US09).
     public async Task<Document?> GetByIdAsync(Guid id)
     {
         return await _context.Documents
             .Include(d => d.User)
+            .Include(d => d.Submission)
             .Include(d => d.Module)
             .Include(d => d.Activity)
                 .ThenInclude(a => a!.Module)
