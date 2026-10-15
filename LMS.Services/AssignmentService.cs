@@ -33,7 +33,9 @@ public class AssignmentService : IAssignmentService
                 Submitted = submission is not null,
                 SubmissionId = submission?.Id,
                 SubmittedAt = submission?.SubmittedAt,
-                Status = submission is null ? "Not submitted" : "Submitted",
+                Status = submission is null
+                    ? "Not submitted"
+                    : submission.Approved ? "Approved" : submission.NeedChanges ? "Needs changes" : "Submitted",
                 Grade = submission?.Grade?.ToString()
             };
         })

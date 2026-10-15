@@ -18,7 +18,7 @@
     <td>
         @if (feedback != "")
         {
-            <span class="lms-badge lms-tone-primary ">@feedback</span>
+            <span class="lms-badge @BadgeClass(feedback)">&#8226; @feedback</span>
         }
     </td>
     <td class="">
@@ -64,8 +64,8 @@
                     break;
             }
 
-            // TODO - Set feedback - '' | Feedback | Needs changes
-            feedback = "";
+            // TODO - Set feedback
+            feedback = "Feedback";  // TODO - dummy
 
         }
     }
@@ -74,7 +74,10 @@
     private static string BadgeClass(string typeName) => typeName switch
     {
         "Late" => "lms-tone-danger",
-        "Submitted" => "lms-tone-success ",
+        "Needs changes" => "lms-tone-danger",
+        "Submitted" => "lms-tone-success",
+        "Approved" => "lms-tone-success",
+        "Feedback" => "lms-tone-primary",
         _ => "lms-tone-muted"
     };
 
