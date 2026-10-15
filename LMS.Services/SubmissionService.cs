@@ -39,6 +39,12 @@ public class SubmissionService : ISubmissionService
         var activity = await GetAssignmentForStudentAsync(activityId, studentId);
         var submission = await _unitOfWork.Submissions.GetByActivityAndStudentAsync(activityId, studentId);
 
+        // Checked before the file is stored, so a locked submission never gets a stray file on disk (#60)
+        if (submission is not null && SubmissionStatusCalculator.IsLocked(submission))
+            throw new ConflictException(
+                "The teacher has already given feedback on this assignment, so no more files can be handed in.",
+                "Submission locked");
+
         // First hand-in: create the row. It is only added here, not saved yet.
         // The id is set now because the document below needs it as its foreign key.
         if (submission is null)
@@ -110,6 +116,7 @@ public class SubmissionService : ISubmissionService
             submission?.SubmittedAt,
             isLate,
             SubmissionStatusCalculator.Calculate(submission, activity.EndTime, now),
+            submission is not null && SubmissionStatusCalculator.IsLocked(submission),
             files);
     }
 }

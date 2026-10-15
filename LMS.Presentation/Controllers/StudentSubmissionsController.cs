@@ -47,6 +47,7 @@ public class StudentSubmissionsController(IServiceManager serviceManager) : Cont
     [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(StudentSubmissionDto))]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<StudentSubmissionDto>> SubmitFile(
         Guid activityId,
         [FromForm] SubmitFileRequest request,

@@ -42,4 +42,12 @@ public static class SubmissionStatusCalculator
     /// </summary>
     public static bool IsLate(Submission submission, DateTime deadline) =>
         submission.SubmittedAt > deadline;
+
+    /// <summary>
+    /// True when the teacher has started assessing the submission (feedback or a grade exists, #60).
+    /// A locked submission takes no new files, so the teacher never assesses something that changes afterwards.
+    /// Feedbacks must be loaded (Include in the repository).
+    /// </summary>
+    public static bool IsLocked(Submission submission) =>
+        submission.Feedbacks.Any() || submission.Grade.HasValue;
 }

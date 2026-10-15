@@ -110,6 +110,26 @@ public class SubmissionServiceTests
     }
 
     [Fact]
+    public async Task HandIn_AfterFeedback_Is409_AndNothingIsStored()
+    {
+        //ARRANGE
+        var activity = GivenActivity();
+        var assessed = new Submission
+        {
+            Id = Guid.NewGuid(), ActivityId = activity.Id, StudentId = StudentId,
+            SubmittedAt = DateTime.UtcNow.AddDays(-2),
+            Feedbacks = [new Feedback { Text = "Good work" }]
+        };
+        _submissions.Setup(r => r.GetByActivityAndStudentAsync(activity.Id, StudentId)).ReturnsAsync(assessed);
+        var oldTime = assessed.SubmittedAt;
+
+        //ACT + ASSERT
+        await Assert.ThrowsAsync<ConflictException>(() => SubmitAsync(activity.Id));
+        AssertNothingStored();
+        Assert.Equal(oldTime, assessed.SubmittedAt);
+    }
+
+    [Fact]
     public async Task AssignmentInAnotherCourse_Is404_AndNothingIsStored()
     {
         //ARRANGE

@@ -13,4 +13,5 @@ public sealed record StudentSubmissionDto(
     DateTime? SubmittedAt,
     bool IsLate,
     string Status,
+    bool IsLocked,
     List<SubmissionFileDto> Files);

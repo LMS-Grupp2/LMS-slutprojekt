@@ -1,4 +1,5 @@
 using Domain.Models.Entities;
+using Domain.Models.Enums;
 using LMS.Services;
 using LMS.Shared.Constants;
 
@@ -100,5 +101,39 @@ public class SubmissionStatusCalculatorTests
 
         //ASSERT
         Assert.Equal(SubmissionStatus.FeedbackGiven, status);
+    }
+
+    [Fact]
+    public void Submission_WithoutFeedbackOrGrade_IsNotLocked()
+    {
+        //ARRANGE
+        var submission = new Submission { SubmittedAt = BeforeDeadline };
+
+        //ACT + ASSERT
+        Assert.False(SubmissionStatusCalculator.IsLocked(submission));
+    }
+
+    [Fact]
+    public void Submission_WithFeedback_IsLocked()
+    {
+        //ARRANGE
+        var submission = new Submission
+        {
+            SubmittedAt = BeforeDeadline,
+            Feedbacks = [new Feedback { Text = "Good work" }]
+        };
+
+        //ACT + ASSERT
+        Assert.True(SubmissionStatusCalculator.IsLocked(submission));
+    }
+
+    [Fact]
+    public void Submission_WithGrade_IsLocked()
+    {
+        //ARRANGE
+        var submission = new Submission { SubmittedAt = BeforeDeadline, Grade = Grade.C };
+
+        //ACT + ASSERT
+        Assert.True(SubmissionStatusCalculator.IsLocked(submission));
     }
 }
