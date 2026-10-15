@@ -13,6 +13,7 @@ namespace LMS.Services;
 /// Business rules for course documents: only allowed file types and sizes (400), a document belongs to exactly
 /// one of course, module or activity (400), the target must exist (404) and students only see documents from
 /// their own course (404 for anything else). The file is stored on disk, the database only keeps metadata.
+/// Students may also upload to their own course or module and delete their own documents (US07).
 /// </summary>
 public class DocumentService : IDocumentService
 {
@@ -87,6 +88,33 @@ public class DocumentService : IDocumentService
 
         var documents = await _unitOfWork.Documents.GetByActivityIdAsync(activityId);
         return documents.Select(MapToDto).ToList();
+    }
+
+    // Who may upload where (US07). A teacher may upload anywhere. A student may only upload to their own
+    // course or to a module in their own course, never to an activity. Everything else is a 404 so a
+    // student cannot find out which courses, modules or activities exist.
+    public async Task EnsureCanUploadAsync(
+        Guid? courseId, Guid? moduleId, Guid? activityId, string userId, bool isTeacher)
+    {
+        if (isTeacher)
+            return;
+
+        // Students cannot attach documents to activities
+        if (activityId is { } aid)
+            throw new ActivityNotFoundException(aid);
+
+        if (courseId is { } cid && !await CanAccessCourseAsync(cid, userId, isTeacher))
+            throw new CourseNotFoundException(cid);
+
+        if (moduleId is { } mid)
+        {
+            var module = await _unitOfWork.Modules.GetByIdAsync(mid)
+                ?? throw new ModuleNotFoundException(mid);
+
+            // The module must belong to the student's own course
+            if (!await CanAccessCourseAsync(module.CourseId, userId, isTeacher))
+                throw new ModuleNotFoundException(mid);
+        }
     }
 
     public async Task<DocumentDto> UploadAsync(
@@ -217,6 +245,22 @@ public class DocumentService : IDocumentService
         DeleteFileQuietly(Path.Combine(_uploadsRoot, document.StoredFileName));
     }
 
+    // Delete with a permission check (US07). A teacher may delete any document, a student only their own.
+    // Someone else's document is a 404 for a student, the same as a document that does not exist.
+    public async Task DeleteAsync(Guid id, string userId, bool isTeacher)
+    {
+        if (!isTeacher)
+        {
+            var document = await _unitOfWork.Documents.GetByIdAsync(id)
+                ?? throw new DocumentNotFoundException(id);
+
+            if (document.UserId != userId)
+                throw new DocumentNotFoundException(id);
+        }
+
+        await DeleteAsync(id);
+    }
+
 
     /* Helpers */
 
@@ -251,7 +295,8 @@ public class DocumentService : IDocumentService
             uploadedByName,
             document.CourseId,
             document.ModuleId,
-            document.ActivityId);
+            document.ActivityId,
+            document.UserId);
 
     private static void DeleteFileQuietly(string path)
     {

@@ -14,4 +14,7 @@ public sealed record DocumentDto(
     string UploadedByName,
     Guid? CourseId,
     Guid? ModuleId,
-    Guid? ActivityId);
+    Guid? ActivityId,
+    // The id of the user who uploaded the file (US07). The UI uses it to show the delete
+    // button only on the student's own documents. Added last so existing usages keep their order.
+    string UploadedById);

@@ -11,7 +11,8 @@ namespace LMS.Presentation.Controllers;
 
 /// <summary>
 /// Document endpoints. The controller only handles HTTP, all rules live in DocumentService.
-/// Teachers and students can list and download, only teachers can upload and delete.
+/// Teachers and students can list, download and upload. A teacher can upload anywhere and delete any
+/// document. A student can only upload to their own course or module and delete their own documents (US07).
 /// </summary>
 [Route("api")]
 [ApiController]
@@ -73,12 +74,13 @@ public class DocumentsController(IServiceManager serviceManager) : ControllerBas
     }
 
     /// <summary>POST api/documents - uploads a file (multipart/form-data) and attaches it to exactly one
-    /// of course, module or activity. 400 for a bad file or target, 404 if the target does not exist.</summary>
+    /// of course, module or activity. A student can only use their own course or a module in it (404 otherwise).
+    /// 400 for a bad file or target, 404 if the target does not exist or is not allowed.</summary>
     [HttpPost("documents")]
-    [Authorize(Roles = UserRoles.Teacher)]
     [Consumes("multipart/form-data")]
     [SwaggerOperation(Summary = "Upload a document",
-        Description = "Uploads a file and attaches it to a course, a module or an activity (set exactly one).")]
+        Description = "Uploads a file and attaches it to a course, a module or an activity (set exactly one). " +
+                      "Students can only upload to their own course or to a module in it.")]
     [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(DocumentDto))]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -91,6 +93,14 @@ public class DocumentsController(IServiceManager serviceManager) : ControllerBas
 
         if (request.File is null)
             return BadRequest(new ProblemDetails { Title = "Bad Request", Detail = "No file was uploaded." });
+
+        // Who may upload where (a student: own course or module only). Throws a 404 if not allowed.
+        await _serviceManager.DocumentService.EnsureCanUploadAsync(
+            request.CourseId,
+            request.ModuleId,
+            request.ActivityId,
+            userId,
+            IsTeacher());
 
         // The stream is disposed here, the service has finished copying it to disk by then
         await using var stream = request.File.OpenReadStream();
@@ -132,15 +142,19 @@ public class DocumentsController(IServiceManager serviceManager) : ControllerBas
         return File(download.Content, download.ContentType, download.FileName);
     }
 
-    /// <summary>DELETE api/documents/{id} - deletes a document and its file, or 404 if it does not exist.</summary>
+    /// <summary>DELETE api/documents/{id} - deletes a document and its file. A teacher can delete any document,
+    /// a student only their own. 404 if it does not exist (or is someone else's, for a student).</summary>
     [HttpDelete("documents/{id:guid}")]
-    [Authorize(Roles = UserRoles.Teacher)]
-    [SwaggerOperation(Summary = "Delete a document", Description = "Deletes a document and its file by id.")]
+    [SwaggerOperation(Summary = "Delete a document",
+        Description = "Deletes a document and its file by id. Teachers can delete any document, students only their own.")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteDocument(Guid id)
     {
-        await _serviceManager.DocumentService.DeleteAsync(id);
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        await _serviceManager.DocumentService.DeleteAsync(id, userId, IsTeacher());
         return NoContent();
     }
 

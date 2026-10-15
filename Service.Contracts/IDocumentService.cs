@@ -21,8 +21,17 @@ public interface IDocumentService
     Task<IEnumerable<DocumentDto>> GetByActivityAsync(Guid activityId, string userId, bool isTeacher);
 
     /// <summary>
+    /// Checks that the user may upload to the given target (US07). A teacher may upload anywhere.
+    /// A student may only upload to their own course or to a module in their own course, never to an
+    /// activity. Everything else throws a not-found error, so a student cannot find out what exists.
+    /// Call this before UploadAsync. The "exactly one target" rule is still checked by UploadAsync.
+    /// </summary>
+    Task EnsureCanUploadAsync(Guid? courseId, Guid? moduleId, Guid? activityId, string userId, bool isTeacher);
+
+    /// <summary>
     /// Validates the file (type and size), saves it to disk and stores its metadata.
-    /// Exactly one of courseId, moduleId or activityId must be set. Teacher only (checked in the controller).
+    /// Exactly one of courseId, moduleId or activityId must be set.
+    /// Who may upload where is checked first with EnsureCanUploadAsync (done in the controller).
     /// </summary>
     Task<DocumentDto> UploadAsync(
         Stream content,
@@ -41,8 +50,14 @@ public interface IDocumentService
     /// </summary>
     Task<DocumentDownload> DownloadAsync(Guid id, string userId, bool isTeacher);
 
-    /// <summary>Deletes the metadata and the file on disk. Teacher only (checked in the controller).</summary>
+    /// <summary>Deletes the metadata and the file on disk, without any permission check.</summary>
     Task DeleteAsync(Guid id);
+
+    /// <summary>
+    /// Deletes a document with a permission check (US07): a teacher may delete any document,
+    /// a student only their own. Someone else's document is a not-found error for a student.
+    /// </summary>
+    Task DeleteAsync(Guid id, string userId, bool isTeacher);
 }
 
 /// <summary>
