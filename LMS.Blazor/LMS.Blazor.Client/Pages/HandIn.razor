@@ -111,7 +111,11 @@
 
                         <label class="form-label" for="handin-file">File *</label>
                         @* The key changes after an upload, which clears the chosen file *@
-                        <InputFile @key="fileInputKey" id="handin-file" class="form-control" OnChange="OnFileSelected" />
+                        <InputFile @key="fileInputKey" id="handin-file" class="form-control"
+                                   accept="@AcceptedExtensions" OnChange="OnFileSelected" />
+                        <div class="lms-cell-sub mt-1">
+                            PDF, Word, PowerPoint, Excel, text or images. Max @MaxFileSizeMb MB.
+                        </div>
 
                         <div class="d-flex justify-content-end mt-3">
                             <button type="button" class="btn btn-primary" disabled="@isUploading" @onclick="UploadAsync">
@@ -126,9 +130,11 @@
 </div>
 
 @code {
-    // Must match the limit in DocumentStorageSettings (the API checks it again)
+    // Must match the limit in DocumentStorageSettings and the allowed types in DocumentService.
+    // The API checks everything again; these only give the student a quick answer (#62).
     private const int MaxFileSizeMb = 10;
     private const long MaxFileBytes = MaxFileSizeMb * 1024L * 1024L;
+    private const string AcceptedExtensions = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.png,.jpg,.jpeg,.gif";
 
     private readonly CancellationTokenSource cts = new();
 
@@ -220,6 +226,26 @@
             return;
         }
 
+        // Quick checks in the browser, so the student does not wait for an upload that will be refused
+        if (selectedFile.Size == 0)
+        {
+            uploadError = "The file is empty.";
+            return;
+        }
+
+        if (selectedFile.Size > MaxFileBytes)
+        {
+            uploadError = $"The file is too large. The maximum size is {MaxFileSizeMb} MB.";
+            return;
+        }
+
+        var extension = Path.GetExtension(selectedFile.Name).ToLowerInvariant();
+        if (!AcceptedExtensions.Split(',').Contains(extension))
+        {
+            uploadError = $"The file type '{extension}' is not allowed. Allowed types: {AcceptedExtensions.Replace(",", ", ")}.";
+            return;
+        }
+
         isUploading = true;
 
         try
@@ -254,9 +280,26 @@
         {
             RedirectToLogin();
         }
-        catch (Exception ex) when (ex is HttpRequestException or IOException)
+        catch (HttpRequestException ex)
         {
-            uploadError = "Could not hand in the file. Please try again.";
+            uploadError = ex.StatusCode switch
+            {
+                // 400: the API's own message says what was wrong (file type, size, empty file, not an assignment)
+                HttpStatusCode.BadRequest => ex.Message,
+                HttpStatusCode.NotFound => "This assignment no longer exists or is not part of your course.",
+                HttpStatusCode.Conflict => "Your teacher has already given feedback, so no more files can be handed in.",
+                HttpStatusCode.RequestEntityTooLarge => $"The file is too large. The maximum size is {MaxFileSizeMb} MB.",
+                _ => "Could not hand in the file. Please try again."
+            };
+
+            // Locked while the page was open: reload so the form is replaced by the "locked" message
+            if (ex.StatusCode == HttpStatusCode.Conflict)
+                await LoadAsync();
+        }
+        catch (IOException)
+        {
+            // Reading the file in the browser failed, for example because it changed or grew past the limit
+            uploadError = "The file could not be read. Choose it again and retry.";
         }
         finally
         {
