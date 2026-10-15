@@ -22,7 +22,9 @@ public interface IDocumentService
 
     /// <summary>
     /// Validates the file (type and size), saves it to disk and stores its metadata.
-    /// Exactly one of courseId, moduleId or activityId must be set. Teacher only (checked in the controller).
+    /// Exactly one of courseId, moduleId, activityId or submissionId must be set.
+    /// Course, module and activity uploads are teacher only (checked in the controller).
+    /// submissionId is only passed by SubmissionService (US09) for a student's hand-in.
     /// </summary>
     Task<DocumentDto> UploadAsync(
         Stream content,
@@ -32,6 +34,7 @@ public interface IDocumentService
         Guid? courseId,
         Guid? moduleId,
         Guid? activityId,
+        Guid? submissionId,
         string userId,
         CancellationToken cancellationToken);
 

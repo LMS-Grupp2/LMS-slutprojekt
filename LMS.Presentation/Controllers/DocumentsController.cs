@@ -103,6 +103,7 @@ public class DocumentsController(IServiceManager serviceManager) : ControllerBas
             request.CourseId,
             request.ModuleId,
             request.ActivityId,
+            submissionId: null,
             userId,
             cancellationToken);
 

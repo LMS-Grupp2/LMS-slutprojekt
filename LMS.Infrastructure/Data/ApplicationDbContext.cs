@@ -32,6 +32,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasForeignKey(s => s.StudentId)
             .OnDelete(DeleteBehavior.Restrict);
 
+           builder.Entity<Submission>()
+            .HasIndex(s => new { s.ActivityId, s.StudentId })
+            .IsUnique();
+
         builder.Entity<Feedback>()
             .HasOne(f => f.Teacher)
             .WithMany()
