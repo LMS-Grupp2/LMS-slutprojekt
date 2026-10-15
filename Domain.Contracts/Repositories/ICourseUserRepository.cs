@@ -6,4 +6,6 @@ public interface ICourseUserRepository
 {
     void Create(CourseUser courseUser);
     Task<IEnumerable<CourseUser>> GetByUserIdAsync(string userId);
+    
+    Task<IEnumerable<CourseUser>> GetByCourseIdAsync(Guid courseId);
 }
