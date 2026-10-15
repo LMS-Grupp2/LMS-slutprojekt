@@ -9,7 +9,7 @@ namespace LMS.Services;
 public class ServiceManager : IServiceManager
 {
     private readonly Lazy<IAuthService> _authService;
-    private readonly Lazy<ISubmissionService> _submissionService; // <- Ny (US09)
+    private readonly Lazy<ISubmissionService> _submissionService; // <- NEW (US09)
     private readonly Lazy<ICourseService> _courseService;
     private readonly Lazy<IModuleService> _moduleService;
     private readonly Lazy<IStudentCourseService> _studentCourseService;
