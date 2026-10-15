@@ -1,6 +1,5 @@
 ﻿@page "/my-assignments"
 
-@using System.Globalization
 @using System.Linq
 @using System.Net
 @using LMS.Blazor.Client.Components.Assignments
@@ -16,8 +15,15 @@
 @inject NavigationManager NavigationManager
 
 
-<h3>My assignments</h3>
-<span class="lms-cell-sub">@AssignmentInfo()</span>
+<div class="lms-page-header">
+    <div>
+        <div class="lms-breadcrumb">
+            <!--!--><a href="my-course" b-g4rydwpcux="">My course</a> / Assignments
+        </div>
+        <h1 class="lms-page-title" tabindex="-1">My Assignments</h1>
+        <p class="lms-page-subtitle">@AssignmentInfo()</p>
+    </div>
+</div>
 
 @if (isLoading)
 {
@@ -60,7 +66,7 @@ else
                     {
                         <tr>
                             <td colspan="5">
-                                <div class="d-flex align-items-center gap-2">
+                                <div class="text-center">
                                     You have no assignments
                                 </div>
                             </td>
@@ -118,59 +124,32 @@ else
         StateHasChanged();  // Update GUI
     }
 
-    private string AssignmentInfo()
+    // Create info under header about status for assignments
+    private MarkupString AssignmentInfo()
     {
-        var now = DateTime.Now;
-        string info = "";
+        if (assignments is null || !assignments.Any())
+            return new MarkupString(string.Empty);
 
+        var now = DateTime.Now;
         string courseName = "";
         int countNot = 0;
-        int countLat = 0;
+        int countLate = 0;
 
-        if (assignments is null || !assignments.Any())
-            return info;
-
-        foreach(var item in assignments)
+        foreach (var item in assignments)
         {
             if (string.IsNullOrEmpty(courseName))
                 courseName = item.CourseName;
 
             if (item.Submitted != true)
-            {
                 countNot++;
-            }
-            else
-            {
-                if (item.EndTime < now)
-                    countLat++;
-            }
+            
+            if (item.EndTime < now)
+                countLate++;
         }
-        info = courseName + " | " + countNot.ToString() + " | not submitted" + countLat.ToString() + " late";
         
-        return info;
+        var info = $"{courseName} &bull; {countNot} not submitted &bull; {countLate} late";
+        return new MarkupString(info);
     }
-
-// Get colors for Badges - TODO
-
-// Badge colour per activity type (falls back to muted for unknown types)
-private static string TextColorClass(string typeName) => typeName switch
-{
-    "Lecture" => "lms-tone-primary",
-    "E-Learning" => "lms-tone-info",
-    "Exercise" => "lms-tone-success",
-    "Assignment" => "lms-tone-warning",
-    _ => "lms-tone-muted"
-};
-
-    private static string LateDateClass(DateTime endTime)
-    {
-        var now = DateTime.Now;
-        return endTime < now ? "text-danger" : "";
-    }
-
-    // "Mon 12 Oct"
-    private static string FormatDateTime(DateTime time) =>
-        time.ToString("ddd d MMM, HH:MM", CultureInfo.InvariantCulture);
 
     public void Dispose()
     {

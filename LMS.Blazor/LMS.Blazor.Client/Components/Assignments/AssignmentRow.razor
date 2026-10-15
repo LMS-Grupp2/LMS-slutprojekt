@@ -1,8 +1,6 @@
 ﻿@using System.Globalization
 @using LMS.Shared.DTOs.AssignmentDtos
 
-
-
 <tr class="@RowClass(isLate)">
     <td>
         <div class="d-flex align-items-center gap-2">
@@ -26,10 +24,6 @@
     </td>
 </tr>
 
-
-
-
-
 @code {
 
     [Parameter]
@@ -47,7 +41,8 @@
             var now = DateTime.Now;
             isLate = (Item.EndTime < now) ? true : false;
 
-            // Set status - "Approved" | "Needs changes" | "Submitted" | "Not submitted" | "late"
+            // Set status
+            // Approved | Needs changes | Submitted | Not submitted + late
             switch (Item.Status)
             {
                 case "Approved":
@@ -65,8 +60,7 @@
             }
 
             // TODO - Set feedback
-            feedback = "Feedback";  // TODO - dummy
-
+            feedback = "";
         }
     }
 
