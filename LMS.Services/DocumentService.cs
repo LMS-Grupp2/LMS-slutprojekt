@@ -118,6 +118,7 @@ public class DocumentService : IDocumentService
         }
     }
 
+    // Validates first (small helpers below), then stores the file on disk and its metadata in the database.
     public async Task<DocumentDto> UploadAsync(
         Stream content,
         string fileName,
@@ -132,45 +133,17 @@ public class DocumentService : IDocumentService
     {
         var maxBytes = _maxFileSizeMb * 1024L * 1024L;
 
-        if (length <= 0)
-            throw new BadRequestException("The file is empty.");
-
-        if (length > maxBytes)
-            throw new BadRequestException($"The file is too large. The maximum size is {_maxFileSizeMb} MB.");
-
-        if (new[] { courseId, moduleId, activityId, submissionId }.Count(id => id.HasValue) != 1)
-            throw new BadRequestException("Attach the document to exactly one of: a course, a module or an activity.");
-
-        // Only the file name, never a path the client sent along
-        var originalName = Path.GetFileName(fileName ?? string.Empty).Trim();
-
-        if (originalName.Length == 0)
-            throw new BadRequestException("The file needs a name.");
-
-        if (originalName.Length > MaxFileNameLength)
-            throw new BadRequestException($"The file name can be at most {MaxFileNameLength} characters.");
-
-        var extension = Path.GetExtension(originalName);
-
-        if (!AllowedTypes.TryGetValue(extension, out var type))
-            throw new BadRequestException(
-                $"The file type '{extension}' is not allowed. Allowed types: {string.Join(", ", AllowedTypes.Keys)}.");
-
-        // The target must exist
-        if (courseId is { } cid && await _unitOfWork.Courses.GetCourseByIdAsync(cid) is null)
-            throw new CourseNotFoundException(cid);
-
-        if (moduleId is { } mid && await _unitOfWork.Modules.GetByIdAsync(mid) is null)
-            throw new ModuleNotFoundException(mid);
-
-        if (activityId is { } aid && await _unitOfWork.Activities.GetByIdAsync(aid) is null)
-            throw new ActivityNotFoundException(aid);
+        // Validation: every check throws a 400 or 404, so nothing is stored when one fails
+        ValidateSize(length, maxBytes);
+        EnsureExactlyOneTarget(courseId, moduleId, activityId, submissionId);
+        var file = ValidateFileName(fileName);
+        await EnsureTargetsExistAsync(courseId, moduleId, activityId);
 
         // No existence check for submissionId: only SubmissionService passes it, and the submission may be
         // new and not saved yet. It shares this unit of work, so the SaveChangesAsync below saves both.
 
         // The file on disk gets a generated name, so uploads with the same name never overwrite each other
-        var storedFileName = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
+        var storedFileName = $"{Guid.NewGuid():N}{file.Extension.ToLowerInvariant()}";
         var path = Path.Combine(_uploadsRoot, storedFileName);
 
         Directory.CreateDirectory(_uploadsRoot);
@@ -184,15 +157,15 @@ public class DocumentService : IDocumentService
 
             // Double check the real size, the reported length comes from the client
             if (new FileInfo(path).Length > maxBytes)
-                throw new BadRequestException($"The file is too large. The maximum size is {_maxFileSizeMb} MB.");
+                throw FileTooLarge();
 
             var document = new Document
             {
-                Name = originalName,
+                Name = file.Name,
                 StoredFileName = storedFileName,
-                ContentType = type.ContentType,
+                ContentType = file.ContentType,
                 SizeBytes = new FileInfo(path).Length,
-                FileType = type.FileType,
+                FileType = file.FileType,
                 UploadedAt = DateTime.UtcNow,
                 UserId = userId,
                 CourseId = courseId,
@@ -279,6 +252,68 @@ public class DocumentService : IDocumentService
 
         await DeleteAsync(id);
     }
+
+
+    /* Upload validation helpers */
+
+    // The result of ValidateFileName: the cleaned file name and what the allowed-types list says about it
+    private sealed record ValidatedFile(string Name, string Extension, FileType FileType, string ContentType);
+
+    // 400 if the file is empty or larger than the limit
+    private void ValidateSize(long length, long maxBytes)
+    {
+        if (length <= 0)
+            throw new BadRequestException("The file is empty.");
+
+        if (length > maxBytes)
+            throw FileTooLarge();
+    }
+
+    // 400 unless exactly one target is set (a hand-in counts as a target too, see US09)
+    private static void EnsureExactlyOneTarget(
+        Guid? courseId, Guid? moduleId, Guid? activityId, Guid? submissionId)
+    {
+        if (new[] { courseId, moduleId, activityId, submissionId }.Count(id => id.HasValue) != 1)
+            throw new BadRequestException("Attach the document to exactly one of: a course, a module or an activity.");
+    }
+
+    // 400 for a missing, too long or not allowed file name. Returns the cleaned name and its type.
+    private static ValidatedFile ValidateFileName(string? fileName)
+    {
+        // Only the file name, never a path the client sent along
+        var originalName = Path.GetFileName(fileName ?? string.Empty).Trim();
+
+        if (originalName.Length == 0)
+            throw new BadRequestException("The file needs a name.");
+
+        if (originalName.Length > MaxFileNameLength)
+            throw new BadRequestException($"The file name can be at most {MaxFileNameLength} characters.");
+
+        var extension = Path.GetExtension(originalName);
+
+        if (!AllowedTypes.TryGetValue(extension, out var type))
+            throw new BadRequestException(
+                $"The file type '{extension}' is not allowed. Allowed types: {string.Join(", ", AllowedTypes.Keys)}.");
+
+        return new ValidatedFile(originalName, extension, type.FileType, type.ContentType);
+    }
+
+    // 404 if the course, module or activity does not exist
+    private async Task EnsureTargetsExistAsync(Guid? courseId, Guid? moduleId, Guid? activityId)
+    {
+        if (courseId is { } cid && await _unitOfWork.Courses.GetCourseByIdAsync(cid) is null)
+            throw new CourseNotFoundException(cid);
+
+        if (moduleId is { } mid && await _unitOfWork.Modules.GetByIdAsync(mid) is null)
+            throw new ModuleNotFoundException(mid);
+
+        if (activityId is { } aid && await _unitOfWork.Activities.GetByIdAsync(aid) is null)
+            throw new ActivityNotFoundException(aid);
+    }
+
+    // Used in two places: the reported size and the real size after the file is written
+    private BadRequestException FileTooLarge() =>
+        new($"The file is too large. The maximum size is {_maxFileSizeMb} MB.");
 
 
     /* Helpers */
