@@ -17,8 +17,9 @@ public sealed record DocumentDto(
     Guid? ActivityId,
     // True when the signed-in user may delete this document (US07): a teacher always,
     // a student only their own. The UI uses it to show the delete button.
-    bool CanDelete,
+    // The two last values have a default so code written before US07 (for example the tests
+    // of the hand-in feature) still compiles. DocumentService always sets both.
+    bool CanDelete = false,
     // True when a student uploaded the document (US07). The UI uses it to put the document
     // under "Shared by students" instead of "Course material".
-    // Both of these are added last so existing usages keep their order.
-    bool UploadedByStudent);
+    bool UploadedByStudent = false);

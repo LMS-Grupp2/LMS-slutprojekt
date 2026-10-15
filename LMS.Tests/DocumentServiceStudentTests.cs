@@ -134,6 +134,19 @@ public class DocumentServiceStudentTests
     }
 
     [Fact]
+    public async Task Student_CannotDelete_OwnHandInFile()
+    {
+        //ARRANGE: a file the student handed in (US09). It belongs to a submission, not to a course.
+        var handIn = CreateDocument(StudentId, submissionId: Guid.NewGuid());
+
+        //ACT + ASSERT: 404, otherwise a student could delete a hand-in that is locked after feedback
+        await Assert.ThrowsAsync<DocumentNotFoundException>(
+            () => _service.DeleteAsync(handIn.Id, StudentId, isTeacher: false));
+
+        _documents.Verify(r => r.Delete(It.IsAny<Document>()), Times.Never);
+    }
+
+    [Fact]
     public async Task Teacher_CanDelete_AnyDocument()
     {
         //ARRANGE
@@ -148,8 +161,9 @@ public class DocumentServiceStudentTests
 
     /* Helpers */
 
-    // A document uploaded by the given user, returned by the mocked repository
-    private Document CreateDocument(string uploadedBy)
+    // A document uploaded by the given user, returned by the mocked repository.
+    // Give a submissionId to make it a hand-in file instead of a course document.
+    private Document CreateDocument(string uploadedBy, Guid? submissionId = null)
     {
         var document = new Document
         {
@@ -158,7 +172,8 @@ public class DocumentServiceStudentTests
             StoredFileName = $"{Guid.NewGuid():N}.pdf",
             ContentType = "application/pdf",
             UserId = uploadedBy,
-            CourseId = _ownCourseId
+            CourseId = submissionId is null ? _ownCourseId : null,
+            SubmissionId = submissionId
         };
 
         _documents.Setup(r => r.GetByIdAsync(document.Id)).ReturnsAsync(document);

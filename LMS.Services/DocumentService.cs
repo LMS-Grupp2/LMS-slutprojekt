@@ -126,6 +126,7 @@ public class DocumentService : IDocumentService
         Guid? courseId,
         Guid? moduleId,
         Guid? activityId,
+        Guid? submissionId,
         string userId,
         CancellationToken cancellationToken)
     {
@@ -137,7 +138,7 @@ public class DocumentService : IDocumentService
         if (length > maxBytes)
             throw new BadRequestException($"The file is too large. The maximum size is {_maxFileSizeMb} MB.");
 
-        if (new[] { courseId, moduleId, activityId }.Count(id => id.HasValue) != 1)
+        if (new[] { courseId, moduleId, activityId, submissionId }.Count(id => id.HasValue) != 1)
             throw new BadRequestException("Attach the document to exactly one of: a course, a module or an activity.");
 
         // Only the file name, never a path the client sent along
@@ -164,6 +165,9 @@ public class DocumentService : IDocumentService
 
         if (activityId is { } aid && await _unitOfWork.Activities.GetByIdAsync(aid) is null)
             throw new ActivityNotFoundException(aid);
+
+        // No existence check for submissionId: only SubmissionService passes it, and the submission may be
+        // new and not saved yet. It shares this unit of work, so the SaveChangesAsync below saves both.
 
         // The file on disk gets a generated name, so uploads with the same name never overwrite each other
         var storedFileName = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
@@ -193,7 +197,8 @@ public class DocumentService : IDocumentService
                 UserId = userId,
                 CourseId = courseId,
                 ModuleId = moduleId,
-                ActivityId = activityId
+                ActivityId = activityId,
+                SubmissionId = submissionId
             };
 
             _unitOfWork.Documents.Create(document);
@@ -217,13 +222,22 @@ public class DocumentService : IDocumentService
         var document = await _unitOfWork.Documents.GetByIdAsync(id)
             ?? throw new DocumentNotFoundException(id);
 
-        // A student only gets documents from their own course. Everything else is a 404.
+        // A student only gets documents from their own course, and of hand-ins only their own (US09).
+        // Everything else is a 404, so a student cannot find out which files exist.
         if (!isTeacher)
         {
-            var courseId = GetCourseId(document);
+            if (document.Submission is not null)
+            {
+                if (document.Submission.StudentId != userId)
+                    throw new DocumentNotFoundException(id);
+            }
+            else
+            {
+                var courseId = GetCourseId(document);
 
-            if (courseId is null || !await CanAccessCourseAsync(courseId.Value, userId, isTeacher))
-                throw new DocumentNotFoundException(id);
+                if (courseId is null || !await CanAccessCourseAsync(courseId.Value, userId, isTeacher))
+                    throw new DocumentNotFoundException(id);
+            }
         }
 
         var path = Path.Combine(_uploadsRoot, document.StoredFileName);
@@ -250,6 +264,8 @@ public class DocumentService : IDocumentService
 
     // Delete with a permission check (US07). A teacher may delete any document, a student only their own.
     // Someone else's document is a 404 for a student, the same as a document that does not exist.
+    // A hand-in file (US09) is never deleted this way: it is locked once the teacher has given feedback,
+    // and only SubmissionService decides that. Without this check a student could delete a locked hand-in.
     public async Task DeleteAsync(Guid id, string userId, bool isTeacher)
     {
         if (!isTeacher)
@@ -257,7 +273,7 @@ public class DocumentService : IDocumentService
             var document = await _unitOfWork.Documents.GetByIdAsync(id)
                 ?? throw new DocumentNotFoundException(id);
 
-            if (document.UserId != userId)
+            if (document.UserId != userId || document.SubmissionId is not null)
                 throw new DocumentNotFoundException(id);
         }
 

@@ -30,8 +30,9 @@ public interface IDocumentService
 
     /// <summary>
     /// Validates the file (type and size), saves it to disk and stores its metadata.
-    /// Exactly one of courseId, moduleId or activityId must be set.
+    /// Exactly one of courseId, moduleId, activityId or submissionId must be set.
     /// Who may upload where is checked first with EnsureCanUploadAsync (done in the controller).
+    /// submissionId is only passed by SubmissionService (US09) for a student's hand-in.
     /// </summary>
     Task<DocumentDto> UploadAsync(
         Stream content,
@@ -41,6 +42,7 @@ public interface IDocumentService
         Guid? courseId,
         Guid? moduleId,
         Guid? activityId,
+        Guid? submissionId,
         string userId,
         CancellationToken cancellationToken);
 
@@ -56,6 +58,7 @@ public interface IDocumentService
     /// <summary>
     /// Deletes a document with a permission check (US07): a teacher may delete any document,
     /// a student only their own. Someone else's document is a not-found error for a student.
+    /// A student's hand-in files (US09) can not be deleted this way.
     /// </summary>
     Task DeleteAsync(Guid id, string userId, bool isTeacher);
 }
