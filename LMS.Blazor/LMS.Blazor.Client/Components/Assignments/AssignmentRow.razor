@@ -1,0 +1,88 @@
+﻿@using System.Globalization
+@using LMS.Shared.DTOs.AssignmentDtos
+
+
+
+<tr class="@RowClass(isLate)">
+    <td>
+        <div class="d-flex align-items-center gap-2">
+            <div>
+                <div class="lms-cell-title">@Item.ActivityName: @Item.ActivityDescription)</div>
+                <div class="lms-cell-sub">@Item.CourseName - @Item.ModuleName</div>
+            </div>
+        </div>
+    </td>
+    <td>
+        <span class="lms-cell-title @(isLate ? "text-danger" : "")">@FormatDateTime(Item.EndTime)</span>
+    </td>
+    <td>
+        @if (feedback != "")
+        {
+            <span class="lms-badge lms-tone-primary ">@feedback</span>
+        }
+    </td>
+    <td class="">
+        <span class="lms-badge @BadgeClass(status)">@status</span>
+    </td>
+</tr>
+
+
+
+
+
+@code {
+
+    [Parameter]
+    public StudentAssignmentDto Item { get; init; } = null!;
+
+    bool isLate = false;
+    string status = "";
+    string feedback = "";
+
+    // Runs when data is set
+    protected override void OnParametersSet()
+    {
+        if (Item is not null)
+        {
+            var now = DateTime.Now;
+            isLate = (Item.EndTime < now) ? true : false;
+
+            // Set status - "Approved" | "Needs changes" | "Submitted" | "Not submitted" | "late"
+            switch (Item.Status)
+            {
+                case "Approved":
+                    status = "Approved";
+                    break;
+                case "Needs changes":
+                    status = "Needs changes";
+                    break;
+                case "Submitted":
+                    status = "Submitted";
+                    break;
+                default:
+                    status = isLate ? "Late" : "Not submitted";
+                    break;
+            }
+
+            // TODO - Set feedback - '' | Feedback | Needs changes
+            feedback = "";
+
+        }
+    }
+
+    // Status badge colours
+    private static string BadgeClass(string typeName) => typeName switch
+    {
+        "Late" => "lms-tone-danger",
+        "Submitted" => "lms-tone-success ",
+        _ => "lms-tone-muted"
+    };
+
+    // Colored background if assignment is late
+    private static string RowClass(bool late) =>
+        late ? "bg-late" : "";
+
+    // "Mon 12 Oct, 17:00"
+    private static string FormatDateTime(DateTime time) =>
+    time.ToString("ddd d MMM, HH:MM", CultureInfo.InvariantCulture);
+}

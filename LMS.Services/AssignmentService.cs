@@ -1,6 +1,6 @@
 ﻿using Domain.Contracts;
 using Domain.Models.Entities;
-using LMS.Shared.DTOs;
+using LMS.Shared.DTOs.AssignmentDtos;
 using Service.Contracts;
 
 namespace LMS.Services;
@@ -33,9 +33,7 @@ public class AssignmentService : IAssignmentService
                 Submitted = submission is not null,
                 SubmissionId = submission?.Id,
                 SubmittedAt = submission?.SubmittedAt,
-                Status = submission is null
-                    ? "Not submitted"
-                    : submission.Approved ? "Approved" : submission.NeedChanges ? "Needs changes" : "Submitted",
+                Status = submission is null ? "Not submitted" : "Submitted",
                 Grade = submission?.Grade?.ToString()
             };
         })

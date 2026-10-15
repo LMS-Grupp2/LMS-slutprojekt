@@ -3,6 +3,7 @@
 @using System.Globalization
 @using System.Linq
 @using System.Net
+@using LMS.Blazor.Client.Components.Assignments
 @using LMS.Blazor.Client.Services.ApiProxy
 @using LMS.Shared.Constants
 @using LMS.Shared.DTOs.AssignmentDtos
@@ -45,7 +46,6 @@ else
                         <th>Deadline</th>
                         <th>Feedback</th>
                         <th>Status</th>
-                        <th>-</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -53,29 +53,7 @@ else
                     {
                         @foreach (var item in assignments ?? Enumerable.Empty<StudentAssignmentDto>())
                         {
-                            <tr>
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div>
-                                            @* <div class="lms-cell-title">@(string.IsNullOrWhiteSpace(user.Name) ? "—" : user.Name)</div> *@
-                                            <div class="lms-cell-title">@item.ActivityName: @item.ActivityDescription)</div>
-                                            <div class="lms-cell-sub">@item.CourseName - @item.ModuleName</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="lms-cell-title @LateDateClass(item.EndTime)">@FormatDateTime(item.EndTime)</span>
-                                </td>
-                                <td>
-                                    <span class="lms-badge  ">Feedback</span>
-                                </td>
-                                <td class="text-end">
-                                    <span class="lms-badge  ">Status</span>
-                                </td>
-                                <td>  
-                                    <button type="button" class="btn btn-link btn-sm text-decoration-none">Submit</button>
-                                </td>
-                            </tr>
+                            <AssignmentRow Item="@item" />
                         }
                     }
                     else

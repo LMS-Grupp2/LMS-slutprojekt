@@ -1,4 +1,4 @@
-﻿using LMS.Shared.DTOs;
+﻿using LMS.Shared.DTOs.AssignmentDtos;
 using LMS.Shared.DTOs.CourseDtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -21,7 +21,7 @@ public class AssignmentsController(IServiceManager serviceManager) : ControllerB
     [SwaggerOperation(
         Summary = "Get my assignments",
         Description = "Returns the logged-in student's assignments an their status.")]
-    [SwaggerResponse(StatusCodes.Status200OK, "Assignments found", typeof(StudentCourseDto))]
+    [SwaggerResponse(StatusCodes.Status200OK, "Assignments found", typeof(IEnumerable<StudentAssignmentDto>))]
     [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not logged in")]
     public async Task<ActionResult<IEnumerable<StudentAssignmentDto>>> GetMyAssignments()
     {

@@ -1,4 +1,4 @@
-﻿using LMS.Shared.DTOs;
+﻿using LMS.Shared.DTOs.AssignmentDtos;
 
 namespace Service.Contracts;
 
