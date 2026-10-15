@@ -10,16 +10,64 @@ namespace LMS.Services;
 public class SubmissionService : ISubmissionService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IDocumentService _documentService;
 
-    public SubmissionService(IUnitOfWork unitOfWork)
+    // Both are scoped, so they share the same unit of work (and DbContext) within one request
+    public SubmissionService(IUnitOfWork unitOfWork, IDocumentService documentService)
     {
         _unitOfWork = unitOfWork;
+        _documentService = documentService;
     }
 
     public async Task<StudentSubmissionDto> GetForStudentAsync(Guid activityId, string studentId)
     {
         var activity = await GetAssignmentForStudentAsync(activityId, studentId);
         var submission = await _unitOfWork.Submissions.GetByActivityAndStudentAsync(activityId, studentId);
+
+        return MapToDto(activity, submission, DateTime.UtcNow);
+    }
+
+    public async Task<StudentSubmissionDto> SubmitAsync(
+        Guid activityId,
+        string studentId,
+        Stream content,
+        string fileName,
+        string contentType,
+        long length,
+        CancellationToken cancellationToken)
+    {
+        var activity = await GetAssignmentForStudentAsync(activityId, studentId);
+        var submission = await _unitOfWork.Submissions.GetByActivityAndStudentAsync(activityId, studentId);
+
+        // First hand-in: create the row. It is only added here, not saved yet.
+        // The id is set now because the document below needs it as its foreign key.
+        if (submission is null)
+        {
+            submission = new Submission
+            {
+                Id = Guid.NewGuid(),
+                ActivityId = activityId,
+                StudentId = studentId
+            };
+            _unitOfWork.Submissions.Create(submission);
+        }
+
+        // The server sets the time, never the client. Every new file counts as handing in again.
+        submission.SubmittedAt = DateTime.UtcNow;
+
+        // Validates and stores the file, then saves the document AND the submission in one SaveChangesAsync.
+        // If the file is rejected nothing is saved, so no empty submission is ever left behind.
+        await _documentService.UploadAsync(
+            content,
+            fileName,
+            contentType,
+            length,
+            courseId: null,
+            moduleId: null,
+            activityId: null,
+            submissionId: submission.Id,
+            studentId,
+            cancellationToken);
 
         return MapToDto(activity, submission, DateTime.UtcNow);
     }
@@ -45,7 +93,9 @@ public class SubmissionService : ISubmissionService
 
     private static StudentSubmissionDto MapToDto(Activity activity, Submission? submission, DateTime now)
     {
+        // Newest first. Sorted here too, because a file added in this request is appended last.
         var files = submission?.Documents
+            .OrderByDescending(d => d.UploadedAt)
             .Select(d => new SubmissionFileDto(d.Id, d.Name))
             .ToList() ?? [];
 

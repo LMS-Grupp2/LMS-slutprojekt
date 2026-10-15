@@ -97,6 +97,7 @@ public class DocumentService : IDocumentService
         Guid? courseId,
         Guid? moduleId,
         Guid? activityId,
+        Guid? submissionId,
         string userId,
         CancellationToken cancellationToken)
     {
@@ -108,7 +109,7 @@ public class DocumentService : IDocumentService
         if (length > maxBytes)
             throw new BadRequestException($"The file is too large. The maximum size is {_maxFileSizeMb} MB.");
 
-        if (new[] { courseId, moduleId, activityId }.Count(id => id.HasValue) != 1)
+        if (new[] { courseId, moduleId, activityId, submissionId }.Count(id => id.HasValue) != 1)
             throw new BadRequestException("Attach the document to exactly one of: a course, a module or an activity.");
 
         // Only the file name, never a path the client sent along
@@ -135,6 +136,9 @@ public class DocumentService : IDocumentService
 
         if (activityId is { } aid && await _unitOfWork.Activities.GetByIdAsync(aid) is null)
             throw new ActivityNotFoundException(aid);
+
+        // No existence check for submissionId: only SubmissionService passes it, and the submission may be
+        // new and not saved yet. It shares this unit of work, so the SaveChangesAsync below saves both.
 
         // The file on disk gets a generated name, so uploads with the same name never overwrite each other
         var storedFileName = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
@@ -164,7 +168,8 @@ public class DocumentService : IDocumentService
                 UserId = userId,
                 CourseId = courseId,
                 ModuleId = moduleId,
-                ActivityId = activityId
+                ActivityId = activityId,
+                SubmissionId = submissionId
             };
 
             _unitOfWork.Documents.Create(document);
