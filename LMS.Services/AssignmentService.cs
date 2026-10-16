@@ -25,9 +25,16 @@ public class AssignmentService : IAssignmentService
     {
         IEnumerable<Activity> activities = await _unitOfWork.Assignment.GetAssignmentsForStudentAsync(studentId);
 
+        //The same cloc for every assignment in the list.
+        var now = DateTime.UtcNow;
+
         var activityList = activities.Select(a =>
         {
             var submission = a.Submissions.FirstOrDefault();
+
+            //The deadline is stored as Swedish time we convert it before we compare
+            var deadlineUtc = CourseTime.ToUtc(a.EndTime);
+
             return new StudentAssignmentDto
             {
                 ActivityId = a.Id,
@@ -41,11 +48,10 @@ public class AssignmentService : IAssignmentService
                 Submitted = submission is not null,
                 SubmissionId = submission?.Id,
                 SubmittedAt = submission?.SubmittedAt,
-                Status = submission is null
-                    ? "Not submitted"
-                    : submission.Approved ? "Approved" : submission.NeedChanges ? "Needs changes" : "Submitted",
+                Status = SubmissionStatusCalculator.Calculate(submission, deadlineUtc, now),
                 Grade = submission?.Grade?.ToString(),
-                HasFeedback = (submission?.Feedbacks.Any() ?? false) ? true : false
+                HasFeedback = submission?.Feedbacks.Any() ?? false
+
             };
         })
         .ToList();
