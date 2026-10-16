@@ -1,6 +1,8 @@
 ﻿using Domain.Models.Entities;
-using LMS.Infrastructure.Data;
+using Domain.Contracts.Repositories;
 using Microsoft.EntityFrameworkCore;
+using LMS.Infrastructure.Data;
+using LMS.Shared.Constants;
 
 namespace LMS.Infrastructure.Repositories;
 
@@ -31,7 +33,7 @@ public class AssignmentRepository : IAssignmentRepository
                 .ThenInclude(m => m.Course)
             .Include(a => a.Submissions.Where(s => s.StudentId == studentId))
                 .ThenInclude(s => s.Feedbacks)
-            .Where(a => a.ActivityType.Name == "Assignment"
+            .Where(a => a.ActivityType.Name == ActivityTypeNames.Assignment
                         && a.Module.Course.CourseUsers.Any(cu => cu.UserId == studentId))
             .OrderBy(a => a.EndTime)
             .ToListAsync();

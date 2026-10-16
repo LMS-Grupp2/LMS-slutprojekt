@@ -1,4 +1,5 @@
-﻿using LMS.Shared.DTOs.AssignmentDtos;
+﻿using LMS.Shared.Constants;
+using LMS.Shared.DTOs.AssignmentDtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +12,7 @@ namespace LMS.Presentation.Controllers;
 
 [Route("api/student/assignments")]
 [ApiController]
-[Authorize(Roles = "Student")]
+[Authorize(Roles = UserRoles.Student)]
 public class AssignmentsController(IServiceManager serviceManager) : ControllerBase
 {
     private readonly IServiceManager _serviceManager = serviceManager;

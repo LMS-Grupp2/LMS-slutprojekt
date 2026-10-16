@@ -1,6 +1,6 @@
 ﻿using Domain.Models.Entities;
 
-namespace LMS.Infrastructure.Repositories
+namespace Domain.Contracts.Repositories
 {
     public interface IAssignmentRepository
     {
