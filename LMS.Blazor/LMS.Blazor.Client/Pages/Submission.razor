@@ -80,7 +80,7 @@
                     <div class="lms-cell-sub">Deadline</div>
                     <div class="lms-cell-title">@FormatDateTime(overview.Deadline)</div>
                     @*Late submissions are still accepted but will be shown as late*@
-                    @if (overview.Deadline < DateTime.Now)
+                    @if (overview.DeadlinePassed)
                     {
                         <StatusBadge Text="Deadline passed" Tone="muted" />
                     }
@@ -159,7 +159,8 @@
         SubmissionStatus.AwaitingFeedback,
         SubmissionStatus.Late,
         SubmissionStatus.Missing,
-        SubmissionStatus.FeedbackGiven
+        SubmissionStatus.FeedbackGiven,
+        SubmissionStatus.NotSubmitted
     ];
 
     private readonly CancellationTokenSource cts = new();

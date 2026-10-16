@@ -122,7 +122,7 @@ public class SubmissionService : ISubmissionService
             .ToList();
 
         // Deadline is sent as Swedish time, so the page can show it as it is
-        return new SubmissionOverviewDto(activity.Id, activity.Name, activity.EndTime, rows);
+        return new SubmissionOverviewDto(activity.Id, activity.Name, activity.EndTime, deadlineUtc < now,  rows);
     }
 
     private async Task<Activity> GetAssignmentForStudentAsync(Guid activityId, string studentId)
