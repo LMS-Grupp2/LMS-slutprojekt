@@ -3,6 +3,7 @@ using Domain.Models.Configurations;
 using Domain.Models.Entities;
 using Domain.Models.Enums;
 using Domain.Models.Exceptions;
+using LMS.Shared.Constants;
 using LMS.Shared.DTOs.DocumentDtos;
 using Microsoft.Extensions.Options;
 using Service.Contracts;
@@ -13,6 +14,7 @@ namespace LMS.Services;
 /// Business rules for course documents: only allowed file types and sizes (400), a document belongs to exactly
 /// one of course, module or activity (400), the target must exist (404) and students only see documents from
 /// their own course (404 for anything else). The file is stored on disk, the database only keeps metadata.
+/// Students may also upload to their own course or module and delete their own documents (US07).
 /// </summary>
 public class DocumentService : IDocumentService
 {
@@ -58,7 +60,7 @@ public class DocumentService : IDocumentService
             throw new CourseNotFoundException(courseId);
 
         var documents = await _unitOfWork.Documents.GetByCourseIdAsync(courseId);
-        return documents.Select(MapToDto).ToList();
+        return await MapToDtosAsync(documents, userId, isTeacher);
     }
 
     public async Task<IEnumerable<DocumentDto>> GetByModuleAsync(Guid moduleId, string userId, bool isTeacher)
@@ -70,7 +72,7 @@ public class DocumentService : IDocumentService
             throw new ModuleNotFoundException(moduleId);
 
         var documents = await _unitOfWork.Documents.GetByModuleIdAsync(moduleId);
-        return documents.Select(MapToDto).ToList();
+        return await MapToDtosAsync(documents, userId, isTeacher);
     }
 
     public async Task<IEnumerable<DocumentDto>> GetByActivityAsync(Guid activityId, string userId, bool isTeacher)
@@ -86,9 +88,37 @@ public class DocumentService : IDocumentService
             throw new ActivityNotFoundException(activityId);
 
         var documents = await _unitOfWork.Documents.GetByActivityIdAsync(activityId);
-        return documents.Select(MapToDto).ToList();
+        return await MapToDtosAsync(documents, userId, isTeacher);
     }
 
+    // Who may upload where (US07). A teacher may upload anywhere. A student may only upload to their own
+    // course or to a module in their own course, never to an activity. Everything else is a 404 so a
+    // student cannot find out which courses, modules or activities exist.
+    public async Task EnsureCanUploadAsync(
+        Guid? courseId, Guid? moduleId, Guid? activityId, string userId, bool isTeacher)
+    {
+        if (isTeacher)
+            return;
+
+        // Students cannot attach documents to activities
+        if (activityId is { } aid)
+            throw new ActivityNotFoundException(aid);
+
+        if (courseId is { } cid && !await CanAccessCourseAsync(cid, userId, isTeacher))
+            throw new CourseNotFoundException(cid);
+
+        if (moduleId is { } mid)
+        {
+            var module = await _unitOfWork.Modules.GetByIdAsync(mid)
+                ?? throw new ModuleNotFoundException(mid);
+
+            // The module must belong to the student's own course
+            if (!await CanAccessCourseAsync(module.CourseId, userId, isTeacher))
+                throw new ModuleNotFoundException(mid);
+        }
+    }
+
+    // Validates first (small helpers below), then stores the file on disk and its metadata in the database.
     public async Task<DocumentDto> UploadAsync(
         Stream content,
         string fileName,
@@ -103,45 +133,17 @@ public class DocumentService : IDocumentService
     {
         var maxBytes = _maxFileSizeMb * 1024L * 1024L;
 
-        if (length <= 0)
-            throw new BadRequestException("The file is empty.");
-
-        if (length > maxBytes)
-            throw new BadRequestException($"The file is too large. The maximum size is {_maxFileSizeMb} MB.");
-
-        if (new[] { courseId, moduleId, activityId, submissionId }.Count(id => id.HasValue) != 1)
-            throw new BadRequestException("Attach the document to exactly one of: a course, a module or an activity.");
-
-        // Only the file name, never a path the client sent along
-        var originalName = Path.GetFileName(fileName ?? string.Empty).Trim();
-
-        if (originalName.Length == 0)
-            throw new BadRequestException("The file needs a name.");
-
-        if (originalName.Length > MaxFileNameLength)
-            throw new BadRequestException($"The file name can be at most {MaxFileNameLength} characters.");
-
-        var extension = Path.GetExtension(originalName);
-
-        if (!AllowedTypes.TryGetValue(extension, out var type))
-            throw new BadRequestException(
-                $"The file type '{extension}' is not allowed. Allowed types: {string.Join(", ", AllowedTypes.Keys)}.");
-
-        // The target must exist
-        if (courseId is { } cid && await _unitOfWork.Courses.GetCourseByIdAsync(cid) is null)
-            throw new CourseNotFoundException(cid);
-
-        if (moduleId is { } mid && await _unitOfWork.Modules.GetByIdAsync(mid) is null)
-            throw new ModuleNotFoundException(mid);
-
-        if (activityId is { } aid && await _unitOfWork.Activities.GetByIdAsync(aid) is null)
-            throw new ActivityNotFoundException(aid);
+        // Validation: every check throws a 400 or 404, so nothing is stored when one fails
+        ValidateSize(length, maxBytes);
+        EnsureExactlyOneTarget(courseId, moduleId, activityId, submissionId);
+        var file = ValidateFileName(fileName);
+        await EnsureTargetsExistAsync(courseId, moduleId, activityId);
 
         // No existence check for submissionId: only SubmissionService passes it, and the submission may be
         // new and not saved yet. It shares this unit of work, so the SaveChangesAsync below saves both.
 
         // The file on disk gets a generated name, so uploads with the same name never overwrite each other
-        var storedFileName = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
+        var storedFileName = $"{Guid.NewGuid():N}{file.Extension.ToLowerInvariant()}";
         var path = Path.Combine(_uploadsRoot, storedFileName);
 
         Directory.CreateDirectory(_uploadsRoot);
@@ -155,15 +157,15 @@ public class DocumentService : IDocumentService
 
             // Double check the real size, the reported length comes from the client
             if (new FileInfo(path).Length > maxBytes)
-                throw new BadRequestException($"The file is too large. The maximum size is {_maxFileSizeMb} MB.");
+                throw FileTooLarge();
 
             var document = new Document
             {
-                Name = originalName,
+                Name = file.Name,
                 StoredFileName = storedFileName,
-                ContentType = type.ContentType,
+                ContentType = file.ContentType,
                 SizeBytes = new FileInfo(path).Length,
-                FileType = type.FileType,
+                FileType = file.FileType,
                 UploadedAt = DateTime.UtcNow,
                 UserId = userId,
                 CourseId = courseId,
@@ -175,8 +177,10 @@ public class DocumentService : IDocumentService
             _unitOfWork.Documents.Create(document);
             await _unitOfWork.SaveChangesAsync();
 
+            // The uploader can always delete their own document
             var uploader = await _unitOfWork.Users.FindByIdAsync(userId);
-            return ToDto(document, uploader?.Name ?? "Unknown");
+            var roleNames = await _unitOfWork.Users.GetRoleNamesByUserIdAsync();
+            return ToDto(document, uploader?.Name ?? "Unknown", canDelete: true, IsStudent(roleNames, userId));
         }
         catch
         {
@@ -231,6 +235,86 @@ public class DocumentService : IDocumentService
         DeleteFileQuietly(Path.Combine(_uploadsRoot, document.StoredFileName));
     }
 
+    // Delete with a permission check (US07). A teacher may delete any document, a student only their own.
+    // Someone else's document is a 404 for a student, the same as a document that does not exist.
+    // A hand-in file (US09) is never deleted this way: it is locked once the teacher has given feedback,
+    // and only SubmissionService decides that. Without this check a student could delete a locked hand-in.
+    public async Task DeleteAsync(Guid id, string userId, bool isTeacher)
+    {
+        if (!isTeacher)
+        {
+            var document = await _unitOfWork.Documents.GetByIdAsync(id)
+                ?? throw new DocumentNotFoundException(id);
+
+            if (document.UserId != userId || document.SubmissionId is not null)
+                throw new DocumentNotFoundException(id);
+        }
+
+        await DeleteAsync(id);
+    }
+
+
+    /* Upload validation helpers */
+
+    // The result of ValidateFileName: the cleaned file name and what the allowed-types list says about it
+    private sealed record ValidatedFile(string Name, string Extension, FileType FileType, string ContentType);
+
+    // 400 if the file is empty or larger than the limit
+    private void ValidateSize(long length, long maxBytes)
+    {
+        if (length <= 0)
+            throw new BadRequestException("The file is empty.");
+
+        if (length > maxBytes)
+            throw FileTooLarge();
+    }
+
+    // 400 unless exactly one target is set (a hand-in counts as a target too, see US09)
+    private static void EnsureExactlyOneTarget(
+        Guid? courseId, Guid? moduleId, Guid? activityId, Guid? submissionId)
+    {
+        if (new[] { courseId, moduleId, activityId, submissionId }.Count(id => id.HasValue) != 1)
+            throw new BadRequestException("Attach the document to exactly one of: a course, a module or an activity.");
+    }
+
+    // 400 for a missing, too long or not allowed file name. Returns the cleaned name and its type.
+    private static ValidatedFile ValidateFileName(string? fileName)
+    {
+        // Only the file name, never a path the client sent along
+        var originalName = Path.GetFileName(fileName ?? string.Empty).Trim();
+
+        if (originalName.Length == 0)
+            throw new BadRequestException("The file needs a name.");
+
+        if (originalName.Length > MaxFileNameLength)
+            throw new BadRequestException($"The file name can be at most {MaxFileNameLength} characters.");
+
+        var extension = Path.GetExtension(originalName);
+
+        if (!AllowedTypes.TryGetValue(extension, out var type))
+            throw new BadRequestException(
+                $"The file type '{extension}' is not allowed. Allowed types: {string.Join(", ", AllowedTypes.Keys)}.");
+
+        return new ValidatedFile(originalName, extension, type.FileType, type.ContentType);
+    }
+
+    // 404 if the course, module or activity does not exist
+    private async Task EnsureTargetsExistAsync(Guid? courseId, Guid? moduleId, Guid? activityId)
+    {
+        if (courseId is { } cid && await _unitOfWork.Courses.GetCourseByIdAsync(cid) is null)
+            throw new CourseNotFoundException(cid);
+
+        if (moduleId is { } mid && await _unitOfWork.Modules.GetByIdAsync(mid) is null)
+            throw new ModuleNotFoundException(mid);
+
+        if (activityId is { } aid && await _unitOfWork.Activities.GetByIdAsync(aid) is null)
+            throw new ActivityNotFoundException(aid);
+    }
+
+    // Used in two places: the reported size and the real size after the file is written
+    private BadRequestException FileTooLarge() =>
+        new($"The file is too large. The maximum size is {_maxFileSizeMb} MB.");
+
 
     /* Helpers */
 
@@ -251,10 +335,29 @@ public class DocumentService : IDocumentService
         ?? document.Module?.CourseId
         ?? document.Activity?.Module?.CourseId;
 
-    // Needs User to be loaded (Include in the repository) for the uploader's name.
-    private static DocumentDto MapToDto(Document document) => ToDto(document, document.User.Name);
+    // Maps a list of documents. The roles of all users are fetched once (one query) and looked up per
+    // document, so the UI can tell student-shared documents from teacher material (US07).
+    private async Task<List<DocumentDto>> MapToDtosAsync(
+        IEnumerable<Document> documents, string userId, bool isTeacher)
+    {
+        var roleNames = await _unitOfWork.Users.GetRoleNamesByUserIdAsync();
 
-    private static DocumentDto ToDto(Document document, string uploadedByName) =>
+        return documents
+            .Select(d => MapToDto(d, userId, isTeacher, roleNames))
+            .ToList();
+    }
+
+    // Needs User to be loaded (Include in the repository) for the uploader's name.
+    // CanDelete (US07): a teacher may delete everything, a student only their own documents.
+    private static DocumentDto MapToDto(
+        Document document, string userId, bool isTeacher, IDictionary<string, string> roleNames) =>
+        ToDto(
+            document,
+            document.User.Name,
+            isTeacher || document.UserId == userId,
+            IsStudent(roleNames, document.UserId));
+
+    private static DocumentDto ToDto(Document document, string uploadedByName, bool canDelete, bool uploadedByStudent) =>
         new(
             document.Id,
             document.Name,
@@ -265,7 +368,13 @@ public class DocumentService : IDocumentService
             uploadedByName,
             document.CourseId,
             document.ModuleId,
-            document.ActivityId);
+            document.ActivityId,
+            canDelete,
+            uploadedByStudent);
+
+    // True when the user has the Student role (roleNames maps user id to role name)
+    private static bool IsStudent(IDictionary<string, string> roleNames, string userId) =>
+        roleNames.TryGetValue(userId, out var role) && role == UserRoles.Student;
 
     private static void DeleteFileQuietly(string path)
     {
