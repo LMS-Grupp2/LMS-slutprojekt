@@ -186,7 +186,7 @@ else if (courses is not null)
         }
     }
 
-    //Runs right after the teacher has pciekd an assignment: we pass the choice to the page
+    //Runs right after the teacher has picked an assignment: we pass the choice to the page
     private async Task OnAssignmentChangedAsync() => 
         await OnAssignmentSelected.InvokeAsync(selectedAssignmentId);
 

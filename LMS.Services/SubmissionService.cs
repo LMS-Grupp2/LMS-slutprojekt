@@ -103,7 +103,7 @@ public class SubmissionService : ISubmissionService
         var roleNames = await _unitOfWork.Users.GetRoleNamesByUserIdAsync();
 
         var students = members
-            .Where(m => roleNames.ContainsKey(m.UserId) && roleNames[m.UserId] == UserRoles.Student)
+            .Where(m => roleNames.TryGetValue(m.UserId, out var role) && role == UserRoles.Student)
             .ToList();
 
         // 3. All hand-ins for this assignment in one call, keyed by student for fast lookup.
