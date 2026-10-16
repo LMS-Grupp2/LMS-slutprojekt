@@ -1,6 +1,4 @@
-﻿using LMS.Shared.DTOs.FeedbackDtos;
-
-namespace LMS.Shared.DTOs.AssignmentDtos;
+﻿namespace LMS.Shared.DTOs.AssignmentDtos;
 
 public record StudentAssignmentDto
 {
@@ -24,7 +22,7 @@ public record StudentAssignmentDto
     public DateTime? SubmittedAt { get; init; }
     public string? Status { get; init; }
     public string? Grade { get; init; }
-    
-    // Feedbacks
-    public IEnumerable<FeedbackDto>? Feedbacks { get; init; }
+
+    // Feedback
+    public bool HasFeedback { get; init; }
 }

@@ -5,13 +5,13 @@
     <td>
         <div class="d-flex align-items-center gap-2">
             <div>
-                <div class="lms-cell-title">@Item.ActivityName: @Item.ActivityDescription</div>
-                <div class="lms-cell-sub">@Item.CourseName - @Item.ModuleName</div>
+                <div class="lms-cell-title">@item.ActivityName: @item.ActivityDescription</div>
+                <div class="lms-cell-sub">@item.CourseName - @item.ModuleName</div>
             </div>
         </div>
     </td>
     <td>
-        <span class="lms-cell-title @(isLate ? "text-danger" : "")">@FormatDateTime(Item.EndTime)</span>
+        <span class="lms-cell-title @(isLate ? "text-danger" : "")">@FormatDateTime(item.EndTime)</span>
     </td>
     <td>
         @if (feedback != "")
@@ -25,9 +25,8 @@
 </tr>
 
 @code {
-
     [Parameter]
-    public StudentAssignmentDto Item { get; init; } = null!;
+    public StudentAssignmentDto item { get; init; } = null!;
 
     bool isLate = false;
     string status = "";
@@ -36,14 +35,14 @@
     // Runs when data is set
     protected override void OnParametersSet()
     {
-        if (Item is not null)
+        if (item is not null)
         {
             var now = DateTime.Now;
-            isLate = (Item.EndTime < now) ? true : false;
+            isLate = (item.EndTime < now) ? true : false;
 
             // Set status
-            // Approved | Needs changes | Submitted | Not submitted + late
-            switch (Item.Status)
+            // Approved | Needs changes | Submitted | Not submitted or Late
+            switch (item.Status)
             {
                 case "Approved":
                     status = "Approved";
@@ -58,10 +57,7 @@
                     status = isLate ? "Late" : "Not submitted";
                     break;
             }
-
-            // TODO - Set feedback
-            feedback = (Item.Feedbacks?.Any() ?? false) ? "Feedback" : "";
-            
+            feedback = item.HasFeedback ? "Feedback" : "";
         }
     }
 

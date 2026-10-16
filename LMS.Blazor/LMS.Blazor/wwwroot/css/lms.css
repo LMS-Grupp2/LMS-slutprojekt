@@ -424,7 +424,22 @@ h1:focus {
         color: #fff;
     }
 
-/* ---------- 10. Responsive ---------- */
+
+
+/* ---------- 10. Filter buttons - use lms-badge ---------- */
+
+.lms-badge.button {
+    border: 1px solid #aaa;
+    color: #222;
+    cursor: pointer;
+}
+
+input[type="radio"]:checked + label.lms-badge.button {
+    background: #222;
+    color: #fff;
+}
+
+/* ---------- 11. Responsive ---------- */
 @media (max-width: 991.98px) {
     .lms-body {
         flex-direction: column;

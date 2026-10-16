@@ -14,11 +14,10 @@
 @inject IApiProxyClient ApiProxyClient;
 @inject NavigationManager NavigationManager
 
-
 <div class="lms-page-header">
     <div>
         <div class="lms-breadcrumb">
-            <!--!--><a href="my-course" b-g4rydwpcux="">My course</a> / Assignments
+            <a href="my-course" b-g4rydwpcux="">My course</a> / Assignments
         </div>
         <h1 class="lms-page-title" tabindex="-1">My Assignments</h1>
         <p class="lms-page-subtitle">@AssignmentInfo()</p>
@@ -43,47 +42,39 @@ else if (!string.IsNullOrWhiteSpace(errorMessage))
 }
 else
 {
-    <div class="lms-card lms-card-table">
-        <div class="table-responsive">
-            <table class="table lms-table align-middle">
-                <thead>
-                    <tr>
-                        <th>Assignment</th>
-                        <th>Deadline</th>
-                        <th>Feedback</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (assignments?.Any() ?? false)
-                    {
-                        @foreach (var item in assignments ?? Enumerable.Empty<StudentAssignmentDto>())
-                        {
-                            <AssignmentRow Item="@item" />
-                        }
-                    }
-                    else
-                    {
-                        <tr>
-                            <td colspan="5">
-                                <div class="text-center">
-                                    You have no assignments
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+    @* Filter radio buttons for All, Submitted, Not submitted or Late *@
+    <div class="">
+        <div class="btn-group" role="group" aria-label="Assignment filter">
+            <input type="radio" class="btn-check" name="assignmentFilter" id="filterAll" value="" @onchange="OnFilterChange" autocomplete="off" checked />
+            <label class="lms-badge button me-4 px-3" for="filterAll">All (@nbrAll)</label>
+            <input type="radio" class="btn-check" name="assignmentFilter" id="filterSubmitted" value="Submitted" @onchange="OnFilterChange" autocomplete="off" />
+            <label class="lms-badge button me-4 px-3" for="filterSubmitted">Submitted (@nbrSubmitted)</label>
+            <input type="radio" class="btn-check" name="assignmentFilter" id="filterNotSubmitted" value="NotSubmitted" @onchange="OnFilterChange" autocomplete="off" />
+            <label class="lms-badge button me-4 px-3 " for="filterNotSubmitted">Not submitted (@nbrNotSubmitted)</label>
+            <input type="radio" class="btn-check" name="assignmentFilter" id="filterLate" value="Late" @onchange="OnFilterChange" autocomplete="off" />
+            <label class="lms-badge button me-4 px-3" for="filterLate">Late (@nbrLate)</label>
         </div>
+    </div>
+
+    @* Assignment listing *@
+    <div class="lms-card lms-card-table">
+        <AssignmentTable Assignments="@filteredAssignments" />
     </div>
 }
 
 @code {
     private IEnumerable<StudentAssignmentDto>? assignments;
+    private IEnumerable<StudentAssignmentDto>? filteredAssignments;
     private readonly CancellationTokenSource componentCancellation = new();
 
     private string? errorMessage;
     private bool isLoading = true;
+    private string filterOn = "";
+    // Filter buttons counts
+    private int nbrAll = 0;
+    private int nbrSubmitted = 0;
+    private int nbrNotSubmitted = 0;
+    private int nbrLate = 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -98,6 +89,10 @@ else
                 return;
 
             assignments = result;
+            filteredAssignments = assignments?.ToList();
+
+            // Set number of assingnments per filter
+            SetStatusCounts();
         }
         catch (OperationCanceledException) when (componentCancellation.IsCancellationRequested)
         {
@@ -122,6 +117,33 @@ else
 
         isLoading = false;
         StateHasChanged();  // Update GUI
+    }
+
+    // Sets number of assignments per status in filter buttons 
+    private void SetStatusCounts()
+    {
+        var now = DateTime.Now;
+
+        nbrAll = assignments?.Count() ?? 0;
+        nbrSubmitted = assignments?.Where(a => a.Submitted == true).Count() ?? 0;
+        nbrNotSubmitted = assignments?.Where(a => a.Submitted != true).Count() ?? 0;
+        nbrLate = assignments?.Where(a => a.Submitted != true && a.EndTime < now).Count() ?? 0;
+    }
+
+    // Filter assignments according to seleced filter
+    private void OnFilterChange(ChangeEventArgs args)
+    {
+        filterOn = args?.Value?.ToString() ?? string.Empty;
+
+        var items = assignments ?? Enumerable.Empty<StudentAssignmentDto>();
+
+        filteredAssignments = filterOn switch
+        {
+            "Submitted" => items.Where(a => a.Submitted).ToList(),
+            "NotSubmitted" => items.Where(a => !a.Submitted).ToList(),
+            "Late" => items.Where(a => a.EndTime < DateTime.Now && !a.Submitted).ToList(),
+            _ => items.ToList()
+        };
     }
 
     // Create info under header about status for assignments
