@@ -13,7 +13,7 @@ namespace LMS.Presentation.Controllers;
 /// The teacher's overview of the hand-ins for one assignment (US10). Teachers only.
 /// The controller only handles HTTP, all rules live in SubmissionService.
 /// </summary>
-[Route("api/activitie/{activityId:guid}/submissions")]
+[Route("api/activities/{activityId:guid}/submissions")]
 [ApiController]
 [Authorize(Roles = UserRoles.Teacher)]
 public class TeacherSubmissionsController(IServiceManager serviceManager) : ControllerBase
