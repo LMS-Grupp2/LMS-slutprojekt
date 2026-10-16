@@ -1,0 +1,327 @@
+@page "/assignments/{ActivityId:guid}"
+
+@using System.Globalization
+@using System.Net
+@using System.Net.Http.Headers
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
+@using LMS.Shared.DTOs.SubmissionDtos
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+
+@* A student's hand-in for one assignment (US09). Shows the deadline, the calculated status and the files
+   handed in so far, and lets the student hand in a file. Reached from the "Hand in" button on an
+   assignment in the module view (StudentModuleActivities).
+   Files are fetched through the BFF proxy: api/proxy/documents/{id}/download.
+   Built with the shared components in Components/. Styling comes from wwwroot/css/lms.css. *@
+@attribute [Authorize(Roles = UserRoles.Student)]
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>Hand in</PageTitle>
+
+<div class="d-flex flex-column gap-4">
+
+    <PageHeader Title="@(submission?.ActivityName ?? "Hand in")" Subtitle="@Subtitle">
+        <Breadcrumb><a href="my-modules">My modules</a><span> / Hand in</span></Breadcrumb>
+    </PageHeader>
+
+    <SuccessAlert Message="@successMessage" OnDismiss="DismissSuccess" />
+
+    @if (isLoading)
+    {
+        <LoadingSkeleton Label="Loading the assignment..." />
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <ErrorState Message="@loadError" OnRetry="LoadAsync" />
+    }
+    else if (submission is not null)
+    {
+        <div class="row g-3">
+
+            @* ---------- Status and files (left) ---------- *@
+            <div class="col-12 col-lg-7">
+                <section class="lms-card">
+                    <div class="lms-card-header d-flex justify-content-between align-items-center">
+                        <h2 class="lms-card-title mb-0">Status</h2>
+                        <StatusBadge Text="@submission.Status" Tone="@SubmissionStatusStyles.ToneOf(submission.Status)" />
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <div class="lms-cell-sub">Deadline</div>
+                            <div class="lms-cell-title">@FormatDateTime(submission.Deadline)</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="lms-cell-sub">Handed in</div>
+                            <div class="lms-cell-title">
+                                @(submission.SubmittedAt is { } at ? FormatDateTime(at.ToLocalTime()) : "Not yet")
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (submission.IsLate)
+                    {
+                        <p class="text-warning mb-3">Handed in after the deadline. Your teacher can still assess it.</p>
+                    }
+
+                    <h3 class="lms-card-title mb-2">Your files</h3>
+
+                    @if (submission.Files.Count == 0)
+                    {
+                        <p class="lms-cell-sub mb-0">No files handed in yet.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
+                            @foreach (var file in submission.Files)
+                            {
+                                <li>
+                                    <a class="text-decoration-none" href="api/proxy/documents/@file.Id/download">@file.Name</a>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+            </div>
+
+            @* ---------- Hand in a file (right) ---------- *@
+            <div class="col-12 col-lg-5">
+                <section class="lms-card">
+                    <div class="lms-card-header">
+                        <h2 class="lms-card-title">Hand in a file</h2>
+                    </div>
+
+                    @if (submission.IsLocked)
+                    {
+                        @* The API refuses new files once feedback or a grade exists (#60) *@
+                        <p class="lms-cell-sub mb-0">
+                            Your teacher has given feedback on this assignment, so no more files can be handed in.
+                        </p>
+                    }
+                    else
+                    {
+                        @if (!string.IsNullOrWhiteSpace(uploadError))
+                        {
+                            <div class="alert alert-danger" role="alert">@uploadError</div>
+                        }
+
+                        <label class="form-label" for="handin-file">File *</label>
+                        @* The key changes after an upload, which clears the chosen file *@
+                        <InputFile @key="fileInputKey" id="handin-file" class="form-control"
+                                   accept="@AcceptedExtensions" OnChange="OnFileSelected" />
+                        <div class="lms-cell-sub mt-1">
+                            PDF, Word, PowerPoint, Excel, text or images. Max @MaxFileSizeMb MB.
+                        </div>
+
+                        <div class="d-flex justify-content-end mt-3">
+                            <button type="button" class="btn btn-primary" disabled="@isUploading" @onclick="UploadAsync">
+                                @(isUploading ? "Handing in..." : "Hand in")
+                            </button>
+                        </div>
+                    }
+                </section>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // Must match the limit in DocumentStorageSettings and the allowed types in DocumentService.
+    // The API checks everything again; these only give the student a quick answer (#62).
+    private const int MaxFileSizeMb = 10;
+    private const long MaxFileBytes = MaxFileSizeMb * 1024L * 1024L;
+    private const string AcceptedExtensions = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.png,.jpg,.jpeg,.gif";
+
+    private readonly CancellationTokenSource cts = new();
+
+    [Parameter]
+    public Guid ActivityId { get; set; }
+
+    private Guid loadedActivityId;
+    private StudentSubmissionDto? submission;
+    private bool isLoading = true;
+    private string? loadError;
+    private string? successMessage;
+
+    // Upload form state
+    private IBrowserFile? selectedFile;
+    private Guid fileInputKey = Guid.NewGuid();
+    private bool isUploading;
+    private string? uploadError;
+
+    // "1 file handed in" under the title
+    private string Subtitle => submission is null
+        ? "Assignment"
+        : $"{submission.Files.Count} {(submission.Files.Count == 1 ? "file" : "files")} handed in";
+
+    // Reload when the assignment id in the URL changes
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedActivityId == ActivityId) return;
+
+        loadedActivityId = ActivityId;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        loadError = null;
+
+        try
+        {
+            var result = await ApiProxyClient.GetAsync<StudentSubmissionDto>(
+                $"student/activities/{ActivityId}/submission", cts.Token);
+
+            // The server-side prerender client deliberately returns null. Keep
+            // showing the loading state until WebAssembly runs this again.
+            if (result is null)
+            {
+                return;
+            }
+
+            submission = result;
+            isLoading = false;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (HttpRequestException ex)
+        {
+            loadError = ex.StatusCode switch
+            {
+                HttpStatusCode.NotFound => "This assignment was not found.",
+                HttpStatusCode.BadRequest => "Files can only be handed in to an assignment.",
+                HttpStatusCode.Forbidden => "Only students can hand in assignments.",
+                _ => "Could not load the assignment. Please try again."
+            };
+            isLoading = false;
+        }
+    }
+
+    // Remembers the chosen file. The upload itself starts with the button.
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        uploadError = null;
+    }
+
+    private async Task UploadAsync()
+    {
+        uploadError = null;
+        successMessage = null;
+
+        if (selectedFile is null)
+        {
+            uploadError = "Choose a file first.";
+            return;
+        }
+
+        // Quick checks in the browser, so the student does not wait for an upload that will be refused
+        if (selectedFile.Size == 0)
+        {
+            uploadError = "The file is empty.";
+            return;
+        }
+
+        if (selectedFile.Size > MaxFileBytes)
+        {
+            uploadError = $"The file is too large. The maximum size is {MaxFileSizeMb} MB.";
+            return;
+        }
+
+        var extension = Path.GetExtension(selectedFile.Name).ToLowerInvariant();
+        if (!AcceptedExtensions.Split(',').Contains(extension))
+        {
+            uploadError = $"The file type '{extension}' is not allowed. Allowed types: {AcceptedExtensions.Replace(",", ", ")}.";
+            return;
+        }
+
+        isUploading = true;
+
+        try
+        {
+            // The field name "File" matches SubmitFileRequest on the API.
+            // The proxy client disposes the content after the request.
+            var form = new MultipartFormDataContent();
+
+            var fileContent = new StreamContent(selectedFile.OpenReadStream(MaxFileBytes, cts.Token));
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(
+                string.IsNullOrWhiteSpace(selectedFile.ContentType) ? "application/octet-stream" : selectedFile.ContentType);
+            form.Add(fileContent, "File", selectedFile.Name);
+
+            var result = await ApiProxyClient.SendAsync<StudentSubmissionDto>(
+                HttpMethod.Post, $"student/activities/{ActivityId}/submission", form, cts.Token);
+
+            // The API answers with the updated submission, so no extra reload is needed
+            if (result is not null)
+                submission = result;
+
+            successMessage = $"'{selectedFile.Name}' was handed in.";
+
+            // Clear the file input
+            selectedFile = null;
+            fileInputKey = Guid.NewGuid();
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (HttpRequestException ex)
+        {
+            uploadError = ex.StatusCode switch
+            {
+                // 400: the API's own message says what was wrong (file type, size, empty file, not an assignment)
+                HttpStatusCode.BadRequest => ex.Message,
+                HttpStatusCode.NotFound => "This assignment no longer exists or is not part of your course.",
+                HttpStatusCode.Conflict => "Your teacher has already given feedback, so no more files can be handed in.",
+                HttpStatusCode.RequestEntityTooLarge => $"The file is too large. The maximum size is {MaxFileSizeMb} MB.",
+                _ => "Could not hand in the file. Please try again."
+            };
+
+            // Locked while the page was open: reload so the form is replaced by the "locked" message
+            if (ex.StatusCode == HttpStatusCode.Conflict)
+                await LoadAsync();
+        }
+        catch (IOException)
+        {
+            // Reading the file in the browser failed, for example because it changed or grew past the limit
+            uploadError = "The file could not be read. Choose it again and retry.";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private void DismissSuccess() => successMessage = null;
+
+    private void RedirectToLogin() =>
+        NavigationManager.NavigateTo(
+            $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
+            forceLoad: true);
+
+    // "Mon 12 Oct, 09:00"
+    private static string FormatDateTime(DateTime value) =>
+        value.ToString("ddd d MMM, HH:mm", CultureInfo.InvariantCulture);
+
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+}

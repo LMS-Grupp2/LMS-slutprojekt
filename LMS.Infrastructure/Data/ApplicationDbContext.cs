@@ -21,8 +21,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         base.OnModelCreating(builder);
 
         builder.Entity<CourseUser>()
-            .HasIndex(cu => new { cu.CourseId, cu.UserId })
-            .IsUnique();
+            .HasKey(cu => new { cu.CourseId, cu.UserId });
+            
 
         // Restrict: SQL Server rejects multiple cascade paths from AspNetUsers,
         // and deleting a user must not silently delete course content.
@@ -31,6 +31,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany()
             .HasForeignKey(s => s.StudentId)
             .OnDelete(DeleteBehavior.Restrict);
+
+           builder.Entity<Submission>()
+            .HasIndex(s => new { s.ActivityId, s.StudentId })
+            .IsUnique();
 
         builder.Entity<Feedback>()
             .HasOne(f => f.Teacher)

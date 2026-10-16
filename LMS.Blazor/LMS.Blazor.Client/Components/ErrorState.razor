@@ -1,0 +1,48 @@
+﻿@* Reusable error state: a red "!" badge, the error message and an optional "Try again" button.
+   Replaces the error block every page repeated.
+   Styling comes from wwwroot/css/lms.css (lms-card, lms-state, lms-badge, lms-cell-title).
+
+   Usage:
+   <ErrorState Message="@loadError" OnRetry="LoadAsync" />
+   <ErrorState Message="@loadError" InCard="false" />      no card and no retry button *@
+
+@* Built once so the same content can be shown with or without the card around it *@
+@{
+    RenderFragment content = @<div class="lms-state">
+        <span class="lms-badge lms-tone-danger">!</span>
+        <div class="lms-cell-title">@Message</div>
+
+        @* The retry button is only shown when the page gives something to run *@
+        @if (OnRetry.HasDelegate)
+        {
+            <button type="button" class="btn btn-outline-primary btn-sm" @onclick="OnRetry">@RetryText</button>
+        }
+    </div>;
+}
+
+@if (InCard)
+{
+    <div class="lms-card">@content</div>
+}
+else
+{
+    @content
+}
+
+@code {
+    // The error text shown to the user
+    [Parameter, EditorRequired]
+    public string Message { get; set; } = string.Empty;
+
+    // Runs when the user clicks "Try again". No button is shown if this is not set.
+    [Parameter]
+    public EventCallback OnRetry { get; set; }
+
+    // true = wrap the content in a white card (default), false = only the content
+    [Parameter]
+    public bool InCard { get; set; } = true;
+
+    // Text on the retry button
+    [Parameter]
+    public string RetryText { get; set; } = "Try again";
+}

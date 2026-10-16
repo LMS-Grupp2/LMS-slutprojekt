@@ -1,0 +1,32 @@
+﻿@* Reusable green success message that can be closed.
+   Replaces the "alert alert-success" block every page repeated.
+   Nothing is shown when Message is empty, so the page does not need its own if-check.
+
+   Usage:
+   <SuccessAlert Message="@successMessage" OnDismiss="DismissSuccess" />
+
+   The page keeps the message in a field and clears it in OnDismiss.
+   If OnDismiss is not set, the close button is hidden. *@
+
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <div class="alert alert-success @(OnDismiss.HasDelegate ? "alert-dismissible" : string.Empty) mb-0" role="status">
+        @Message
+
+        @* The close button is only shown when the page gives something to run *@
+        @if (OnDismiss.HasDelegate)
+        {
+            <button type="button" class="btn-close" aria-label="Close" @onclick="OnDismiss"></button>
+        }
+    </div>
+}
+
+@code {
+    // The text to show. Empty or null hides the alert.
+    [Parameter]
+    public string? Message { get; set; }
+
+    // Runs when the user clicks the close button. The page usually sets its message to null here.
+    [Parameter]
+    public EventCallback OnDismiss { get; set; }
+}

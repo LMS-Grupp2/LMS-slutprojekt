@@ -1,7 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Domain.Contracts.Repositories;
-using LMS.Infrastructure.Data;
+﻿using Domain.Contracts.Repositories;
 using Domain.Models.Entities;
+using LMS.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace LMS.Infrastructure.Repositories;
 
@@ -34,11 +34,11 @@ public class ActivityRepository : IActivityRepository
             .Include(a => a.ActivityType)
             .FirstOrDefaultAsync(a => a.Id == id);
     }
-    
+
     // Overlap = starts before the other ends AND ends after the other starts.
     // Strict < and > so back-to-back activities (10:00 end, 10:00 start) are allowed.
-    public async Task<Activity?> FindOverlappingAsync(Guid moduleId, 
-        DateTime startTime, 
+    public async Task<Activity?> FindOverlappingAsync(Guid moduleId,
+        DateTime startTime,
         DateTime endTime,
         Guid? excludeActivityId)
     {

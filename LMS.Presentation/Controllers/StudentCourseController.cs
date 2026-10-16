@@ -1,10 +1,10 @@
-using System.Security.Claims;
 using LMS.Shared.DTOs.CourseDtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Service.Contracts;
 using Swashbuckle.AspNetCore.Annotations;
+using System.Security.Claims;
 
 namespace LMS.Presentation.Controllers;
 

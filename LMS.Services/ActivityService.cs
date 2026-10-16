@@ -25,7 +25,7 @@ public class ActivityService : IActivityService
     {
         // An unknown module is a 404, not an empty list (same as the other endpoints)
         var module = await _unitOfWork.Modules.GetByIdAsync(moduleId);
-        
+
         if (module is null)
             throw new ModuleNotFoundException(moduleId);
 
@@ -54,8 +54,8 @@ public class ActivityService : IActivityService
     {
         await EnsureActivityTypeExistsAsync(dto.ActivityTypeId!.Value);
 
-        await ValidateActivityAsync(dto.ModuleId!.Value, dto.StartTime!.Value, 
-            dto.EndTime!.Value, null );
+        await ValidateActivityAsync(dto.ModuleId!.Value, dto.StartTime!.Value,
+            dto.EndTime!.Value, null);
 
         var activity = new Activity
         {
@@ -82,7 +82,7 @@ public class ActivityService : IActivityService
 
         await EnsureActivityTypeExistsAsync(dto.ActivityTypeId!.Value);
 
-        await ValidateActivityAsync(activity.ModuleId, dto.StartTime!.Value, dto.EndTime!.Value, 
+        await ValidateActivityAsync(activity.ModuleId, dto.StartTime!.Value, dto.EndTime!.Value,
             activity.Id);
 
         activity.ActivityTypeId = dto.ActivityTypeId!.Value;
@@ -102,6 +102,27 @@ public class ActivityService : IActivityService
 
         _unitOfWork.Activities.Delete(activity);
         await _unitOfWork.SaveChangesAsync();
+    }
+
+    // NEW (#177): read-only access for students.
+    /// <summary>
+    /// Lists a module's activities for a student. The student must belong to the module's course.
+    /// A module in another course gives the same 404 as a module that does not exist,
+    /// so we do not reveal that the module exists (same rule as ModuleService).
+    /// </summary>
+    public async Task<IEnumerable<ActivityDto>> GetForStudentAsync(Guid moduleId, string userId)
+    {
+        var module = await _unitOfWork.Modules.GetByIdAsync(moduleId)
+            ?? throw new ModuleNotFoundException(moduleId);
+
+        // The student's course memberships, checked against the course of this module
+        var memberships = await _unitOfWork.CourseUsers.GetByUserIdAsync(userId);
+
+        if (!memberships.Any(cu => cu.CourseId == module.CourseId))
+            throw new ModuleNotFoundException(moduleId);
+
+        var activities = await _unitOfWork.Activities.GetByModuleIdAsync(moduleId);
+        return activities.Select(MapToDto).ToList();
     }
 
 

@@ -1,0 +1,180 @@
+﻿@page "/my-assignments"
+
+@using System.Linq
+@using System.Net
+@using LMS.Blazor.Client.Components.Assignments
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
+@using LMS.Shared.DTOs.AssignmentDtos
+@using Microsoft.AspNetCore.Authorization
+
+@attribute [Authorize(Roles = UserRoles.Student)]
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient;
+@inject NavigationManager NavigationManager
+
+<div class="lms-page-header">
+    <div>
+        <div class="lms-breadcrumb">
+            <a href="my-course" b-g4rydwpcux="">My course</a> / Assignments
+        </div>
+        <h1 class="lms-page-title" tabindex="-1">My Assignments</h1>
+        <p class="lms-page-subtitle">@AssignmentInfo()</p>
+    </div>
+</div>
+
+@if (isLoading)
+{
+    @* Loading skeleton while the course is fetched *@
+    <div class="lms-card">
+        <div class="d-flex flex-column gap-3">
+            <div class="lms-skeleton" style="width: 40%; height: 16px;"></div>
+            <div class="lms-skeleton" style="width: 70%; height: 16px;"></div>
+            <div class="lms-skeleton" style="width: 55%; height: 16px;"></div>
+        </div>
+        <span class="visually-hidden">Loading your assignments...</span>
+    </div>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+else
+{
+    @* Filter radio buttons for All, Submitted, Not submitted or Late *@
+    <div class="">
+        <div class="btn-group" role="group" aria-label="Assignment filter">
+            <input type="radio" class="btn-check" name="assignmentFilter" id="filterAll" value="" @onchange="OnFilterChange" autocomplete="off" checked />
+            <label class="lms-badge button me-4 px-3" for="filterAll">All (@nbrAll)</label>
+            <input type="radio" class="btn-check" name="assignmentFilter" id="filterSubmitted" value="Submitted" @onchange="OnFilterChange" autocomplete="off" />
+            <label class="lms-badge button me-4 px-3" for="filterSubmitted">Submitted (@nbrSubmitted)</label>
+            <input type="radio" class="btn-check" name="assignmentFilter" id="filterNotSubmitted" value="NotSubmitted" @onchange="OnFilterChange" autocomplete="off" />
+            <label class="lms-badge button me-4 px-3 " for="filterNotSubmitted">Not submitted (@nbrNotSubmitted)</label>
+            <input type="radio" class="btn-check" name="assignmentFilter" id="filterLate" value="Late" @onchange="OnFilterChange" autocomplete="off" />
+            <label class="lms-badge button me-4 px-3" for="filterLate">Late (@nbrLate)</label>
+        </div>
+    </div>
+
+    @* Assignment listing *@
+    <div class="lms-card lms-card-table">
+        <AssignmentTable Assignments="@filteredAssignments" />
+    </div>
+}
+
+@code {
+    private IEnumerable<StudentAssignmentDto>? assignments;
+    private IEnumerable<StudentAssignmentDto>? filteredAssignments;
+    private readonly CancellationTokenSource componentCancellation = new();
+
+    private string? errorMessage;
+    private bool isLoading = true;
+    private string filterOn = "";
+    // Filter buttons counts
+    private int nbrAll = 0;
+    private int nbrSubmitted = 0;
+    private int nbrNotSubmitted = 0;
+    private int nbrLate = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await ApiProxyClient.GetAsync<IEnumerable<StudentAssignmentDto>>(
+                "student/assignments", componentCancellation.Token);
+
+            // The server-side prerender service deliberately returns null. Keep
+            // showing the loading state until WebAssembly runs this method again.
+            if (result is null)
+                return;
+
+            assignments = result;
+            filteredAssignments = assignments?.ToList();
+
+            // Set number of assingnments per filter
+            SetStatusCounts();
+        }
+        catch (OperationCanceledException) when (componentCancellation.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels its request.
+            return;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            NavigationManager.NavigateTo(
+                $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
+                forceLoad: true);
+            return;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            errorMessage = "You are not allowed to view this data";
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "The assignments could not be loaded. Please try again later.";
+        }
+
+        isLoading = false;
+        StateHasChanged();  // Update GUI
+    }
+
+    // Sets number of assignments per status in filter buttons 
+    private void SetStatusCounts()
+    {
+        var now = DateTime.Now;
+
+        nbrAll = assignments?.Count() ?? 0;
+        nbrSubmitted = assignments?.Where(a => a.Submitted == true).Count() ?? 0;
+        nbrNotSubmitted = assignments?.Where(a => a.Submitted != true).Count() ?? 0;
+        nbrLate = assignments?.Count(a => a.Status == SubmissionStatus.Late || a.Status == SubmissionStatus.Missing) ?? 0;
+    }
+
+    // Filter assignments according to seleced filter
+    private void OnFilterChange(ChangeEventArgs args)
+    {
+        filterOn = args?.Value?.ToString() ?? string.Empty;
+
+        var items = assignments ?? Enumerable.Empty<StudentAssignmentDto>();
+
+        filteredAssignments = filterOn switch
+        {
+            "Submitted" => items.Where(a => a.Submitted).ToList(),
+            "NotSubmitted" => items.Where(a => !a.Submitted).ToList(),
+            "Late" => items.Where(a => a.Status == SubmissionStatus.Late || a.Status == SubmissionStatus.Missing).ToList(),
+            _ => items.ToList()
+        };
+    }
+
+    // Create info under header about status for assignments
+    private MarkupString AssignmentInfo()
+    {
+        if (assignments is null || !assignments.Any())
+            return new MarkupString(string.Empty);
+
+        string courseName = "";
+        int countNot = 0;
+        int countLate = 0;
+
+        foreach (var item in assignments)
+        {
+            if (string.IsNullOrEmpty(courseName))
+                courseName = item.CourseName;
+
+            if (item.Submitted != true)
+                countNot++;
+            
+            if (item.Status == SubmissionStatus.Late || item.Status == SubmissionStatus.Missing)
+                countLate++;
+        }
+        
+        var info = $"{courseName} &bull; {countNot} not submitted &bull; {countLate} late";
+        return new MarkupString(info);
+    }
+
+    public void Dispose()
+    {
+        componentCancellation.Cancel();
+        componentCancellation.Dispose();
+    }
+}

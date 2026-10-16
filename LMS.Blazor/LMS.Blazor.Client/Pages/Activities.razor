@@ -3,15 +3,21 @@
 @using System.ComponentModel.DataAnnotations
 @using System.Globalization
 @using System.Net
+@using System.Net.Http.Headers
 @using LMS.Blazor.Client.Services.ApiProxy
 @using LMS.Shared.Constants
 @using LMS.Shared.DTOs.ActivityDtos
+@using LMS.Shared.DTOs.DocumentDtos
 @using LMS.Shared.DTOs.ModuleDtos
 @using Microsoft.AspNetCore.Authorization
 
 @* Teacher page: list, create, edit, delete and view the activities of one module.
    The activity endpoints are teacher-only, so the whole page is teacher-only.
-   Shared styling comes from wwwroot/css/lms.css. *@
+   An activity has its own start date + time and end date + time, so it can span several days.
+   Documents (US06): the detail card and the edit form show the activity's documents (ActivityDocuments).
+   When creating an activity the teacher can also pick one optional document, uploaded right after the save.
+   Built with the shared components in Components/ (PageHeader, SuccessAlert, LoadingSkeleton, ErrorState, EmptyState,
+   StatusBadge, ConfirmDeleteAlert). Shared styling comes from wwwroot/css/lms.css. *@
 @attribute [Authorize(Roles = UserRoles.Teacher)]
 @implements IDisposable
 
@@ -23,54 +29,33 @@
 <div class="d-flex flex-column gap-4">
 
     @* ---------- Page header ---------- *@
-    <div class="lms-page-header">
-        <div>
+    <PageHeader Title="@(module?.Name ?? "Activities")" Subtitle="@Subtitle">
+        <Breadcrumb>
             @* Back link to the module list of the course *@
-            <div class="lms-breadcrumb">
-                <a href="courses">Courses</a>
-                @if (module is not null)
-                {
-                    <span> / </span><a href="courses/@module.CourseId/modules">Modules</a><span> / @module.Name</span>
-                }
-            </div>
-            <h1 class="lms-page-title">@(module?.Name ?? "Activities")</h1>
-            <p class="lms-page-subtitle">@Subtitle</p>
-        </div>
+            <a href="courses">Courses</a>
+            @if (module is not null)
+            {
+                <span> / </span><a href="courses/@module.CourseId/modules">Modules</a><span> / @module.Name</span>
+            }
+        </Breadcrumb>
+        <Actions>
+            @if (!showForm && module is not null)
+            {
+                <button type="button" class="btn btn-primary" @onclick="StartCreate">+ Add activity</button>
+            }
+        </Actions>
+    </PageHeader>
 
-        @if (!showForm && module is not null)
-        {
-            <button type="button" class="btn btn-primary" @onclick="StartCreate">+ Add activity</button>
-        }
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(successMessage))
-    {
-        <div class="alert alert-success alert-dismissible mb-0" role="status">
-            @successMessage
-            <button type="button" class="btn-close" aria-label="Close" @onclick="DismissSuccess"></button>
-        </div>
-    }
+    <SuccessAlert Message="@successMessage" OnDismiss="DismissSuccess" />
 
     @* ---------- Loading, error, empty and list states ---------- *@
     @if (isLoading)
     {
-        <div class="lms-card">
-            <div class="d-flex flex-column gap-3">
-                <div class="lms-skeleton" style="width: 40%; height: 16px;"></div>
-                <div class="lms-skeleton" style="width: 70%; height: 16px;"></div>
-                <div class="lms-skeleton" style="width: 55%; height: 16px;"></div>
-            </div>
-        </div>
+        <LoadingSkeleton />
     }
     else if (!string.IsNullOrWhiteSpace(loadError))
     {
-        <div class="lms-card">
-            <div class="lms-state">
-                <span class="lms-badge lms-tone-danger">!</span>
-                <div class="lms-cell-title">@loadError</div>
-                <button type="button" class="btn btn-outline-primary btn-sm" @onclick="LoadAllAsync">Try again</button>
-            </div>
-        </div>
+        <ErrorState Message="@loadError" OnRetry="LoadAllAsync" />
     }
     else if (activities is not null)
     {
@@ -80,13 +65,7 @@
             <div class="col-12 @(showForm || selected is not null ? "col-xl-8" : "col-xl-12")">
                 @if (activities.Count == 0)
                 {
-                    <div class="lms-card">
-                        <div class="lms-state">
-                            <span class="lms-badge lms-tone-primary">+</span>
-                            <div class="lms-cell-title">No activities yet</div>
-                            <div class="lms-cell-sub">Add the first activity with the button above.</div>
-                        </div>
-                    </div>
+                    <EmptyState Title="No activities yet" Description="Add the first activity with the button above." />
                 }
                 else
                 {
@@ -95,8 +74,9 @@
                             <table class="table lms-table align-middle">
                                 <thead>
                                     <tr>
-                                        <th>Date</th>
-                                        <th>Time</th>
+                                        @* Start and end each show date and time, so multi-day activities are clear *@
+                                        <th>Start</th>
+                                        <th>End</th>
                                         <th>Activity</th>
                                         <th>Type</th>
                                         <th></th>
@@ -107,13 +87,15 @@
                                     {
                                         @* The activity open in the detail card is highlighted *@
                                         <tr class="@(item.Id == selected?.Id ? "lms-row-highlight" : string.Empty)">
-                                            <td class="text-nowrap">@FormatDate(item.StartTime)</td>
-                                            <td class="text-nowrap">@FormatTime(item.StartTime) – @FormatTime(item.EndTime)</td>
+                                            <td class="text-nowrap">@FormatDateTime(item.StartTime)</td>
+                                            <td class="text-nowrap">@FormatDateTime(item.EndTime)</td>
                                             <td>
                                                 <button type="button" class="btn btn-link p-0 text-decoration-none lms-cell-title text-start"
-                                                        @onclick="() => Select(item)">@item.Name</button>
+                                                        @onclick="() => Select(item)">
+                                                    @item.Name
+                                                </button>
                                             </td>
-                                            <td><span class="lms-badge @ToneOf(item.ActivityTypeName)">@item.ActivityTypeName</span></td>
+                                            <td><StatusBadge Text="@item.ActivityTypeName" Tone="@ToneOf(item.ActivityTypeName)" /></td>
                                             <td class="text-end text-nowrap">
                                                 <button type="button" class="btn btn-link btn-sm text-decoration-none" @onclick="() => StartEdit(item)">Edit</button>
                                                 <button type="button" class="btn btn-link btn-sm text-decoration-none text-danger" @onclick="() => AskDelete(item)">Delete</button>
@@ -167,23 +149,44 @@
                                     <ValidationMessage For="() => form.Description" />
                                 </div>
 
-                                <div class="col-12">
-                                    <label class="form-label" for="activity-date">Date *</label>
-                                    <InputDate id="activity-date" class="form-control" @bind-Value="form.Date" />
-                                    <ValidationMessage For="() => form.Date" />
+                                @* Start: date and time *@
+                                <div class="col-6">
+                                    <label class="form-label" for="activity-start-date">Start date *</label>
+                                    <InputDate id="activity-start-date" class="form-control" @bind-Value="form.StartDate" />
+                                    <ValidationMessage For="() => form.StartDate" />
                                 </div>
 
                                 <div class="col-6">
-                                    <label class="form-label" for="activity-start">Start time *</label>
-                                    <InputDate id="activity-start" Type="InputDateType.Time" class="form-control" @bind-Value="form.StartTime" />
+                                    <label class="form-label" for="activity-start-time">Start time *</label>
+                                    <InputDate id="activity-start-time" Type="InputDateType.Time" class="form-control" @bind-Value="form.StartTime" />
                                     <ValidationMessage For="() => form.StartTime" />
                                 </div>
 
+                                @* End: date and time (may be a later day than the start) *@
                                 <div class="col-6">
-                                    <label class="form-label" for="activity-end">End time *</label>
-                                    <InputDate id="activity-end" Type="InputDateType.Time" class="form-control" @bind-Value="form.EndTime" />
+                                    <label class="form-label" for="activity-end-date">End date *</label>
+                                    <InputDate id="activity-end-date" class="form-control" @bind-Value="form.EndDate" />
+                                    <ValidationMessage For="() => form.EndDate" />
+                                </div>
+
+                                <div class="col-6">
+                                    <label class="form-label" for="activity-end-time">End time *</label>
+                                    <InputDate id="activity-end-time" Type="InputDateType.Time" class="form-control" @bind-Value="form.EndTime" />
                                     <ValidationMessage For="() => form.EndTime" />
                                 </div>
+
+                                @* Optional document, only when creating. It is uploaded right after the activity is saved.
+                                   When editing, the documents are managed below the form instead. *@
+                                @if (editingId is null)
+                                {
+                                    <div class="col-12">
+                                        <label class="form-label" for="activity-new-document">Document (optional)</label>
+                                        @* The key changes when the form is reset, which clears the chosen file *@
+                                        <InputFile @key="newFileKey" id="activity-new-document" class="form-control form-control-sm"
+                                                   accept="@AcceptedExtensions" OnChange="OnNewFileSelected" />
+                                        <div class="lms-cell-sub mt-1">PDF, Word, PowerPoint, Excel, text or images. Max @MaxFileSizeMb MB.</div>
+                                    </div>
+                                }
                             </div>
 
                             <div class="d-flex justify-content-end gap-2 mt-3">
@@ -193,6 +196,12 @@
                                 </button>
                             </div>
                         </EditForm>
+
+                        @* ---------- Documents of the activity being edited (US06) ---------- *@
+                        @if (editingId is not null)
+                        {
+                            <ActivityDocuments @key="editingId.Value" ActivityId="editingId.Value" CanManage="true" />
+                        }
                     </div>
                 </div>
             }
@@ -204,9 +213,9 @@
                         <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
                             <div>
                                 <h2 class="lms-card-title mb-1">@selected.Name</h2>
-                                <div class="lms-cell-sub">@FormatDate(selected.StartTime), @FormatTime(selected.StartTime) – @FormatTime(selected.EndTime)</div>
+                                <div class="lms-cell-sub">@FormatRange(selected.StartTime, selected.EndTime)</div>
                             </div>
-                            <span class="lms-badge @ToneOf(selected.ActivityTypeName)">@selected.ActivityTypeName</span>
+                            <StatusBadge Text="@selected.ActivityTypeName" Tone="@ToneOf(selected.ActivityTypeName)" />
                         </div>
 
                         @if (!string.IsNullOrWhiteSpace(selected.Description))
@@ -217,6 +226,10 @@
                         {
                             <p class="lms-cell-sub">No description has been added yet.</p>
                         }
+
+                        @* ---------- Documents (US06): upload, download and delete for this activity ---------- *@
+                        @* The key makes a fresh component per activity, so messages and a chosen file do not carry over *@
+                        <ActivityDocuments @key="selected.Id" ActivityId="selected.Id" CanManage="true" />
 
                         <div class="d-flex justify-content-end gap-2 mt-3">
                             <button type="button" class="btn btn-outline-secondary" @onclick="CloseDetail">Close</button>
@@ -229,22 +242,12 @@
     }
 
     @* ---------- Delete confirmation ---------- *@
-    @if (deleting is not null)
-    {
-        <div class="alert alert-warning mb-0" role="alert">
-            <div class="mb-2">Delete the activity <strong>@deleting.Name</strong>? This cannot be undone.</div>
-            @if (!string.IsNullOrWhiteSpace(deleteError))
-            {
-                <div class="text-danger mb-2">@deleteError</div>
-            }
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-danger btn-sm" disabled="@isDeleting" @onclick="ConfirmDeleteAsync">
-                    @(isDeleting ? "Deleting..." : "Delete")
-                </button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@isDeleting" @onclick="CancelDelete">Cancel</button>
-            </div>
-        </div>
-    }
+    <ConfirmDeleteAlert Entity="activity"
+                        ItemName="@deleting?.Name"
+                        IsDeleting="isDeleting"
+                        ErrorMessage="@deleteError"
+                        OnConfirm="ConfirmDeleteAsync"
+                        OnCancel="CancelDelete" />
 </div>
 
 @code {
@@ -269,6 +272,13 @@
     private bool isSaving;
     private string? formError;
     private string? successMessage;
+
+    // Optional document picked in the create form (US06). Must match the limits in DocumentService.
+    private const int MaxFileSizeMb = 10;
+    private const long MaxFileBytes = MaxFileSizeMb * 1024L * 1024L;
+    private const string AcceptedExtensions = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.png,.jpg,.jpeg,.gif";
+    private IBrowserFile? newFile;
+    private Guid newFileKey = Guid.NewGuid();
 
     private ActivityDto? deleting;
     private bool isDeleting;
@@ -373,11 +383,12 @@
         editingId = null;
         selected = null;
 
-        // Suggest the module's first day, from 09:00 to 10:00
+        // Suggest the module's first day, from 09:00 to 10:00 (the teacher can pick a later end date)
         form = new ActivityFormModel
         {
-            Date = module!.StartDate,
+            StartDate = module!.StartDate,
             StartTime = new TimeOnly(9, 0),
+            EndDate = module.StartDate,
             EndTime = new TimeOnly(10, 0)
         };
 
@@ -392,13 +403,15 @@
         editingId = item.Id;
         selected = null;
 
+        // Split the stored start and end into separate date and time fields
         form = new ActivityFormModel
         {
             ActivityTypeId = item.ActivityTypeId,
             Name = item.Name,
             Description = item.Description,
-            Date = DateOnly.FromDateTime(item.StartTime),
+            StartDate = DateOnly.FromDateTime(item.StartTime),
             StartTime = TimeOnly.FromDateTime(item.StartTime),
+            EndDate = DateOnly.FromDateTime(item.EndTime),
             EndTime = TimeOnly.FromDateTime(item.EndTime)
         };
 
@@ -412,6 +425,8 @@
     {
         showForm = false;
         editingId = null;
+        newFile = null;
+        newFileKey = Guid.NewGuid();
         form = new ActivityFormModel();
         ResetFormErrors();
     }
@@ -433,6 +448,9 @@
 
     private void DismissSuccess() => successMessage = null;
 
+    // Remembers the document chosen in the create form
+    private void OnNewFileSelected(InputFileChangeEventArgs e) => newFile = e.File;
+
     private async Task SaveAsync()
     {
         ResetFormErrors();
@@ -442,11 +460,47 @@
             messageStore.Add(editContext.Field(nameof(ActivityFormModel.ActivityTypeId)), "Select a type.");
         }
 
-        if (form.EndTime <= form.StartTime)
+        // Combine each date with its time. The end may be on a later day than the start.
+        var start = form.StartDate.ToDateTime(form.StartTime);
+        var end = form.EndDate.ToDateTime(form.EndTime);
+
+        if (end <= start)
         {
-            messageStore.Add(editContext.Field(nameof(ActivityFormModel.EndTime)),
-                "The end time must be after the start time.");
-            editContext.NotifyValidationStateChanged();
+            messageStore.Add(editContext.Field(nameof(ActivityFormModel.EndDate)),
+                "The end must be after the start.");
+        }
+
+        // The activity must stay inside the module's dates (the API checks this too)
+        if (module is not null)
+        {
+            var range = $"{FormatDate(module.StartDate)} – {FormatDate(module.EndDate)}";
+
+            if (form.StartDate < module.StartDate || form.StartDate > module.EndDate)
+            {
+                messageStore.Add(editContext.Field(nameof(ActivityFormModel.StartDate)),
+                    $"The start date must be inside the module ({range}).");
+            }
+
+            if (form.EndDate < module.StartDate || form.EndDate > module.EndDate)
+            {
+                messageStore.Add(editContext.Field(nameof(ActivityFormModel.EndDate)),
+                    $"The end date must be inside the module ({range}).");
+            }
+        }
+
+        // Check the optional document before anything is saved (the API checks it again)
+        if (editingId is null && newFile is not null)
+        {
+            if (newFile.Size == 0)
+            {
+                formError = "The document is empty. Choose another file or remove it.";
+            }
+            else if (newFile.Size > MaxFileBytes)
+            {
+                formError = $"The document is too large. The maximum size is {MaxFileSizeMb} MB.";
+            }
+
+            if (formError is not null) return;
         }
 
         // Stop here if any client-side check failed
@@ -463,10 +517,6 @@
             var name = form.Name.Trim();
             var description = string.IsNullOrWhiteSpace(form.Description) ? null : form.Description.Trim();
 
-            // Combine the chosen day with the start and end time
-            var start = form.Date.ToDateTime(form.StartTime);
-            var end = form.Date.ToDateTime(form.EndTime);
-
             if (editingId is null)
             {
                 var dto = new CreateActivityDto
@@ -479,10 +529,23 @@
                     ModuleId = ModuleId
                 };
 
-                await ApiProxyClient.SendAsync<ActivityDto>(
+                var created = await ApiProxyClient.SendAsync<ActivityDto>(
                     HttpMethod.Post, "activities", JsonContent.Create(dto), cts.Token);
 
                 successMessage = $"Activity '{name}' was created.";
+
+                // Upload the optional document to the new activity. The activity is already saved,
+                // so a failed upload only changes the message; the teacher can retry in the detail card.
+                if (newFile is not null)
+                {
+                    var uploadError = created is null
+                        ? "The new activity could not be found."
+                        : await UploadNewDocumentAsync(created.Id, newFile);
+
+                    successMessage = uploadError is null
+                        ? $"Activity '{name}' was created with the document '{newFile.Name}'."
+                        : $"Activity '{name}' was created, but the document was not uploaded: {uploadError} Open the activity to try again.";
+                }
             }
             else
             {
@@ -540,6 +603,40 @@
         }
     }
 
+    // Uploads one document to an activity. Returns null on success, otherwise a short error text.
+    private async Task<string?> UploadNewDocumentAsync(Guid activityId, IBrowserFile file)
+    {
+        try
+        {
+            // The form fields match UploadDocumentRequest on the API (exactly one target: the activity)
+            var content = new MultipartFormDataContent();
+
+            var fileContent = new StreamContent(file.OpenReadStream(MaxFileBytes, cts.Token));
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(
+                string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType);
+            content.Add(fileContent, "File", file.Name);
+            content.Add(new StringContent(activityId.ToString()), "ActivityId");
+
+            await ApiProxyClient.SendAsync<DocumentDto>(HttpMethod.Post, "documents", content, cts.Token);
+            return null;
+        }
+        catch (ApiValidationException ex)
+        {
+            // 400: the API says what was wrong (file type, size)
+            return ex.Errors.Count > 0
+                ? string.Join(" ", ex.Errors.SelectMany(e => e.Value))
+                : ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            return "The upload failed.";
+        }
+        catch (IOException)
+        {
+            return "The file could not be read.";
+        }
+    }
+
     private void AskDelete(ActivityDto item)
     {
         deleting = item;
@@ -587,23 +684,36 @@
             $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
             forceLoad: true);
 
+    // "Mon 12 Oct"
     private static string FormatDate(DateTime value) =>
         value.ToString("ddd d MMM", CultureInfo.InvariantCulture);
 
+    // "12 Oct 2026"
     private static string FormatDate(DateOnly value) =>
         value.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
 
+    // "09:00"
     private static string FormatTime(DateTime value) =>
         value.ToString("HH:mm", CultureInfo.InvariantCulture);
 
-    // Badge colour per activity type (falls back to muted for unknown types)
+    // "Mon 12 Oct, 09:00" (used in the table, where start and end have their own column)
+    private static string FormatDateTime(DateTime value) =>
+        $"{FormatDate(value)}, {FormatTime(value)}";
+
+    // Same day: "Mon 12 Oct, 09:00 – 10:00". Several days: "Mon 12 Oct, 09:00 – Wed 14 Oct, 16:00".
+    private static string FormatRange(DateTime start, DateTime end) =>
+        start.Date == end.Date
+            ? $"{FormatDate(start)}, {FormatTime(start)} – {FormatTime(end)}"
+            : $"{FormatDateTime(start)} – {FormatDateTime(end)}";
+
+    // Badge colour name per activity type (falls back to muted for unknown types)
     private static string ToneOf(string typeName) => typeName switch
     {
-        "Lecture" => "lms-tone-primary",
-        "E-Learning" => "lms-tone-info",
-        "Exercise" => "lms-tone-success",
-        "Assignment" => "lms-tone-warning",
-        _ => "lms-tone-muted"
+        "Lecture" => "primary",
+        "E-Learning" => "info",
+        "Exercise" => "success",
+        "Assignment" => "warning",
+        _ => "muted"
     };
 
     public void Dispose()
@@ -625,9 +735,12 @@
         [MaxLength(400, ErrorMessage = "Description can be at most 400 characters.")]
         public string? Description { get; set; }
 
-        public DateOnly Date { get; set; }
+        // Start and end are split into date + time so the activity can span several days
+        public DateOnly StartDate { get; set; }
 
         public TimeOnly StartTime { get; set; }
+
+        public DateOnly EndDate { get; set; }
 
         public TimeOnly EndTime { get; set; }
     }

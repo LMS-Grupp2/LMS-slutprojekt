@@ -11,7 +11,8 @@
 @using Microsoft.AspNetCore.Components.Authorization
 
 @* Teachers see a timeline + table with create and edit. Students see a module list with a detail card.
-   Shared styling comes from wwwroot/css/lms.css, the student list from Modules.razor.css. *@
+   Built with the shared components in Components/ (PageHeader, SuccessAlert, LoadingSkeleton, ErrorState,
+   EmptyState, StatusBadge). Shared styling comes from wwwroot/css/lms.css, the student list from Modules.razor.css. *@
 @attribute [Authorize(Roles = UserRoles.Teacher + "," + UserRoles.Student)]
 @implements IDisposable
 
@@ -22,81 +23,54 @@
 
 <div class="d-flex flex-column gap-4">
 
-    @* ---------- Page header ---------- *@
-    <div class="lms-page-header">
-        <div>
-            <AuthorizeView Roles="@UserRoles.Teacher">
-                <Authorized>
+    @* ---------- Page header (different for teachers and students) ---------- *@
+    <AuthorizeView Roles="@UserRoles.Teacher">
+        <Authorized>
+            <PageHeader Title="@(courseName ?? "Modules")" Subtitle="@TeacherSubtitle">
+                <Breadcrumb>
                     @* Back link to the course list, then the course name *@
-                    <div class="lms-breadcrumb">
-                        <a href="courses">Courses</a> / @(courseName ?? "Course")
-                    </div>
-                    <h1 class="lms-page-title">@(courseName ?? "Modules")</h1>
-                    <p class="lms-page-subtitle">@TeacherSubtitle</p>
-                </Authorized>
-                <NotAuthorized>
-                    <div class="lms-breadcrumb">
-                        <a href="my-course">My course</a> / Modules
-                    </div>
-                    <h1 class="lms-page-title">Modules</h1>
-                    <p class="lms-page-subtitle">@StudentSubtitle</p>
-                </NotAuthorized>
-            </AuthorizeView>
-        </div>
+                    <a href="courses">Courses</a> / @(courseName ?? "Course")
+                </Breadcrumb>
+                <Actions>
+                    @* NEW (US06): link to the course documents *@
+                    <a class="btn btn-outline-primary" href="courses/@CourseId/documents">Documents</a>
+                    @if (!showForm)
+                    {
+                        <button type="button" class="btn btn-primary" @onclick="StartCreate">+ Add module</button>
+                    }
+                </Actions>
+            </PageHeader>
+        </Authorized>
+        <NotAuthorized>
+            <PageHeader Title="Modules" Subtitle="@StudentSubtitle">
+                <Breadcrumb>
+                    <a href="my-course">My course</a> / Modules
+                </Breadcrumb>
+            </PageHeader>
+        </NotAuthorized>
+    </AuthorizeView>
 
-        <AuthorizeView Roles="@UserRoles.Teacher">
-            @if (!showForm)
-            {
-                <button type="button" class="btn btn-primary" @onclick="StartCreate">+ Add module</button>
-            }
-        </AuthorizeView>
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(successMessage))
-    {
-        <div class="alert alert-success alert-dismissible mb-0" role="status">
-            @successMessage
-            <button type="button" class="btn-close" aria-label="Close" @onclick="DismissSuccess"></button>
-        </div>
-    }
+    <SuccessAlert Message="@successMessage" OnDismiss="DismissSuccess" />
 
     @* ---------- Loading, error, empty and list states ---------- *@
     @if (isLoading)
     {
-        <div class="lms-card">
-            <div class="d-flex flex-column gap-3">
-                <div class="lms-skeleton" style="width: 40%; height: 16px;"></div>
-                <div class="lms-skeleton" style="width: 70%; height: 16px;"></div>
-                <div class="lms-skeleton" style="width: 55%; height: 16px;"></div>
-            </div>
-        </div>
+        <LoadingSkeleton />
     }
     else if (!string.IsNullOrWhiteSpace(loadError))
     {
-        <div class="lms-card">
-            <div class="lms-state">
-                <span class="lms-badge lms-tone-danger">!</span>
-                <div class="lms-cell-title">@loadError</div>
-                <button type="button" class="btn btn-outline-primary btn-sm" @onclick="LoadModulesAsync">Try again</button>
-            </div>
-        </div>
+        <ErrorState Message="@loadError" OnRetry="LoadModulesAsync" />
     }
     else if (modules is { Count: 0 } && !showForm)
     {
-        <div class="lms-card">
-            <div class="lms-state">
-                <span class="lms-badge lms-tone-primary">+</span>
-                <div class="lms-cell-title">No modules yet</div>
-                <AuthorizeView Roles="@UserRoles.Teacher">
-                    <Authorized>
-                        <div class="lms-cell-sub">Create the first module with the button above.</div>
-                    </Authorized>
-                    <NotAuthorized>
-                        <div class="lms-cell-sub">Your teacher has not added any modules yet.</div>
-                    </NotAuthorized>
-                </AuthorizeView>
-            </div>
-        </div>
+        <AuthorizeView Roles="@UserRoles.Teacher">
+            <Authorized>
+                <EmptyState Title="No modules yet" Description="Create the first module with the button above." />
+            </Authorized>
+            <NotAuthorized>
+                <EmptyState Title="No modules yet" Description="Your teacher has not added any modules yet." />
+            </NotAuthorized>
+        </AuthorizeView>
     }
     else if (modules is not null)
     {
@@ -153,7 +127,7 @@
                                                     </td>
                                                     <td class="text-nowrap">@FormatShort(module.StartDate)</td>
                                                     <td class="text-nowrap">@FormatShort(module.EndDate)</td>
-                                                    <td><span class="lms-badge @status.Css">@status.Text</span></td>
+                                                    <td><StatusBadge Text="@status.Text" Tone="@status.Tone" /></td>
                                                     <td class="text-end text-nowrap">
                                                         @* Opens the activity page of this module *@
                                                         <a class="btn btn-link btn-sm text-decoration-none" href="modules/@module.Id/activities">Activities</a>
@@ -256,7 +230,7 @@
                                     <h2 class="lms-page-title" style="font-size: 1.375rem;">@selected.Name</h2>
                                     <p class="lms-page-subtitle">@FormatLong(selected.StartDate) – @FormatLong(selected.EndDate)</p>
                                 </div>
-                                <span class="lms-badge @selectedStatus.Css">@selectedStatus.Text</span>
+                                <StatusBadge Text="@selectedStatus.Text" Tone="@selectedStatus.Tone" />
                             </div>
 
                             @if (!string.IsNullOrWhiteSpace(selected.Description))
@@ -267,6 +241,9 @@
                             {
                                 <p class="lms-cell-sub mb-0">No description has been added yet.</p>
                             }
+
+                            @* NEW (#177): the activities of the selected module (read only for students) *@
+                            <StudentModuleActivities ModuleId="selected.Id" />
                         </section>
                     }
                 </div>
@@ -623,13 +600,14 @@
     }
 
     // Status is calculated from today's date: Completed, Ongoing or Planned (as in the mockups).
-    private static (string Text, string Css, string Dot, string Color) StatusOf(ModuleDto module)
+    // Tone is the badge colour name used by StatusBadge; Dot and Color style the student list and the timeline.
+    private static (string Text, string Tone, string Dot, string Color) StatusOf(ModuleDto module)
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
 
-        if (today > module.EndDate) return ("Completed", "lms-tone-muted", "is-done", "#a8d5ba");
-        if (today >= module.StartDate) return ("Ongoing", "lms-tone-primary", "is-current", "#0d6efd");
-        return ("Planned", "lms-tone-info", "is-upcoming", "#dee2e6");
+        if (today > module.EndDate) return ("Completed", "muted", "is-done", "#a8d5ba");
+        if (today >= module.StartDate) return ("Ongoing", "primary", "is-current", "#0d6efd");
+        return ("Planned", "info", "is-upcoming", "#dee2e6");
     }
 
     public void Dispose()

@@ -364,3 +364,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Uploaded course documents (US06)
+**/Uploads/
+/.idea/.idea.LMS/.idea

@@ -1,0 +1,76 @@
+﻿@page "/my-documents"
+
+@using System.Net
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
+@using LMS.Shared.DTOs.CourseDtos
+@using Microsoft.AspNetCore.Authorization
+
+@* Student entry point: redirects to the documents of the student's own course.
+   Shows a loading skeleton while redirecting, or a message if there is no course.
+   Built with the shared LoadingSkeleton and EmptyState components. Styling comes from wwwroot/css/lms.css. *@
+@attribute [Authorize(Roles = UserRoles.Student)]
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>My documents</PageTitle>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    @* No course (or the request failed): show the reason *@
+    <EmptyState Icon="i"
+                Title="@message"
+                Description="Ask your teacher to add you to a course." />
+}
+else
+{
+    @* Shown while the redirect to the documents page is in progress *@
+    <LoadingSkeleton Label="Loading your documents..." />
+}
+
+@code {
+    private readonly CancellationTokenSource cts = new();
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var course = await ApiProxyClient.GetAsync<StudentCourseDto>("student/course", cts.Token);
+
+            // The server-side prerender client deliberately returns null. Keep
+            // showing the loading state until WebAssembly runs this again.
+            if (course is null)
+            {
+                return;
+            }
+
+            // Go to the document page of the student's own course
+            NavigationManager.NavigateTo($"courses/{course.Id}/documents", replace: true);
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            NavigationManager.NavigateTo(
+                $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
+                forceLoad: true);
+        }
+        catch (HttpRequestException ex)
+        {
+            message = ex.StatusCode == HttpStatusCode.NotFound
+                ? "You are not enrolled in a course yet, so there are no documents to show."
+                : "Could not load your course. Please try again later.";
+        }
+    }
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+}

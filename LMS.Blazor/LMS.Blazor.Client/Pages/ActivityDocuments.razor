@@ -1,0 +1,382 @@
+﻿@using System.Globalization
+@using System.Net
+@using System.Net.Http.Headers
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.DTOs.DocumentDtos
+
+@* Documents of one activity (part of US06).
+   Teachers (CanManage = true) can download, upload and delete.
+   Students (CanManage = false) can only download, and nothing is shown when there are no documents.
+   Used in Activities.razor (teacher detail card) and StudentModuleActivities.razor (student view):
+   <ActivityDocuments ActivityId="item.Id" CanManage="false" />
+   Files are fetched through the BFF proxy: api/proxy/documents/{id}/download.
+   Built with the shared LoadingSkeleton, ErrorState, SuccessAlert, StatusBadge and ConfirmDeleteAlert components.
+   Styling comes from wwwroot/css/lms.css. *@
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient
+@inject NavigationManager NavigationManager
+
+<div class="@(CanManage ? "mt-4" : "mt-2")">
+
+    @if (isLoading)
+    {
+        @* Only teachers see a loading state. For students the list just appears if there is something. *@
+        @if (CanManage)
+        {
+            <LoadingSkeleton Lines="2" InCard="false" Label="Loading documents..." />
+        }
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <ErrorState Message="@loadError" OnRetry="LoadAsync" InCard="false" />
+    }
+    else
+    {
+        @* ---------- Heading ---------- *@
+        @if (CanManage)
+        {
+            <h3 class="lms-card-title mb-2">Documents</h3>
+        }
+        else if (documents is { Count: > 0 })
+        {
+            <div class="lms-cell-sub mb-1">Documents</div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="mb-2">
+                <SuccessAlert Message="@successMessage" OnDismiss="DismissSuccess" />
+            </div>
+        }
+
+        @* ---------- Document list ---------- *@
+        @if (documents is { Count: > 0 })
+        {
+            <ul class="list-unstyled d-flex flex-column gap-2 mb-2">
+                @foreach (var item in documents)
+                {
+                    <li class="d-flex justify-content-between align-items-center gap-2">
+                        <div class="text-break">
+                            @* A normal link: the browser sends the login cookie and the BFF adds the token *@
+                            <a class="lms-cell-title text-decoration-none" href="api/proxy/documents/@item.Id/download">@item.Name</a>
+                            <div class="lms-cell-sub">@FormatSize(item.SizeBytes) · @item.UploadedByName</div>
+                        </div>
+                        <div class="text-nowrap">
+                            <StatusBadge Text="@item.FileType" Tone="@ToneOf(item.FileType)" />
+                            <a class="btn btn-link btn-sm text-decoration-none" href="api/proxy/documents/@item.Id/download">Download</a>
+                            @if (CanManage)
+                            {
+                                <button type="button" class="btn btn-link btn-sm text-decoration-none text-danger" @onclick="() => AskDelete(item)">Delete</button>
+                            }
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+        else if (CanManage)
+        {
+            <p class="lms-cell-sub">No documents yet.</p>
+        }
+
+        @* ---------- Delete confirmation (teachers) ---------- *@
+        <ConfirmDeleteAlert Entity="document"
+                            ItemName="@deleting?.Name"
+                            IsDeleting="isDeleting"
+                            ErrorMessage="@deleteError"
+                            OnConfirm="ConfirmDeleteAsync"
+                            OnCancel="CancelDelete" />
+
+        @* ---------- Upload (teachers) ---------- *@
+        @if (CanManage)
+        {
+            @if (!string.IsNullOrWhiteSpace(uploadError))
+            {
+                <div class="alert alert-danger py-2 mb-2" role="alert">@uploadError</div>
+            }
+
+            <div class="mt-2">
+                <label class="form-label" for="activity-doc-file">Upload a document</label>
+                @* The key changes after an upload, which clears the chosen file *@
+                <InputFile @key="fileInputKey" id="activity-doc-file" class="form-control form-control-sm"
+                           accept="@AcceptedExtensions" OnChange="OnFileSelected" />
+                <div class="lms-cell-sub mt-1">
+                    PDF, Word, PowerPoint, Excel, text or images. Max @MaxFileSizeMb MB.
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end mt-2">
+                <button type="button" class="btn btn-primary btn-sm" disabled="@isUploading" @onclick="UploadAsync">
+                    @(isUploading ? "Uploading..." : "Upload")
+                </button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    // Must match the limit and the allowed types in DocumentService (the API checks them again)
+    private const int MaxFileSizeMb = 10;
+    private const long MaxFileBytes = MaxFileSizeMb * 1024L * 1024L;
+    private const string AcceptedExtensions = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.png,.jpg,.jpeg,.gif";
+
+    private readonly CancellationTokenSource cts = new();
+
+    // The activity whose documents are shown. Set by the parent page.
+    [Parameter]
+    public Guid ActivityId { get; set; }
+
+    // true = teacher (upload and delete), false = student (download only)
+    [Parameter]
+    public bool CanManage { get; set; }
+
+    private Guid loadedActivityId;
+    private List<DocumentDto>? documents;
+    private bool isLoading = true;
+    private string? loadError;
+    private string? successMessage;
+
+    // Upload state
+    private IBrowserFile? selectedFile;
+    private Guid fileInputKey = Guid.NewGuid();
+    private bool isUploading;
+    private string? uploadError;
+
+    // Delete state
+    private DocumentDto? deleting;
+    private bool isDeleting;
+    private string? deleteError;
+
+    // Reload when the parent shows another activity.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedActivityId == ActivityId) return;
+
+        loadedActivityId = ActivityId;
+        ResetMessages();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        // Remember which activity this request is for, so a slow answer for an
+        // activity that is no longer shown does not overwrite the new list.
+        var requestedActivityId = ActivityId;
+
+        isLoading = true;
+        loadError = null;
+
+        try
+        {
+            var result = await ApiProxyClient.GetAsync<List<DocumentDto>>(
+                $"activities/{requestedActivityId}/documents", cts.Token);
+
+            // The server-side prerender client deliberately returns null. Keep
+            // showing the loading state until WebAssembly runs this again.
+            if (result is null)
+            {
+                return;
+            }
+
+            if (requestedActivityId != ActivityId) return;
+
+            documents = result;
+            isLoading = false;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (HttpRequestException)
+        {
+            if (requestedActivityId != ActivityId) return;
+
+            loadError = "Could not load the documents.";
+            isLoading = false;
+        }
+    }
+
+    // Fetches the documents only (used after upload and delete).
+    private async Task ReloadAsync()
+    {
+        documents = await ApiProxyClient.GetAsync<List<DocumentDto>>(
+            $"activities/{ActivityId}/documents", cts.Token) ?? new();
+    }
+
+    private void DismissSuccess() => successMessage = null;
+
+    // Remembers the chosen file. The upload itself starts with the button.
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        uploadError = null;
+    }
+
+    private async Task UploadAsync()
+    {
+        uploadError = null;
+        successMessage = null;
+
+        // Client-side checks for a quick answer. The API checks everything again.
+        if (selectedFile is null)
+        {
+            uploadError = "Choose a file first.";
+            return;
+        }
+
+        if (selectedFile.Size == 0)
+        {
+            uploadError = "The file is empty.";
+            return;
+        }
+
+        if (selectedFile.Size > MaxFileBytes)
+        {
+            uploadError = $"The file is too large. The maximum size is {MaxFileSizeMb} MB.";
+            return;
+        }
+
+        isUploading = true;
+
+        try
+        {
+            // The form fields match UploadDocumentRequest on the API.
+            // Exactly one target is sent: this activity. The proxy client disposes the content after the request.
+            var form = new MultipartFormDataContent();
+
+            var fileContent = new StreamContent(selectedFile.OpenReadStream(MaxFileBytes, cts.Token));
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(
+                string.IsNullOrWhiteSpace(selectedFile.ContentType) ? "application/octet-stream" : selectedFile.ContentType);
+            form.Add(fileContent, "File", selectedFile.Name);
+            form.Add(new StringContent(ActivityId.ToString()), "ActivityId");
+
+            await ApiProxyClient.SendAsync<DocumentDto>(HttpMethod.Post, "documents", form, cts.Token);
+
+            successMessage = $"Document '{selectedFile.Name}' was uploaded.";
+
+            // Clear the file input and reload the list
+            selectedFile = null;
+            fileInputKey = Guid.NewGuid();
+            await ReloadAsync();
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (ApiValidationException ex)
+        {
+            // 400: the API's message says what was wrong (file type, size)
+            uploadError = ex.Errors.Count > 0
+                ? string.Join(" ", ex.Errors.SelectMany(e => e.Value))
+                : ex.Message;
+        }
+        catch (HttpRequestException ex)
+        {
+            uploadError = ex.StatusCode switch
+            {
+                HttpStatusCode.NotFound => "The activity no longer exists.",
+                HttpStatusCode.Forbidden => "You do not have permission to upload documents.",
+                HttpStatusCode.RequestEntityTooLarge => $"The file is too large. The maximum size is {MaxFileSizeMb} MB.",
+                _ => "Could not upload the document. Please try again."
+            };
+        }
+        catch (IOException)
+        {
+            // Thrown when the browser file is bigger than allowed or can no longer be read
+            uploadError = "The file could not be read. Choose it again and retry.";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private void AskDelete(DocumentDto item)
+    {
+        deleting = item;
+        deleteError = null;
+        successMessage = null;
+    }
+
+    private void CancelDelete() => deleting = null;
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (deleting is null) return;
+
+        isDeleting = true;
+        deleteError = null;
+
+        try
+        {
+            await ApiProxyClient.SendAsync<DocumentDto>(
+                HttpMethod.Delete, $"documents/{deleting.Id}", null, cts.Token);
+
+            successMessage = $"Document '{deleting.Name}' was deleted.";
+            deleting = null;
+            await ReloadAsync();
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels the request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            RedirectToLogin();
+        }
+        catch (HttpRequestException)
+        {
+            deleteError = "Could not delete the document. Please try again.";
+        }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+
+    // Clears old messages and state when another activity is shown
+    private void ResetMessages()
+    {
+        successMessage = null;
+        uploadError = null;
+        deleteError = null;
+        deleting = null;
+        selectedFile = null;
+        fileInputKey = Guid.NewGuid();
+    }
+
+    private void RedirectToLogin() =>
+        NavigationManager.NavigateTo(
+            $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
+            forceLoad: true);
+
+    // Badge colour name per file type (used by StatusBadge)
+    private static string ToneOf(string fileType) => fileType switch
+    {
+        "Pdf" => "danger",
+        "Word" => "primary",
+        "PowerPoint" => "warning",
+        "Image" => "success",
+        _ => "muted"
+    };
+
+    // "1.2 MB", "340 KB"
+    private static string FormatSize(long bytes) =>
+        bytes >= 1024 * 1024
+            ? $"{bytes / 1024d / 1024d:0.#} MB"
+            : $"{Math.Max(1, bytes / 1024d):0.#} KB";
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+}
