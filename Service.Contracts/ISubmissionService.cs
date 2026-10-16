@@ -19,5 +19,11 @@ public interface ISubmissionService
         string contentType,
         long length,
         CancellationToken cancellationToken);
+
+    /// <summary>                                                             
+    /// Teacher overview (US10): one row per student in the assignment's course,  
+    /// including students who have not handed in.                             
+    /// </summary> 
+    Task<SubmissionOverviewDto> GetOverviewAsync(Guid activityId);
 }
 

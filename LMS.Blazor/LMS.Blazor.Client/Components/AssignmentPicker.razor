@@ -1,0 +1,198 @@
+﻿@using System.Net
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
+@using LMS.Shared.DTOs.ActivityDtos
+@using LMS.Shared.DTOs.CourseDtos
+@using LMS.Shared.DTOs.ModuleDtos
+
+@* Reusable course → assignment picker (US10, can be reused by the feedback page).
+   Loads all courses; picking a course loads its assignments (activities of type Assignment).
+   The page only gets told which assignment was picked, through OnAssignmentSelected (null = none).
+    Usage:
+   <AssignmentPicker OnAssignmentSelected="LoadOverviewAsync" /> *@
+
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient
+@inject NavigationManager NavigationManager
+
+@if (IsLoadingCourses)
+{
+    <LoadingSkeleton Lines="2" />
+}
+else if (!string.IsNullOrWhiteSpace(coursesError))
+{
+    <ErrorState Message="@coursesError" OnRetry="LoadCoursesAsync" />
+}
+else if (courses is not null)
+{
+    <div class="row g-3">
+        @*----------Courses---------*@
+        <div class="col-12 col-md-4">
+            <label class="form-label" for="picker-course">Course</label>
+            <select id="picker-course" class="form-select"
+                    @bind="selectedCourseId" @bind:after="OnCourseChangedAsync">
+                <option value="">Choose a course...</option>
+                @foreach (var course in courses)
+                {
+                    <option value="@course.Id">@course.Name</option>
+                }
+            </select>
+        </div>
+
+        @*----------Assignment---------*@
+        <div class="col-12 col-md-4">
+            <label class="form-label" for="picker-assignment">Assignment</label>
+            <select id="picker-assignment" class="form-select"
+                    @bind="selectedAssignmentId" @bind:after="OnAssignmentChangedAsync"
+                    disabled="@(selectedCourseId is null || isLoadingAssignments)">
+                <option value="">
+                    @(isLoadingAssignments ? "Loading..." : "Choose an assignment...")
+                </option>
+                @foreach (var assignment in assignments)
+                {
+                    <option value="@assignment.Id">@assignment.Name</option>
+                }
+            </select>
+            @if (!string.IsNullOrWhiteSpace(assignmentsError))
+            {
+                <div class="text-danger small mt-1">@assignmentsError</div>
+                
+            }
+        </div>
+    </div>
+}
+
+
+
+
+@code {
+    [Parameter]
+    public EventCallback<Guid?> OnAssignmentSelected { get; set; }
+
+    private readonly CancellationTokenSource cts = new();
+
+    // Courses
+    private List<CourseDto>? courses;
+    private bool IsLoadingCourses = true;
+    private string? coursesError;
+
+    // The chosen course
+    private Guid? selectedCourseId;
+
+    // Assignments of the chosen course
+    private List<ActivityDto> assignments = [];
+    private bool isLoadingAssignments;
+    private string? assignmentsError;
+
+    // The chosen assignment
+    private Guid? selectedAssignmentId;
+
+    protected override async Task OnInitializedAsync() => await LoadCoursesAsync();
+
+    private async Task LoadCoursesAsync()
+    {
+        IsLoadingCourses = true;
+        coursesError = null;
+
+        try
+        {
+            //Goes through our BFF proxy to Get courses and the token.
+            var result = await ApiProxyClient.GetAsync<List<CourseDto>>("courses", cts.Token);
+
+            //On the server side prerender returns null on puropose. Keep loading untill our WebAssembly
+            //runs this again.
+            if (result is null)
+            {
+                return;
+            }
+
+            courses = result.OrderBy(c => c.Name).ToList();
+            IsLoadingCourses = false;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            //Navigating away will dispose the component and cancel our request.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            NavigationManager.NavigateTo(
+                $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}", 
+                forceLoad: true);
+        }
+        catch (HttpRequestException ex)
+        {
+            coursesError = ex.StatusCode == HttpStatusCode.Forbidden
+                ? "You do not have access to the courses."
+                : "Could not load the courses. Please try again.";
+            IsLoadingCourses = false;
+        }
+    }
+
+    //Runs right after the teacher has picked a course
+    private async Task OnCourseChangedAsync()
+    {
+        // 1. We empty the old assignment list and clear all old errors
+        assignments = [];
+        assignmentsError = null;
+
+        // 2. A new course will mean tha tthe old assignment no longer applies. 
+        // We clear it and let the page know.
+        selectedAssignmentId = null;
+        await OnAssignmentSelected.InvokeAsync(null);
+
+        // 3. "Choose a course" was picked again: nothing to load
+        if (selectedCourseId is null)
+        {
+            return;
+        }
+
+        isLoadingAssignments = true;
+
+        try
+        {
+            // 4. The course's modules is first
+            var modules = await ApiProxyClient.GetAsync<List<ModuleDto>>(
+                $"courses/{selectedCourseId}/modules", cts.Token) ?? [];
+
+            // 5. Then each module's activites. leep only the activity that is an assignment
+            foreach (var module in modules)
+            {
+                var activities = await ApiProxyClient.GetAsync<List<ActivityDto>>(
+                    $"modules/{module.Id}/activities", cts.Token) ?? [];
+
+                assignments.AddRange(activities.Where(a => a.ActivityTypeName ==
+                    ActivityTypeNames.Assignment));
+            }
+
+            // 6. Latest deadlinees go first
+            assignments = assignments.OrderByDescending(a => a.EndTime).ToList();
+        }
+
+        // 7. catches: if its cancelled by us then ignore. 
+        // But if its and http error then give us an assignmentError message.
+        // 8. finally load off
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            //Navigating away will dispose the component and cancel our request.
+        }
+        catch (HttpRequestException)
+        {
+            assignmentsError = "Could not load the assignments. Please try again.";
+        }
+        finally
+        {
+            isLoadingAssignments = false;
+        }
+    }
+
+    //Runs right after the teacher has picked an assignment: we pass the choice to the page
+    private async Task OnAssignmentChangedAsync() => 
+        await OnAssignmentSelected.InvokeAsync(selectedAssignmentId);
+
+    public void Dispose()
+    {
+        cts.Cancel(); // 1. tells any running request to stop
+        cts.Dispose(); // 2. then it throws the remote control away
+    }
+}
