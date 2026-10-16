@@ -1,0 +1,41 @@
+@using System.Linq
+@using LMS.Blazor.Client.Components.Assignments
+@using LMS.Shared.DTOs.AssignmentDtos
+
+<div class="table-responsive">
+    <table class="table lms-table align-middle">
+        <thead>
+            <tr>
+                <th>Assignment</th>
+                <th>Deadline</th>
+                <th>Feedback</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (assignments?.Any() ?? false)
+            {
+                @foreach (var item in assignments ?? Enumerable.Empty<StudentAssignmentDto>())
+                {
+                    <AssignmentRow Item="@item" />
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="5">
+                        <div class="text-center">
+                            You have no assignments
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    [Parameter]
+    public IEnumerable<StudentAssignmentDto> assignments { get; init; } = null!;
+
+}

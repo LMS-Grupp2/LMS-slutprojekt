@@ -22,4 +22,7 @@ public record StudentAssignmentDto
     public DateTime? SubmittedAt { get; init; }
     public string? Status { get; init; }
     public string? Grade { get; init; }
+
+    // Feedback
+    public bool HasFeedback { get; init; }
 }
