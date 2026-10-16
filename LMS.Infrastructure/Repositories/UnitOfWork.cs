@@ -18,6 +18,7 @@ public class UnitOfWork : IUnitOfWork
     public ICourseRepository Courses { get; }
     public IActivityRepository Activities { get; }
     public IDocumentRepository Documents { get; } // NEW (US06)
+    public IAssignmentRepository Assignment { get; }
 
     public UnitOfWork(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
     {
@@ -29,6 +30,7 @@ public class UnitOfWork : IUnitOfWork
         Courses = new CourseRepository(context);
         Activities = new ActivityRepository(context);
         Documents = new DocumentRepository(context); // NEW (US06)
+        Assignment = new AssignmentRepository(context);
     }
 
     public async Task SaveChangesAsync()

@@ -10,4 +10,5 @@ public interface IServiceManager
     ICourseService CourseService { get; }
     IActivityService ActivityService { get; }
     IDocumentService DocumentService { get; } // NEW (US06)
+    IAssignmentService AssignmentService { get; }
 }

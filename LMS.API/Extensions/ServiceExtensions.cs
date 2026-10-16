@@ -29,5 +29,7 @@ public static class ServiceExtensions
         services.AddLazy<IActivityService>();
         services.AddScoped<IDocumentService, DocumentService>(); // NEW (US06)
         services.AddLazy<IDocumentService>(); // NEW (US06)
+        services.AddScoped<IAssignmentService, AssignmentService>();
+        services.AddLazy<IAssignmentService>();
     }
 }

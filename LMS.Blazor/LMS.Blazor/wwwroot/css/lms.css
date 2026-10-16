@@ -340,6 +340,12 @@ h1:focus {
     color: var(--bs-secondary-color);
 }
 
+.lms-cell-description {
+    padding-left: 8px;
+    color: #444;
+    font-weight: normal;
+}
+
 /* ---------- 7. Avatar ---------- */
 .lms-avatar {
     width: 32px;
@@ -424,7 +430,22 @@ h1:focus {
         color: #fff;
     }
 
-/* ---------- 10. Responsive ---------- */
+
+
+/* ---------- 10. Filter buttons - use lms-badge ---------- */
+
+.lms-badge.button {
+    border: 1px solid #aaa;
+    color: #222;
+    cursor: pointer;
+}
+
+input[type="radio"]:checked + label.lms-badge.button {
+    background: #222;
+    color: #fff;
+}
+
+/* ---------- 11. Responsive ---------- */
 @media (max-width: 991.98px) {
     .lms-body {
         flex-direction: column;
