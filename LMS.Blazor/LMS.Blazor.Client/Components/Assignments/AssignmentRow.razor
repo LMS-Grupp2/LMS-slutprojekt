@@ -1,5 +1,6 @@
 ﻿@using System.Globalization
 @using LMS.Shared.DTOs.AssignmentDtos
+@using LMS.Shared.Constants
 
 <tr class="@RowClass(isLate)">
     <td>
@@ -37,26 +38,11 @@
     {
         if (item is not null)
         {
-            var now = DateTime.Now;
-            isLate = (item.EndTime < now) ? true : false;
+            status = item.Status ?? string.Empty;
 
-            // Set status
-            // Approved | Needs changes | Submitted | Not submitted or Late
-            switch (item.Status)
-            {
-                case "Approved":
-                    status = "Approved";
-                    break;
-                case "Needs changes":
-                    status = "Needs changes";
-                    break;
-                case "Submitted":
-                    status = "Submitted";
-                    break;
-                default:
-                    status = isLate ? "Late" : "Not submitted";
-                    break;
-            }
+            //Late or missing rows get the highlight colour and a read deadline
+            isLate = status == SubmissionStatus.Late || status == SubmissionStatus.Missing;
+
             feedback = item.HasFeedback ? "Feedback" : "";
         }
     }
