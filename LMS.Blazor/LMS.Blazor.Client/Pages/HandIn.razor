@@ -47,7 +47,7 @@
                 <section class="lms-card">
                     <div class="lms-card-header d-flex justify-content-between align-items-center">
                         <h2 class="lms-card-title mb-0">Status</h2>
-                        <StatusBadge Text="@submission.Status" Tone="@ToneOf(submission.Status)" />
+                        <StatusBadge Text="@submission.Status" Tone="@SubmissionStatusStyles.ToneOf(submission.Status)" />
                     </div>
 
                     <div class="row g-3 mb-3">
@@ -318,15 +318,6 @@
     private static string FormatDateTime(DateTime value) =>
         value.ToString("ddd d MMM, HH:mm", CultureInfo.InvariantCulture);
 
-    // Badge colour name per status. The words come from SubmissionStatus, shared with the API.
-    private static string ToneOf(string status) => status switch
-    {
-        SubmissionStatus.AwaitingFeedback => "info",
-        SubmissionStatus.FeedbackGiven => "success",
-        SubmissionStatus.Late => "warning",
-        SubmissionStatus.Missing => "danger",
-        _ => "muted"
-    };
 
     public void Dispose()
     {

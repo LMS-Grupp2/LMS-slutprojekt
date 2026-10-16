@@ -23,4 +23,14 @@ public class SubmissionRepository : ISubmissionRepository
     }
 
     public void Create(Submission submission) => _context.Submissions.Add(submission);
+
+    public async Task<IEnumerable<Submission>> GetByActivityIdAsync(Guid activityId)
+    {
+        return await _context.Submissions
+            .AsNoTracking()
+            .Include(s => s.Documents.OrderByDescending(d => d.UploadedAt))
+            .Include(s => s.Feedbacks)
+            .Where(s => s.ActivityId == activityId)
+            .ToListAsync();
+    }
 }

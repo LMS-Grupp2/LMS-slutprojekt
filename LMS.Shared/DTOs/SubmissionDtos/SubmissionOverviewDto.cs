@@ -8,5 +8,6 @@ public sealed record SubmissionOverviewDto(
     Guid ActivityId,
     string ActivityName,
     DateTime Deadline,
+    bool DeadlinePassed,
     List<SubmissionOverviewRowDto> Rows);
 

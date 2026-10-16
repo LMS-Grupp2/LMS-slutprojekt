@@ -25,4 +25,13 @@ public class CourseUserRepository : ICourseUserRepository
             .Where(cu => cu.UserId == userId)
             .ToListAsync();
     }
+
+    public async Task<IEnumerable<CourseUser>> GetByCourseIdAsync(Guid courseId)
+    {
+        return await _context.CourseUsers
+            .AsNoTracking()
+            .Include(cu => cu.User)
+            .Where(cu => cu.CourseId == courseId)
+            .ToListAsync();
+    }
 }
