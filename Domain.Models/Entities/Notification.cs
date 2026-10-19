@@ -9,5 +9,5 @@ public class Notification
     public DateTime CreatedAt { get; set; }
 
     public string RecipientId { get; set; } = null!;
-    public ApplicationUser Recipient { get; set; } = null!;
+    //public ApplicationUser Recipient { get; set; } = null!;
 }
