@@ -49,6 +49,22 @@ public class ActivityRepository : IActivityRepository
             .FirstOrDefaultAsync();
     }
 
+    // The next activities in a course (US12, the student dashboard). An activity counts until it has ended,
+    // so one that is running right now is still "next". Read only, so tracking is turned off.
+    // Module (for its name) and ActivityType (for the badge) are included. One query, no N+1.
+    public async Task<IEnumerable<Activity>> GetUpcomingByCourseIdAsync(
+        Guid courseId, DateTime fromCourseTime, int take)
+    {
+        return await _context.Activities
+            .AsNoTracking()
+            .Include(a => a.ActivityType)
+            .Include(a => a.Module)
+            .Where(a => a.Module.CourseId == courseId && a.EndTime >= fromCourseTime)
+            .OrderBy(a => a.StartTime)
+            .Take(take)
+            .ToListAsync();
+    }
+
     // Read only (the dropdown list), so tracking is turned off
     public async Task<IEnumerable<ActivityType>> GetActivityTypesAsync()
     {

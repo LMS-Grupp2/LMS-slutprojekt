@@ -62,6 +62,26 @@ public class DocumentRepository : IDocumentRepository
             .ToListAsync();
     }
 
+    // The newest documents in a course (US12, the student dashboard). Same rule as GetByCourseIdAsync, and
+    // hand-in files are left out on purpose: they belong to a submission, not to the course.
+    // User (uploader's name), Module and Activity (where the document belongs) are included, so one query is
+    // enough. Read only, so tracking is turned off. Only "take" rows are fetched.
+    public async Task<IEnumerable<Document>> GetRecentByCourseIdAsync(Guid courseId, int take)
+    {
+        return await _context.Documents
+            .AsNoTracking()
+            .Include(d => d.User)
+            .Include(d => d.Module)
+            .Include(d => d.Activity)
+            .Where(d => d.SubmissionId == null
+                        && (d.CourseId == courseId
+                            || (d.Module != null && d.Module.CourseId == courseId)
+                            || (d.Activity != null && d.Activity.Module.CourseId == courseId)))
+            .OrderByDescending(d => d.UploadedAt)
+            .Take(take)
+            .ToListAsync();
+    }
+
     public void Create(Document document) => _context.Documents.Add(document);
     public void Delete(Document document) => _context.Documents.Remove(document);
 }
