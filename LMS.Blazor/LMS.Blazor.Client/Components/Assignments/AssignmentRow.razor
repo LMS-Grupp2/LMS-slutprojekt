@@ -6,7 +6,8 @@
     <td>
         <div class="d-flex align-items-center gap-2">
             <div>
-                <div class="lms-cell-title">@item.ActivityName: <span class="lms-cell-description">@item.ActivityDescription</span></div>
+                @* The assignment name links to the hand-in page (US09), so the student can open and hand in the assignment *@
+                <div class="lms-cell-title"><a href="assignments/@item.ActivityId" class="text-decoration-none">@item.ActivityName</a>: <span class="lms-cell-description">@item.ActivityDescription</span></div>
                 <div class="lms-cell-sub">@item.CourseName - @item.ModuleName</div>
             </div>
         </div>
