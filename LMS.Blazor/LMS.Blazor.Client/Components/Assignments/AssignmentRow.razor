@@ -2,6 +2,7 @@
 @using LMS.Shared.DTOs.AssignmentDtos
 @using LMS.Shared.Constants
 
+@* <div >@item.Submitted @item.Status</div> *@
 <tr class="@RowClass(isLate)">
     <td>
         <div class="d-flex align-items-center gap-2">
@@ -40,10 +41,8 @@
         if (item is not null)
         {
             status = item.Status ?? string.Empty;
-
-            //Late or missing rows get the highlight colour and a red deadline
-            isLate = status == SubmissionStatus.Late || status == SubmissionStatus.Missing;
-
+            // Missing submission gets a a highlighted background color
+            isLate = (status == SubmissionStatus.Missing) ? true : false;
             feedback = item.HasFeedback ? "Feedback" : "";
         }
     }

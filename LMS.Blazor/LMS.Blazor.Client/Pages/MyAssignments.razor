@@ -127,7 +127,7 @@ else
         nbrAll = assignments?.Count() ?? 0;
         nbrSubmitted = assignments?.Where(a => a.Submitted == true).Count() ?? 0;
         nbrNotSubmitted = assignments?.Where(a => a.Submitted != true).Count() ?? 0;
-        nbrLate = assignments?.Count(a => a.Status == SubmissionStatus.Late || a.Status == SubmissionStatus.Missing) ?? 0;
+        nbrLate = assignments?.Count(a => a.Status == SubmissionStatus.Late) ?? 0;
     }
 
     // Filter assignments according to seleced filter
@@ -141,7 +141,7 @@ else
         {
             "Submitted" => items.Where(a => a.Submitted).ToList(),
             "NotSubmitted" => items.Where(a => !a.Submitted).ToList(),
-            "Late" => items.Where(a => a.Status == SubmissionStatus.Late || a.Status == SubmissionStatus.Missing).ToList(),
+            "Late" => items.Where(a => a.Status == SubmissionStatus.Late).ToList(),
             _ => items.ToList()
         };
     }
@@ -164,7 +164,7 @@ else
             if (item.Submitted != true)
                 countNot++;
             
-            if (item.Status == SubmissionStatus.Late || item.Status == SubmissionStatus.Missing)
+            if (item.Status == SubmissionStatus.Late)
                 countLate++;
         }
         
