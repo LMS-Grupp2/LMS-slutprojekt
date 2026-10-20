@@ -1,4 +1,5 @@
 ﻿using Domain.Contracts.Repositories;
+using LMS.Infrastructure.Repositories;
 
 
 namespace Domain.Contracts;
@@ -13,5 +14,6 @@ public interface IUnitOfWork
     IActivityRepository Activities { get; }
     IDocumentRepository Documents { get; } // NEW (US06): access to document metadata
     IAssignmentRepository Assignment { get; }
+    INotificationRepository Notification { get; }
     Task SaveChangesAsync();
 }
