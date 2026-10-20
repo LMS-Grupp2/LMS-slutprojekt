@@ -27,6 +27,10 @@ public class NotificationRepository : INotificationRepository
             .ToListAsync();
     }
 
+    /// <summary>
+    /// Returns a list of students taking a course by courselId
+    /// </summary>
+    /// <returns>List of student ids</returns>
     public async Task<IEnumerable<string>> GetStudentsIdnByCourseIdAsync(Guid courseId)
     {
         return await _context.CourseUsers
@@ -37,6 +41,10 @@ public class NotificationRepository : INotificationRepository
             .ToListAsync();
     }
 
+    /// <summary>
+    /// Returns a list of students taking a course by moduelId
+    /// </summary>
+    /// <returns>List of student ids</returns>
     public async Task<IEnumerable<string>> GetStudentsIdnByModuleIdAsync(Guid moduleId)
     {
         return await _context.Modules
@@ -49,12 +57,15 @@ public class NotificationRepository : INotificationRepository
             .ToListAsync();
     }
 
-
-    // Todo - add AsNoTracking()
+    /// <summary>
+    /// Returns a list of students taking a course by acivityId
+    /// </summary>
+    /// <returns>List of student ids</returns>
     public async Task<IEnumerable<string>> GetStudentsIdnByActivityIdAsync(Guid activityId)
     {
+        // TODO - Do we need .AsNoTracking() with this syntax?
         return await (
-            from activity in _context.Activities
+            from activity in _context.Activities.AsNoTracking()
             join module in _context.Modules
                 on activity.ModuleId equals module.Id
             join courseUser in _context.CourseUsers
@@ -67,5 +78,5 @@ public class NotificationRepository : INotificationRepository
     }
 
     public void Add(Notification notification) => _context.Notifications.Add(notification);
-    
+
 }

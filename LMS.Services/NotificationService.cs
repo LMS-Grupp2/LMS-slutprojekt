@@ -15,13 +15,12 @@ public class NotificationService : INotificationService
         _unitOfWork = unitOfWork;
     }
 
-    // Todo
-    // Create notification when new feedback or new course document
-    // Document - students by courseId/moduleId/...
-    // Feedback - studentId
+    /// <summary>
+    /// Creates notifications for one or more students
+    /// </summary>
     public async Task CreateNotificationAsync(CreateNotificationDto dto)
     {
-        // Get the student IDs that should receive the notification.
+        // Get the student Ids that should receive the notification.
         IEnumerable<string> studentIds = await GetUserIdnAsync(dto);
 
         // Create notification for each studentId
@@ -39,6 +38,10 @@ public class NotificationService : INotificationService
         await _unitOfWork.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Get list of all notifications for student
+    /// </summary>
+    /// /// <returns>List of students notifications</returns>
     public async Task<IEnumerable<NotificationDto>> GetByStudentIdAsync(string studentId)
     {
         var result = await _unitOfWork.Notification.GetByStudentId(studentId);
@@ -62,14 +65,20 @@ public class NotificationService : INotificationService
         return dtos;
     }
 
-    public async Task<bool> SetIsRead(Guid notificatonId)
+    /// <summary>
+    /// Updates notification
+    /// </summary>
+    /// <exception cref="BadRequestException"></exception>
+    public async Task<bool> UpdateNotification(UpdateNotificationDto dto)
     {
-        var notification = await _unitOfWork.Notification.GetById(notificatonId);
+        var notification = await _unitOfWork.Notification.GetById(dto.Id);
 
         if (notification is null)
             throw new BadRequestException("Unknown notification");
 
-        notification.IsRead = true;
+        // Changes
+        notification.IsRead = dto.IsRead ?? false;
+
         await _unitOfWork.SaveChangesAsync();
 
         return true;
@@ -78,30 +87,33 @@ public class NotificationService : INotificationService
 
     /* Helpers */
 
-    // Get  To whitch users to add notification. Single or to whole class
-    public async Task<IEnumerable<string>> GetUserIdnAsync(CreateNotificationDto dto)  //(string? CourseId, string? ModuleId, string ActivityId)
+    /// <summary>
+    /// Returns students that shall have a notification. Gets user from dtos RecipientId, CourseId, ModuleId or ActivityId
+    /// The result can be one or may student ids
+    /// </summary>
+    /// <returns>List with student idn</returns>
+    private async Task<IEnumerable<string>> GetUserIdnAsync(CreateNotificationDto dto)  //(string? CourseId, string? ModuleId, string ActivityId)
     {
-        var idList = new List<string>();
+        IEnumerable<string> idList = [];
 
         if (!string.IsNullOrWhiteSpace(dto.RecipientId))
         {
             // Feedback to RecipientId
-            idList.Add(dto.RecipientId);
+            idList.Append(dto.RecipientId);
         }
-        else if (!string.IsNullOrWhiteSpace(dto.CourseId))
+        else if (dto.CourseId is not null)
         {
-            //idList = await GetStudentsIdnByCourseIdAsync(dto.CourseId);
+            idList = await _unitOfWork.Notification.GetStudentsIdnByCourseIdAsync((Guid)dto.CourseId);
         }
-        else if (!string.IsNullOrWhiteSpace(dto.ModuleId))
+        else if (dto.ModuleId is not null)
         {
-            //idList = await GetStudentsIdnByModuleIdAsync(dto.ModuleId);
+            idList = await _unitOfWork.Notification.GetStudentsIdnByModuleIdAsync((Guid)dto.ModuleId);
         }
-        else if (!string.IsNullOrWhiteSpace(dto.ActivityId))
+        else if (dto.ActivityId is not null)
         {
-            //idList = await GetStudentsIdnByActivityIdAsync(dto.ActivityId);
+            idList = await _unitOfWork.Notification.GetStudentsIdnByActivityIdAsync((Guid)dto.ActivityId);
         }
 
         return idList;
     }
-
 }

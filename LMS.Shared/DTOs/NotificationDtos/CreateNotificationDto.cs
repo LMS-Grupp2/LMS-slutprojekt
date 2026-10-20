@@ -5,8 +5,7 @@ namespace LMS.Shared.DTOs.NotificationDtos;
 
 public record CreateNotificationDto
 {
-    //public Guid Id { get; init; }
-    public required string EventType { get; init; }  // TODO - EventType: Feedback/Document
+    public required string EventType { get; init; }  // Use constant 
 
     [Required]
     [MaxLength(100)]
@@ -16,9 +15,9 @@ public record CreateNotificationDto
 
     // Must have RecipientId, CourseId, ModuleId or ActivityId
     public string? RecipientId { get; init; } = null!;
-    public string? CourseId { get; init; }
-    public string? ModuleId { get; init; }
-    public string? ActivityId { get; init; }
+    public Guid? CourseId { get; init; }
+    public Guid? ModuleId { get; init; }
+    public Guid? ActivityId { get; init; }
 }
 
 // Document - alla i kurs
