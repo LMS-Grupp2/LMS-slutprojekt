@@ -1,0 +1,58 @@
+@* Reusable pager for a PagedResult (US15): "Showing 21–40 of 134 · Previous · Page 2 of 7 · Next".
+   The component only knows numbers; the page that uses it fetches the new page in OnPageChanged.
+   Styling comes from Bootstrap buttons and wwwroot/css/lms.css (lms-cell-sub).
+
+   Usage:
+   <Pagination Page="@result.Page" PageSize="@result.PageSize" TotalCount="@result.TotalCount"
+               TotalPages="@result.TotalPages" OnPageChanged="GoToPageAsync" /> *@
+
+@if (TotalCount > 0)
+{
+    <nav class="d-flex flex-wrap align-items-center justify-content-between gap-2 px-3 py-2" aria-label="Pagination">
+        <span class="lms-cell-sub">Showing @FirstItem–@LastItem of @TotalCount</span>
+
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+                    disabled="@(Page <= 1)" @onclick="() => GoToAsync(Page - 1)">
+                ‹ Previous
+            </button>
+
+            <span class="lms-cell-sub text-nowrap">Page @Page of @TotalPages</span>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+                    disabled="@(Page >= TotalPages)" @onclick="() => GoToAsync(Page + 1)">
+                Next ›
+            </button>
+        </div>
+    </nav>
+}
+
+@code {
+    // 1-based current page, as returned by the API
+    [Parameter, EditorRequired]
+    public int Page { get; set; }
+
+    [Parameter, EditorRequired]
+    public int TotalPages { get; set; }
+
+    // Used only for the "Showing x–y of z" text
+    [Parameter]
+    public int PageSize { get; set; }
+
+    [Parameter]
+    public int TotalCount { get; set; }
+
+    // Raised with the page number to load. The parent fetches it and re-renders this component.
+    [Parameter]
+    public EventCallback<int> OnPageChanged { get; set; }
+
+    private int FirstItem => (Page - 1) * PageSize + 1;
+
+    private int LastItem => Math.Min(Page * PageSize, TotalCount);
+
+    // Guard against double clicks on a button that is already at the edge
+    private Task GoToAsync(int page) =>
+        page < 1 || page > TotalPages || page == Page
+            ? Task.CompletedTask
+            : OnPageChanged.InvokeAsync(page);
+}

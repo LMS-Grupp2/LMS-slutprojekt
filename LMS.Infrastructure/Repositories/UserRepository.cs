@@ -1,6 +1,8 @@
 ﻿using Domain.Contracts.Repositories;
 using Domain.Models.Entities;
 using LMS.Infrastructure.Data;
+using LMS.Infrastructure.Extensions;
+using LMS.Shared.Paging;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -70,12 +72,47 @@ public class UserRepository : IUserRepository
             .ToDictionary(g => g.Key, g => g.First().RoleName);
     }
 
-    public async Task<IEnumerable<ApplicationUser>> GetAllAsync()
+    /// <summary>
+    /// Builds one SQL query from the optional filters, then pages it (US15).
+    /// Nothing runs until ToPagedResultAsync: Where/OrderBy/Include only describe the query.
+    /// Read only, so tracking is turned off.
+    /// </summary>
+    public async Task<PagedResult<ApplicationUser>> GetPageAsync(UserListQuery query)
     {
-        return await _userManager.Users
+        var users = _userManager.Users
+            .AsNoTracking()
             .Include(u => u.CourseUsers)
             .ThenInclude(cu => cu.Course)
-            .ToListAsync();
+            .AsQueryable();
+
+        // Search: name OR email contains the text. EF Core turns Contains into LIKE '%text%',
+        // which is case-insensitive with SQL Server's default collation.
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var search = query.Search.Trim();
+            users = users.Where(u => u.Name.Contains(search) || u.Email!.Contains(search));
+        }
+
+        // Role: Identity keeps roles in AspNetUserRoles + AspNetRoles, not on the user row.
+        // A sub-query (EXISTS) filters in the database instead of loading everyone.
+        if (!string.IsNullOrWhiteSpace(query.Role))
+        {
+            users = users.Where(u => _context.UserRoles.Any(ur =>
+                ur.UserId == u.Id &&
+                _context.Roles.Any(r => r.Id == ur.RoleId && r.Name == query.Role)));
+        }
+
+        if (query.CourseId is Guid courseId)
+        {
+            users = users.Where(u => u.CourseUsers.Any(cu => cu.CourseId == courseId));
+        }
+
+        // A total order is required for paging: two users with the same name are tie-broken by id,
+        // so a row can never show up on two pages or fall between them.
+        return await users
+            .OrderBy(u => u.Name)
+            .ThenBy(u => u.Id)
+            .ToPagedResultAsync(query.Page, query.PageSize);
     }
 
     public async Task<ApplicationUser?> FindByIdWithCourseAsync(string id)

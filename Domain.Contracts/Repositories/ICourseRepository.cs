@@ -1,4 +1,5 @@
 using Domain.Models.Entities;
+using LMS.Shared.Paging;
 
 namespace Domain.Contracts.Repositories;
 
@@ -14,6 +15,9 @@ public interface ICourseRepository
     /// <summary>Gets the course a user belongs to, including participants.</summary>
     Task<Course?> GetCourseForUserAsync(string userId);
 
-    /// <summary>Gets all courses.</summary>
-    Task<IEnumerable<Course>> GetAllCoursesAsync();
+    /// <summary>
+    /// Gets all courses that match the optional filters (name search, status by today's date),
+    /// earliest start date first (US15). An empty query returns every course.
+    /// </summary>
+    Task<IEnumerable<Course>> GetAllCoursesAsync(CourseListQuery query, DateOnly today);
 }
