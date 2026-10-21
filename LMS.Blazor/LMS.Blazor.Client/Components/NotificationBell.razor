@@ -1,0 +1,167 @@
+@using System.Linq
+@using System.Net
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
+@using LMS.Shared.DTOs.NotificationDtos
+@using Microsoft.AspNetCore.Authorization
+
+@* Bell icon with unread badge and dropdown (US14).
+   Uses <details>/<summary> so it opens and closes without JavaScript or interactivity.
+   Items are intentionally not links (for now). *@
+
+@attribute [Authorize(Roles = UserRoles.Student)]
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient;
+@inject NavigationManager NavigationManager
+ <div style="color: yellow;">Unread: @UnreadCount, counter: @counter</div>
+<details class="lms-bell">
+    <summary aria-label="Notifications (@UnreadCount new)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        </svg>
+        @if (UnreadCount > 0)
+        {
+            <span class="lms-bell-count">@(UnreadCount > 9 ? "9+" : UnreadCount)</span>
+        }
+    </summary>
+
+    <div class="lms-bell-menu" role="dialog" aria-label="Notifications"
+            style="position: absolute; top: 55px; right: 130px; background-color: #555;">
+        <div class="lms-bell-header">
+            <div class="d-flex align-items-center gap-2">
+                <span class="fw-semibold">Notifications</span>
+                @if (UnreadCount > 0)
+                {
+                    <span class="lms-badge lms-tone-primary">@UnreadCount new</span>
+                }
+            </div>
+
+            @if (UnreadCount > 0 && OnMarkAllRead.HasDelegate)
+            {
+                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
+                        @onclick="OnMarkAllRead">
+                    Mark all as read
+                </button>
+            }
+        </div>
+
+        @if (notifications?.Count() == 0)
+        {
+            <div class="lms-state">
+                <span class="lms-icon-tile lms-tone-muted">✓</span>
+                <span class="fw-semibold">No notifications</span>
+                <span class="text-secondary small">You’re all caught up.</span>
+            </div>
+        }
+        else
+        {
+            @if (notifications?.Any() ?? false) {
+                @foreach (var item in notifications)   //.OrderByDescending(n => n.CreatedAt).Take(MaxItems))
+                {
+                    <div class="lms-bell-item @(item.IsRead ? "" : "is-new")">
+                        <span class="lms-icon-tile @(item.EventType == NotificationEventTypes.Feedback ? "lms-tone-info" : "lms-tone-purple")"
+                              style="width:32px;height:32px;font-size:.8125rem">
+                            @(item.EventType == NotificationEventTypes.Feedback ? "F" : "D")
+                        </span>
+
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="lms-bell-item-title">@item.Message</div>
+                            @* <div class="lms-bell-item-sub">@item.Subtitle</div> *@
+                            @* <div class="lms-bell-item-time">@TimeFormat.Relative(item.CreatedAt)</div> *@
+                        </div>
+
+                        @if (!item.IsRead)
+                        {
+                            <span class="lms-bell-new-dot" aria-label="New"></span>
+                        }
+                    </div>
+                }
+            }
+
+            <div class="lms-bell-footer">Showing the @MaxItems latest notifications</div>
+        }
+    </div>
+</details>
+
+@code {
+    private readonly IEnumerable<NotificationDto>? notifications;
+    private readonly CancellationTokenSource componentCancellation = new();
+
+    private string? errorMessage;
+    private bool isLoading = true;
+    private int counter = 0;
+    private int nbrNew = 0;
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await ApiProxyClient.GetAsync<IEnumerable<NotificationDto>>(
+                "notifications", componentCancellation.Token);
+
+            // The server-side prerender service deliberately returns null. Keep
+            // showing the loading state until WebAssembly runs this method again.
+            if (result is null)
+                return;
+
+            // assignments = result;
+            // filteredAssignments = assignments?.ToList();
+
+            // Set number of assingnments per filter
+            //SetStatusCounts();
+
+            counter = notifications?.Count() > 0 ? notifications.Count() : 0;
+        }
+        catch (OperationCanceledException) when (componentCancellation.IsCancellationRequested)
+        {
+            // Navigating away disposes the component and cancels its request.
+            return;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            NavigationManager.NavigateTo(
+                $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
+                forceLoad: true);
+            return;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            errorMessage = "You are not allowed to view this data";
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "The assignments could not be loaded. Please try again later.";
+        }
+
+        isLoading = false;
+
+        StateHasChanged();  // Update GUI
+    }
+
+
+    // [Parameter]
+    // public IReadOnlyList<Notifications> Items { get; set; } = [];
+
+    /// <summary>Only rendered when a handler is set (requires an interactive render mode).</summary>
+    [Parameter]
+    public EventCallback OnMarkAllRead { get; set; }
+
+    [Parameter]
+    public int MaxItems { get; set; } = 10;
+
+    // private int UnreadCount => notifications.Count(n => !n.IsRead);
+    private int UnreadCount => notifications?.Count() ?? 0;
+
+
+
+    public void Dispose()
+    {
+        componentCancellation.Cancel();
+        componentCancellation.Dispose();
+    }
+}

@@ -6,5 +6,5 @@ public record NotificationDto
     public required string EventType { get; init; }
     public required string Message { get; init; }
     public bool IsRead { get; init; }
-    public DateTime CreatedAd { get; init; }
+    public DateTime CreatedAt { get; init; }
 }

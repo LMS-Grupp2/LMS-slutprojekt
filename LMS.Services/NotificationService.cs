@@ -57,7 +57,7 @@ public class NotificationService : INotificationService
                     EventType = note.EventType,
                     Message = note.Message,
                     IsRead = note.IsRead,
-                    CreatedAd = note.CreatedAt
+                    CreatedAt = note.CreatedAt
                 }
             );
         }
