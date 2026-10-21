@@ -41,7 +41,7 @@ public class ServiceManager : IServiceManager
         Lazy<IStudentCourseService> studentCourseService,
         Lazy<IUserService> userService,
         Lazy<IActivityService> activityService,
-        Lazy<IDashboardService> dashboardService) // NEW (US12)
+        Lazy<IDashboardService> dashboardService,  // NEW (US12)
         Lazy<IAssignmentService> assignmentService,
         Lazy<INotificationService> notificationService)
     {
