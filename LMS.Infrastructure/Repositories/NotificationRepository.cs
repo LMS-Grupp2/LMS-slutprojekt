@@ -18,17 +18,17 @@ public class NotificationRepository : INotificationRepository
     /// </summary>
     /// <param name="id"></param>
     /// <returns>Returns notification or default</returns>
-    public async Task<Notification?> GetById(Guid id)
+    public async Task<Notification?> GetById(Guid notificationId)
     {
         return await _context.Notifications
-            .SingleOrDefaultAsync(notification => notification.Id == id);
+            .SingleOrDefaultAsync(notification => notification.Id == notificationId);
     }
 
     /// <summary>
-    /// Get students notifications, latest first
+    /// Get notifications for specific student with max quantity, latest first
     /// </summary>
     /// <param name="studentId"></param>
-    /// <returns>Returns list with students notifications, latest first</returns>
+    /// <returns>Returns list of notifications for individual student, latest first with limit</returns>
     public async Task<IEnumerable<Notification>> GetByStudentId(string studentId, int nbrItems)
     {
         return await _context.Notifications
@@ -40,9 +40,9 @@ public class NotificationRepository : INotificationRepository
     }
 
     /// <summary>
-    /// Returns a list of students taking a course by courselId
+    /// Get a list ids of students taking a course by courselId
     /// </summary>
-    /// <returns>List of student ids</returns>
+    /// <returns>List of ids for all student attending a course</returns>
     public async Task<IEnumerable<string>> GetStudentsIdnByCourseIdAsync(Guid courseId)
     {
         return await _context.CourseUsers
@@ -54,9 +54,9 @@ public class NotificationRepository : INotificationRepository
     }
 
     /// <summary>
-    /// Returns a list of students taking a course by moduelId
+    /// Get a list of students ids taking a course by module id
     /// </summary>
-    /// <returns>List of student ids</returns>
+    /// <returns>List of student ids in a course by module id</returns>
     public async Task<IEnumerable<string>> GetStudentsIdnByModuleIdAsync(Guid moduleId)
     {
         return await _context.Modules
@@ -70,9 +70,9 @@ public class NotificationRepository : INotificationRepository
     }
 
     /// <summary>
-    /// Returns a list of students taking a course by acivityId
+    /// Get a list of students taking a course by acivityId
     /// </summary>
-    /// <returns>List of student ids</returns>
+    /// <returns>List of student ids that attends a course</returns>
     public async Task<IEnumerable<string>> GetStudentsIdnByActivityIdAsync(Guid activityId)
     {
         // TODO - Do we need .AsNoTracking() with this syntax?

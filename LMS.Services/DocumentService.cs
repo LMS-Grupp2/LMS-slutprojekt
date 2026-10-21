@@ -8,6 +8,7 @@ using LMS.Shared.DTOs.DocumentDtos;
 using LMS.Shared.DTOs.NotificationDtos;
 using Microsoft.Extensions.Options;
 using Service.Contracts;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 
@@ -124,6 +125,7 @@ public class DocumentService : IDocumentService
     }
 
     // Validates first (small helpers below), then stores the file on disk and its metadata in the database.
+    // Creates a notification for course attendents about new document
     public async Task<DocumentDto> UploadAsync(
         Stream content,
         string fileName,
@@ -182,19 +184,8 @@ public class DocumentService : IDocumentService
             _unitOfWork.Documents.Create(document);
             await _unitOfWork.SaveChangesAsync();
 
-            // Create Notification for document
-            // Get name for course, module or activity to create notification message
-            string name = await GetNameForNotificationAsync(courseId, moduleId, activityId);
-
-            var notification = new CreateNotificationDto
-            {
-                EventType = NotificationEventTypes.Document,
-                Message = $"New document {name} - {file.Name}",
-                CourseId = courseId,
-                ModuleId = moduleId,
-                ActivityId = activityId
-            };
-            await _serviceManager.NotificationService.CreateNotificationAsync(notification);
+            // Create a notification for students about the new document
+            await CreateDocumentNotification(document);
 
             // The uploader can always delete their own document
             var uploader = await _unitOfWork.Users.FindByIdAsync(userId);
@@ -208,6 +199,8 @@ public class DocumentService : IDocumentService
             throw;
         }
     }
+
+
 
     public async Task<DocumentDownload> DownloadAsync(Guid id, string userId, bool isTeacher)
     {
@@ -434,5 +427,21 @@ public class DocumentService : IDocumentService
         {
             // Ignored on purpose, see the callers
         }
+    }
+
+    private async Task CreateDocumentNotification(Document document)
+    {
+        // Get name of: course, module or activity
+        string name = await GetNameForNotificationAsync(document.CourseId, document.ModuleId, document.ActivityId);
+
+        var notification = new CreateNotificationDto
+        {
+            EventType = NotificationEventTypes.Document,
+            Message = $"New document {name} - {document.Name}",
+            CourseId = document.CourseId,
+            ModuleId = document.ModuleId,
+            ActivityId = document.ActivityId
+        };
+        await _serviceManager.NotificationService.CreateNotificationAsync(notification);
     }
 }

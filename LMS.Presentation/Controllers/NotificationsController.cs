@@ -11,16 +11,13 @@ using System.Security.Claims;
 
 namespace LMS.Presentation.Controllers;
 
-// GetLatestNotifications(int quantity)  // Max 10 ???
-// NotificationIsRead(bool all = false)
-
 [Route("api/notifications")]
 [ApiController]
 [Authorize(Roles = UserRoles.Student)]
 public class NotificationsController(IServiceManager serviceManager) : ControllerBase
 {
     private readonly IServiceManager _serviceManager = serviceManager;
-    private readonly int maxItems = 10;
+    private const int maxItems = 10;  // Max and default number of notification
 
     [HttpGet]
     [SwaggerOperation(
@@ -28,7 +25,7 @@ public class NotificationsController(IServiceManager serviceManager) : Controlle
         Description = "Returns the logged-in student's notifications. Latest first")]
     [SwaggerResponse(StatusCodes.Status200OK, "Assignments found", typeof(IEnumerable<StudentAssignmentDto>))]
     [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not logged in")]
-    public async Task<ActionResult<IEnumerable<NotificationDto>>> GetNotifications(int nbrItems)
+    public async Task<ActionResult<IEnumerable<NotificationDto>>> GetNotifications(int nbrItems = maxItems)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (userId is null)
@@ -43,19 +40,24 @@ public class NotificationsController(IServiceManager serviceManager) : Controlle
     }
 
     [HttpPost]
+    [HttpPost("api/notifications/{notificationId:guid}")]
     [SwaggerOperation(
-        Summary = "Update notification - only IsRead right now",
+        Summary = "Update notification - only change of IsRead is supported right now",
         Description = "Updates notification")]
     [SwaggerResponse(StatusCodes.Status200OK, "Notification has been updated")]
     [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not logged in")]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Bad notificationId")]
     [SwaggerResponse(StatusCodes.Status400BadRequest, "Unknown notification")]
-    public async Task<ActionResult<bool>> NotificationIsRead(UpdateNotificationDto dto)
+    public async Task<ActionResult<bool>> NotificationIsRead([FromRoute]Guid notificationId, UpdateNotificationDto dto)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (userId is null)
             return Unauthorized();
 
-        await _serviceManager.NotificationService.UpdateNotification(dto);
+        if (notificationId != dto.Id)
+            throw new BadRequestException("Id in URI is not the the same as in body");
+
+        await _serviceManager.NotificationService.UpdateNotification(notificationId, dto);
 
         return Ok();
     }

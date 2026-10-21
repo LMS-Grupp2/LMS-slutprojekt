@@ -69,7 +69,7 @@ public class NotificationService : INotificationService
     /// Updates notification
     /// </summary>
     /// <exception cref="BadRequestException"></exception>
-    public async Task<bool> UpdateNotification(UpdateNotificationDto dto)
+    public async Task<bool> UpdateNotification(Guid notificationId, UpdateNotificationDto dto)
     {
         var notification = await _unitOfWork.Notification.GetById(dto.Id);
 
@@ -88,10 +88,10 @@ public class NotificationService : INotificationService
     /* Helpers */
 
     /// <summary>
-    /// Returns students that shall have a notification. Gets user from dtos RecipientId, CourseId, ModuleId or ActivityId
+    /// Returns ids for all students that shall have a notification. Gets user from dtos RecipientId, CourseId, ModuleId or ActivityId
     /// The result can be one or may student ids
     /// </summary>
-    /// <returns>List with student idn</returns>
+    /// <returns>List of ids for student in a course</returns>
     private async Task<IEnumerable<string>> GetUserIdnAsync(CreateNotificationDto dto)  //(string? CourseId, string? ModuleId, string ActivityId)
     {
         IEnumerable<string> idList = [];
