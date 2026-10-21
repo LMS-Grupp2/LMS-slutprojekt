@@ -1,4 +1,5 @@
-﻿using LMS.Shared.Constants;
+﻿using Domain.Models.Exceptions;
+using LMS.Shared.Constants;
 using LMS.Shared.DTOs.AssignmentDtos;
 using LMS.Shared.DTOs.NotificationDtos;
 using Microsoft.AspNetCore.Authorization;
@@ -19,6 +20,7 @@ namespace LMS.Presentation.Controllers;
 public class NotificationsController(IServiceManager serviceManager) : ControllerBase
 {
     private readonly IServiceManager _serviceManager = serviceManager;
+    private readonly int maxItems = 10;
 
     [HttpGet]
     [SwaggerOperation(
@@ -26,15 +28,35 @@ public class NotificationsController(IServiceManager serviceManager) : Controlle
         Description = "Returns the logged-in student's notifications. Latest first")]
     [SwaggerResponse(StatusCodes.Status200OK, "Assignments found", typeof(IEnumerable<StudentAssignmentDto>))]
     [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not logged in")]
-    public async Task<ActionResult<IEnumerable<NotificationDto>>> GetNotifications()
+    public async Task<ActionResult<IEnumerable<NotificationDto>>> GetNotifications(int nbrItems)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (userId is null)
             return Unauthorized();
 
-        // TODO - add max numbers
-        var notifictions = await _serviceManager.NotificationService.GetByStudentIdAsync(userId);
+        if (nbrItems > maxItems)
+            throw new BadRequestException($"Max {maxItems} notifications can be requested for.");
+        
+        var notifictions = await _serviceManager.NotificationService.GetByStudentIdAsync(userId, nbrItems);
 
         return Ok(notifictions);
+    }
+
+    [HttpPost]
+    [SwaggerOperation(
+        Summary = "Update notification - only IsRead right now",
+        Description = "Updates notification")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Notification has been updated")]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not logged in")]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Unknown notification")]
+    public async Task<ActionResult<bool>> NotificationIsRead(UpdateNotificationDto dto)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null)
+            return Unauthorized();
+
+        await _serviceManager.NotificationService.UpdateNotification(dto);
+
+        return Ok();
     }
 }

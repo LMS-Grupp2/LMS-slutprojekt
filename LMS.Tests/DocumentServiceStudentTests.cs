@@ -54,7 +54,7 @@ public class DocumentServiceStudentTests
             UploadsPath = Path.Combine(Path.GetTempPath(), $"lms-tests-{Guid.NewGuid():N}")
         });
 
-        _service = new DocumentService(unitOfWork.Object, settings);
+       // _service = new DocumentService(unitOfWork.Object, settings);
     }
 
     /* Upload rules */

@@ -14,7 +14,7 @@ public class NotificationRepository : INotificationRepository
     }
 
     /// <summary>
-    /// Get notification by Id
+    /// Get notification by Id with tracking
     /// </summary>
     /// <param name="id"></param>
     /// <returns>Returns notification or default</returns>
@@ -29,12 +29,13 @@ public class NotificationRepository : INotificationRepository
     /// </summary>
     /// <param name="studentId"></param>
     /// <returns>Returns list with students notifications, latest first</returns>
-    public async Task<IEnumerable<Notification>> GetByStudentId(string studentId)
+    public async Task<IEnumerable<Notification>> GetByStudentId(string studentId, int nbrItems)
     {
         return await _context.Notifications
             .AsNoTracking()
             .Where(n => n.RecipientId == studentId)
             .OrderByDescending(n => n.CreatedAt)
+            .Take(nbrItems)
             .ToListAsync();
     }
 

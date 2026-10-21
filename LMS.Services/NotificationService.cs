@@ -42,9 +42,9 @@ public class NotificationService : INotificationService
     /// Get list of all notifications for student
     /// </summary>
     /// /// <returns>List of students notifications</returns>
-    public async Task<IEnumerable<NotificationDto>> GetByStudentIdAsync(string studentId)
+    public async Task<IEnumerable<NotificationDto>> GetByStudentIdAsync(string studentId, int nbrItems)
     {
-        var result = await _unitOfWork.Notification.GetByStudentId(studentId);
+        var result = await _unitOfWork.Notification.GetByStudentId(studentId, nbrItems);
 
         var dtos = new List<NotificationDto>();
 
@@ -76,7 +76,7 @@ public class NotificationService : INotificationService
         if (notification is null)
             throw new BadRequestException("Unknown notification");
 
-        // Changes
+        // Changes - can only change IsRead at the moment
         notification.IsRead = dto.IsRead ?? false;
 
         await _unitOfWork.SaveChangesAsync();

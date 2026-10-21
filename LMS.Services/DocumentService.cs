@@ -5,8 +5,11 @@ using Domain.Models.Enums;
 using Domain.Models.Exceptions;
 using LMS.Shared.Constants;
 using LMS.Shared.DTOs.DocumentDtos;
+using LMS.Shared.DTOs.NotificationDtos;
 using Microsoft.Extensions.Options;
 using Service.Contracts;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 
 namespace LMS.Services;
 
@@ -18,6 +21,7 @@ namespace LMS.Services;
 /// </summary>
 public class DocumentService : IDocumentService
 {
+    private readonly IServiceManager _serviceManager;
     private const int MaxFileNameLength = 255;
 
     // Allowed extensions. The MIME type is taken from this list, never from the client,
@@ -43,8 +47,9 @@ public class DocumentService : IDocumentService
     private readonly string _uploadsRoot;
     private readonly int _maxFileSizeMb;
 
-    public DocumentService(IUnitOfWork unitOfWork, IOptions<DocumentStorageSettings> settings)
+    public DocumentService(IServiceManager serviceManager, IUnitOfWork unitOfWork, IOptions<DocumentStorageSettings> settings)
     {
+        _serviceManager = serviceManager;
         _unitOfWork = unitOfWork;
         _maxFileSizeMb = settings.Value.MaxFileSizeMb;
 
@@ -176,6 +181,20 @@ public class DocumentService : IDocumentService
 
             _unitOfWork.Documents.Create(document);
             await _unitOfWork.SaveChangesAsync();
+
+            // Create Notification for document
+            // Get name for course, module or activity to create notification message
+            string name = await GetNameForNotificationAsync(courseId, moduleId, activityId);
+
+            var notification = new CreateNotificationDto
+            {
+                EventType = NotificationEventTypes.Document,
+                Message = $"New document {name} - {file.Name}",
+                CourseId = courseId,
+                ModuleId = moduleId,
+                ActivityId = activityId
+            };
+            await _serviceManager.NotificationService.CreateNotificationAsync(notification);
 
             // The uploader can always delete their own document
             var uploader = await _unitOfWork.Users.FindByIdAsync(userId);
@@ -317,6 +336,30 @@ public class DocumentService : IDocumentService
 
 
     /* Helpers */
+
+    // Get name from course, module or activity for notification
+    private async Task<string> GetNameForNotificationAsync(Guid? courseId, Guid? moduleId, Guid? activityId)
+    {
+        if (courseId is Guid courseGuid)
+        {
+            return (await _unitOfWork.Courses.GetCourseByIdAsync(courseGuid))?.Name
+                ?? string.Empty;
+        }
+
+        if (moduleId is Guid moduleGuid)
+        {
+            return (await _unitOfWork.Modules.GetByIdAsync(moduleGuid))?.Name
+                ?? string.Empty;
+        }
+
+        if (activityId is Guid activityGuid)
+        {
+            return (await _unitOfWork.Activities.GetByIdAsync(activityGuid))?.Name
+                ?? string.Empty;
+        }
+
+        return string.Empty;
+    }
 
     // Teachers see every course. A student only sees the course they are enrolled in.
     private async Task<bool> CanAccessCourseAsync(Guid courseId, string userId, bool isTeacher)
