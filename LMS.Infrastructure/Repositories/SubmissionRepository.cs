@@ -14,6 +14,12 @@ public class SubmissionRepository : ISubmissionRepository
         _context = context;
     }
 
+    public async Task<Submission?> GetByIdAsync(Guid submissionId)
+    {
+        return await _context.Submissions
+            .FirstOrDefaultAsync(s => s.Id == submissionId);
+    }
+
     public async Task<Submission?> GetByActivityAndStudentAsync(Guid activityId, string studentId)
     {
         return await _context.Submissions
