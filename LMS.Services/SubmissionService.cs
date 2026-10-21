@@ -181,6 +181,7 @@ public class SubmissionService : ISubmissionService
             .ToList() ?? [];
 
         return new SubmissionOverviewRowDto(
+            submission?.Id,
             student.UserId,
             student.User.Name,
             submission?.SubmittedAt,

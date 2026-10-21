@@ -5,6 +5,7 @@ namespace LMS.Shared.DTOs.SubmissionDtos;
 /// SubmittedAt is nullable because a student who hasn't submitted has no submission time.
 /// </summary>
 public sealed record SubmissionOverviewRowDto(
+    Guid? SubmissionId,
     string StudentId,
     string StudentName,
     DateTime? SubmittedAt,
