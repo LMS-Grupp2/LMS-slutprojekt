@@ -24,4 +24,11 @@ public static class CourseTime
 
         return TimeZoneInfo.ConvertTimeToUtc(local, Zone);
     }
+
+    /// <summary>
+    /// Converts a UTC time (for example DateTime.UtcNow) to Swedish wall-clock time, the time activities are
+    /// stored in (US12). Use it to ask "has this activity ended?" or "what is today's date in Sweden?".
+    /// </summary>
+    public static DateTime FromUtc(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Zone);
 }

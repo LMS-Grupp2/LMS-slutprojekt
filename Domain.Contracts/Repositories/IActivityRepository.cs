@@ -27,4 +27,11 @@ public interface IActivityRepository
     /// </summary>
     Task<Activity?> FindOverlappingAsync(Guid moduleId, DateTime startTime,
         DateTime endTime, Guid? excludeActivityId);
+
+    /// <summary>
+    /// Returns the next activities in a course (US12): activities that have not ended yet, earliest start first,
+    /// at most "take" of them. Module and ActivityType are loaded. Read only.
+    /// fromCourseTime is Swedish wall-clock time (see CourseTime.FromUtc), the same time the activities are stored in.
+    /// </summary>
+    Task<IEnumerable<Activity>> GetUpcomingByCourseIdAsync(Guid courseId, DateTime fromCourseTime, int take);
 }
