@@ -1,17 +1,33 @@
-@* Reusable pager for a PagedResult (US15): "Showing 21–40 of 134 · Previous · Page 2 of 7 · Next".
-   The component only knows numbers; the page that uses it fetches the new page in OnPageChanged.
-   Styling comes from Bootstrap buttons and wwwroot/css/lms.css (lms-cell-sub).
+@* Reusable pager for a paged list (US15).
+   Shows one line under a table, for example:
+       Showing 21–40 of 134        ‹ Previous   Page 2 of 7   Next ›
+
+   How it is used:
+   The page (for example Users.razor) gets a PagedResult from the API and passes its numbers in as
+   parameters. When the user clicks Previous or Next, this component raises OnPageChanged with the
+   new page number. The page then asks the API for that page and re-renders this component with the
+   new numbers. This component never talks to the API itself and holds no state of its own:
+   everything it shows comes from its parameters.
 
    Usage:
    <Pagination Page="@result.Page" PageSize="@result.PageSize" TotalCount="@result.TotalCount"
-               TotalPages="@result.TotalPages" OnPageChanged="GoToPageAsync" /> *@
+               TotalPages="@result.TotalPages" OnPageChanged="GoToPageAsync" />
 
+   Styling: Bootstrap buttons, plus lms-cell-sub from wwwroot/css/lms.css for the grey text. *@
+
+@* Nothing to page when the list is empty. The page shows its own "No users" state instead. *@
 @if (TotalCount > 0)
 {
+    @* nav + aria-label: screen readers announce this block as "Pagination navigation" *@
     <nav class="d-flex flex-wrap align-items-center justify-content-between gap-2 px-3 py-2" aria-label="Pagination">
+
+        @* Left side: which rows of the whole list are on screen, e.g. "Showing 21–40 of 134" *@
         <span class="lms-cell-sub">Showing @FirstItem–@LastItem of @TotalCount</span>
 
+        @* Right side: the two buttons with the page position between them *@
         <div class="d-flex align-items-center gap-2">
+
+            @* disabled on page 1: there is no earlier page to go to *@
             <button type="button" class="btn btn-outline-secondary btn-sm"
                     disabled="@(Page <= 1)" @onclick="() => GoToAsync(Page - 1)">
                 ‹ Previous
@@ -19,6 +35,7 @@
 
             <span class="lms-cell-sub text-nowrap">Page @Page of @TotalPages</span>
 
+            @* disabled on the last page: there is no later page to go to *@
             <button type="button" class="btn btn-outline-secondary btn-sm"
                     disabled="@(Page >= TotalPages)" @onclick="() => GoToAsync(Page + 1)">
                 Next ›
@@ -28,29 +45,47 @@
 }
 
 @code {
-    // 1-based current page, as returned by the API
+    // ---------- Input: the numbers from the API's PagedResult ----------
+
+    // The page that is shown right now. 1-based: the first page is 1, not 0.
+    // EditorRequired: the compiler warns if a page forgets to pass it.
     [Parameter, EditorRequired]
     public int Page { get; set; }
 
+    // How many pages the whole list has. Used to disable Next on the last page.
     [Parameter, EditorRequired]
     public int TotalPages { get; set; }
 
-    // Used only for the "Showing x–y of z" text
+    // Rows per page. Only used to calculate the "Showing x–y" text.
     [Parameter]
     public int PageSize { get; set; }
 
+    // Rows in the whole filtered list, not only on this page. Used for "of z" and to hide the pager when 0.
     [Parameter]
     public int TotalCount { get; set; }
 
-    // Raised with the page number to load. The parent fetches it and re-renders this component.
+    // ---------- Output: tells the parent which page to load ----------
+
+    // EventCallback<int> is Blazor's way to let a child component call a method on its parent.
+    // The parent passes a method that takes an int (the page number), e.g. OnPageChanged="GoToPageAsync".
+    // Blazor also re-renders the parent automatically after the callback has run.
     [Parameter]
     public EventCallback<int> OnPageChanged { get; set; }
 
+    // ---------- Calculated text ----------
+
+    // Number of the first row on this page. Page 1 starts at 1, page 2 at PageSize + 1, and so on.
     private int FirstItem => (Page - 1) * PageSize + 1;
 
+    // Number of the last row on this page. On the last page this is TotalCount, not a full page,
+    // so "Showing 21–22 of 22" is shown instead of "Showing 21–40 of 22".
     private int LastItem => Math.Min(Page * PageSize, TotalCount);
 
-    // Guard against double clicks on a button that is already at the edge
+    // ---------- Click handling ----------
+
+    // Called by both buttons with the page they want. Does nothing if that page does not exist or is
+    // the current one. The buttons are already disabled in those cases; this is a second safety net,
+    // for example for a fast double click before the component has re-rendered.
     private Task GoToAsync(int page) =>
         page < 1 || page > TotalPages || page == Page
             ? Task.CompletedTask
