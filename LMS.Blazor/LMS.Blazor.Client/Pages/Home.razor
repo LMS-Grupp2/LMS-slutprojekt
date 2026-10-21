@@ -18,8 +18,9 @@
 
         var user = (await AuthState).User;
 
+        // Students start on their dashboard (US12), teachers on the user list
         var target = user.IsInRole(UserRoles.Teacher) ? "users"
-                   : user.IsInRole(UserRoles.Student) ? "my-course"
+                   : user.IsInRole(UserRoles.Student) ? "dashboard"
                    : "auth";
 
         NavigationManager.NavigateTo(target, replace: true);

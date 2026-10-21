@@ -22,6 +22,11 @@
     @* Student menu. Modules opens the modules of the student's own course. *@
     <AuthorizeView Roles="@UserRoles.Student" Context="studentContext">
         <p class="lms-sidebar-title">My learning</p>
+        @* Dashboard (US12): overview of what matters most right now.
+           The glyph is "O" (overview) because "D" is already used by Documents. *@
+        <NavLink class="lms-nav-link" href="dashboard">
+            <span class="lms-nav-glyph">O</span> Dashboard
+        </NavLink>
         <NavLink class="lms-nav-link" href="my-course">
             <span class="lms-nav-glyph">C</span> My course
         </NavLink>
