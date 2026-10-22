@@ -1,12 +1,14 @@
 ﻿using Domain.Contracts;
 using Domain.Models.Entities;
 using Domain.Models.Exceptions;
+using LMS.Shared.Constants;
 using LMS.Shared.DTOs.FeedbackDtos;
+using LMS.Shared.DTOs.NotificationDtos;
 using Service.Contracts;
 
 namespace LMS.Services;
 
-public class FeedbackService(IUnitOfWork unitOfWork) : IFeedbackService
+public class FeedbackService(IUnitOfWork unitOfWork, INotificationService notificationService) : IFeedbackService
 {
     public async Task<FeedbackDto> GiveFeedbackAsync(Guid submissionId, string teacherId, 
         CreateFeedbackDto dto)
@@ -33,6 +35,16 @@ public class FeedbackService(IUnitOfWork unitOfWork) : IFeedbackService
 
         unitOfWork.Feedbacks.Create(feedback);
         await unitOfWork.SaveChangesAsync();
+
+        //US1105: we tell the student after the save so that they never get feedback that failed the save
+        var activity = await unitOfWork.Activities.GetByIdAsync(submission.ActivityId);
+
+        await notificationService.CreateNotificationAsync(new CreateNotificationDto
+        {
+            EventType = NotificationEventTypes.Feedback,
+            Message = $"New feedback on {activity?.Name ?? "your assignment"}",
+            RecipientId = submission.StudentId
+        });
 
         return MapToDto(feedback);
     }
