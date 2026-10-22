@@ -16,7 +16,8 @@
 
 @* The teacher's dashboard (US13): what needs the teacher's attention right now, across all courses.
    Data comes from GET api/teacher/dashboard through the BFF proxy (teacher/dashboard).
-   The status colours come from SubmissionStatusStyles so every page shows the same colours.
+   The status colours come from SubmissionStatusStyles and the activity type colours from ActivityTypeStyles,
+   so every page shows the same colours.
    Deadlines and activity times are Swedish wall-clock time and shown as they are,
    hand-in times are UTC and shown in local time. *@
 
@@ -151,7 +152,7 @@ else if (dashboard is not null)
                                 {
                                     <span class="small fw-semibold text-primary">Next up</span>
                                 }
-                                <StatusBadge Text="@activity.ActivityTypeName" Tone="@ActivityToneOf(activity.ActivityTypeName)" />
+                                <StatusBadge Text="@activity.ActivityTypeName" Tone="@ActivityTypeStyles.ToneOf(activity.ActivityTypeName)" />
                             </div>
                         </div>
                     }
@@ -221,11 +222,10 @@ else if (dashboard is not null)
 
     protected override async Task OnInitializedAsync()
     {
-        // The first word of the name claim, for example "Karin" from "Karin Sjöberg"
         if (AuthState is not null)
         {
             var name = (await AuthState).User.Identity?.Name;
-            firstName = name?.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
+            firstName = FirstNameOf(name);
         }
 
         await LoadAsync();
@@ -273,6 +273,20 @@ else if (dashboard is not null)
         isLoading = false;
     }
 
+    // The first word of the name: "Karin Sjöberg" -> "Karin". If the name is an e-mail address,
+    // only the part before the @ is used: "teacher@lms.com" -> "Teacher".
+    private static string FirstNameOf(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return string.Empty;
+
+        var atIndex = name.IndexOf('@');
+        var text = atIndex > 0 ? name[..atIndex] : name;
+        var first = text.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
+
+        return first.Length == 0 ? first : char.ToUpperInvariant(first[0]) + first[1..];
+    }
+
     // "Welcome, Karin". No time of day, so the text is the same on the server and in the browser.
     private string Greeting() =>
         string.IsNullOrEmpty(firstName) ? "Welcome" : $"Welcome, {firstName}";
@@ -299,7 +313,7 @@ else if (dashboard is not null)
             ? $"submitted {FormatUploaded(submittedAt)}"
             : $"deadline {FormatDateTime(item.Deadline)}";
 
-    // "Elias Norén" -> "EN", ".NET 2026" -> ".N" (or one letter when length is 1)
+    // "Elias Norén" -> "EN", "Fullstack .NET" -> "F" (when length is 1)
     private static string InitialsOf(string name, int length = 2)
     {
         var letters = name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
@@ -309,16 +323,6 @@ else if (dashboard is not null)
     }
 
     private static string StudentsText(int count) => count == 1 ? "1 student" : $"{count} students";
-
-    // Badge colour per activity type (the same colours as on the Activities page)
-    private static string ActivityToneOf(string typeName) => typeName switch
-    {
-        "Lecture" => "primary",
-        "E-Learning" => "info",
-        "Exercise" => "success",
-        "Assignment" => "warning",
-        _ => "muted"
-    };
 
     // Deadlines and activity times are Swedish wall-clock time and shown as they are: "Mon 5 Oct, 17:00"
     private static string FormatDateTime(DateTime value) =>
