@@ -99,10 +99,10 @@
                 <div class="mb-1">Result</div>
                 <div class="btn-group">
                     <button type="button"
-                        class="btn @(isApproved ? "btn-success" : "btn-outline-success")"
+                        class="btn @(isApproved ? "btn-success" : "btn-outline-secondary")"
                         @onclick="() => isApproved = true">Approved</button>
                     <button type="button"
-                        class="btn @(!isApproved ? "btn-warning" : "btn-outline-warning")"
+                        class="btn @(!isApproved ? "btn-secondary" : "btn-outline-secondary")"
                         @onclick="() => isApproved = false">Needs changes</button>
                 </div>
             </div>
