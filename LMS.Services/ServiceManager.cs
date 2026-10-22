@@ -44,8 +44,7 @@ public class ServiceManager : IServiceManager
         Lazy<IUserService> userService,
         Lazy<IActivityService> activityService,
         Lazy<IAssignmentService> assignmentService,
-        Lazy<IDashboardService> dashboardService) // NEW (US12)
-        Lazy<IAssignmentService> assignmentService,
+        Lazy<IDashboardService> dashboardService, // NEW (US12)
         Lazy<IFeedbackService> feedbackService)
     {
         _authService = authService;
