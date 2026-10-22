@@ -15,7 +15,7 @@ public static class SubmissionStatusCalculator
     //     Missing:           nothing handed in, deadline has passed
     //     Awaiting feedback: handed in on time, waiting for the teacher
     //     Late:              handed in after the deadline, waiting for the teacher
-    //     Feedback given:    the teacher has given feedback (wins over Late)
+    //     Feedback given:    the teacher latest feedback is newer than the hand-in (wins over Late)
 
     /// <summary>
     /// Returns one of the SubmissionStatus constants.
@@ -28,7 +28,7 @@ public static class SubmissionStatusCalculator
         if (submission is null)
             return now > deadline ? SubmissionStatus.Missing : SubmissionStatus.NotSubmitted;
 
-        if (submission.Feedbacks.Any())
+        if (submission.Feedbacks.Any() && submission.SubmittedAt < submission.Feedbacks.Max(f => f.CreatedAt))
             return SubmissionStatus.FeedbackGiven;
 
         return IsLate(submission, deadline)
@@ -44,10 +44,10 @@ public static class SubmissionStatusCalculator
         submission.SubmittedAt > deadline;
 
     /// <summary>
-    /// True when the teacher has started assessing the submission (feedback or a grade exists, #60).
+    /// True when the teacher is done with the submission (approved or a grade exists, #60).
     /// A locked submission takes no new files, so the teacher never assesses something that changes afterwards.
     /// Feedbacks must be loaded (Include in the repository).
     /// </summary>
     public static bool IsLocked(Submission submission) =>
-        submission.Feedbacks.Any() || submission.Grade.HasValue;
+      submission.Approved == true || submission.Grade.HasValue;
 }

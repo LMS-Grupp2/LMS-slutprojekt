@@ -13,5 +13,6 @@ public interface IUnitOfWork
     IDocumentRepository Documents { get; } // NEW (US06): access to document metadata
     IAssignmentRepository Assignment { get; }
     INotificationRepository Notification { get; }
+    IFeedbackRepository Feedbacks { get; } // US11 feedbacks
     Task SaveChangesAsync();
 }

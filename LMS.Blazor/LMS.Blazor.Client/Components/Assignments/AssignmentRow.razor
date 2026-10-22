@@ -42,17 +42,20 @@
             status = item.Status ?? string.Empty;
             // Missing submission gets a a highlighted background color
             isLate = (status == SubmissionStatus.Missing) ? true : false;
-            feedback = item.HasFeedback ? "Feedback" : "";
+
+
+            feedback = status != SubmissionStatus.FeedbackGiven ? ""
+                : item.Approved ? "Approved"
+                : item.NeedChanges ? "Needs changes"
+                : "Feedback";
         }
     }
 
     // Status badge colours
     private static string BadgeClass(string typeName) => typeName switch
     {
-        // "Late" => "lms-tone-danger",
-        // "Needs changes" => "lms-tone-danger",
-        // "Submitted" => "lms-tone-success",
-        // "Approved" => "lms-tone-success",
+        "Needs changes" => "lms-tone-danger",
+        "Approved" => "lms-tone-success",
         "Feedback" => "lms-tone-primary",
         _ => "lms-tone-muted"
     };
