@@ -2,7 +2,6 @@ using Domain.Contracts;
 using Domain.Models.Entities;
 using Domain.Models.Exceptions;
 using LMS.Shared.Constants;
-using LMS.Shared.DTOs.FeedbackDtos;
 using LMS.Shared.DTOs.SubmissionDtos;
 using Service.Contracts;
 
@@ -145,14 +144,7 @@ public class SubmissionService : ISubmissionService
             status,
             submission.SubmittedAt,
             activity.EndTime,
-            submission.Feedbacks.Select(f => new FeedbackDto
-            {
-                Id = f.Id,
-                Text = f.Text,
-                CreatedAt = f.CreatedAt,
-                TeacherId = f.TeacherId,
-                TeacherName = f.Teacher.Name
-            }).ToList(),
+            submission.Feedbacks.Select(FeedbackService.MapToDto).ToList(),
             submission.Documents.Select(d => new SubmissionFileDto(d.Id, d.Name)).ToList());
     }
 

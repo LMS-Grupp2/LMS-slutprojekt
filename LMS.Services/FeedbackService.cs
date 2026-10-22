@@ -66,7 +66,7 @@ public class FeedbackService(IUnitOfWork unitOfWork, INotificationService notifi
         return feedbacks.Select(MapToDto).ToList();
     }
 
-    private static FeedbackDto MapToDto(Feedback feedback) => new()
+    internal static FeedbackDto MapToDto(Feedback feedback) => new()
     {
         Id = feedback.Id,
         Text = feedback.Text,
