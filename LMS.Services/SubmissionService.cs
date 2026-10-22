@@ -153,7 +153,7 @@ public class SubmissionService : ISubmissionService
                 TeacherId = f.TeacherId,
                 TeacherName = f.Teacher.Name
             }).ToList(),
-            submission.Documents.Select(d => new SubmissionFileDto(d.Id, d.Name)).ToList();
+            submission.Documents.Select(d => new SubmissionFileDto(d.Id, d.Name)).ToList());
     }
 
     private async Task<Activity> GetAssignmentForStudentAsync(Guid activityId, string studentId)
