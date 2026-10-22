@@ -69,12 +69,12 @@ public class NotificationService : INotificationService
     /// Updates notification
     /// </summary>
     /// <exception cref="BadRequestException"></exception>
-    public async Task<bool> UpdateNotification(Guid notificationId, UpdateNotificationDto dto)
+    public async Task<bool> UpdateNotification(string userId, UpdateNotificationDto dto)
     {
-        var notification = await _unitOfWork.Notification.GetById(dto.Id);
+        var notification = await _unitOfWork.Notification.GetById(userId, dto.Id);
 
         if (notification is null)
-            throw new BadRequestException("Unknown notification");
+            throw new NotificationNotFoundException();
 
         // Changes - can only change IsRead at the moment
         notification.IsRead = dto.IsRead ?? false;
@@ -99,7 +99,7 @@ public class NotificationService : INotificationService
         if (!string.IsNullOrWhiteSpace(dto.RecipientId))
         {
             // Feedback to RecipientId
-            idList.Append(dto.RecipientId);
+            idList = [dto.RecipientId];
         }
         else if (dto.CourseId is not null)
         {

@@ -23,7 +23,7 @@ public class NotificationsController(IServiceManager serviceManager) : Controlle
     [SwaggerOperation(
         Summary = "Get users notifications",
         Description = "Returns the logged-in student's notifications. Latest first")]
-    [SwaggerResponse(StatusCodes.Status200OK, "Assignments found", typeof(IEnumerable<StudentAssignmentDto>))]
+    [SwaggerResponse(StatusCodes.Status200OK, "Notifications found", typeof(IEnumerable<NotificationDto>))]
     [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not logged in")]
     public async Task<ActionResult<IEnumerable<NotificationDto>>> GetNotifications(int nbrItems = maxItems)
     {
@@ -39,15 +39,13 @@ public class NotificationsController(IServiceManager serviceManager) : Controlle
         return Ok(notifictions);
     }
 
-    [HttpPost]
-    [HttpPost("api/notifications/{notificationId:guid}")]
+    [HttpPatch("{notificationId:guid}")]
     [SwaggerOperation(
         Summary = "Update notification - only change of IsRead is supported right now",
         Description = "Updates notification")]
     [SwaggerResponse(StatusCodes.Status200OK, "Notification has been updated")]
     [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not logged in")]
-    [SwaggerResponse(StatusCodes.Status400BadRequest, "Bad notificationId")]
-    [SwaggerResponse(StatusCodes.Status400BadRequest, "Unknown notification")]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Notification not found")]
     public async Task<ActionResult<bool>> NotificationIsRead([FromRoute]Guid notificationId, UpdateNotificationDto dto)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -57,7 +55,7 @@ public class NotificationsController(IServiceManager serviceManager) : Controlle
         if (notificationId != dto.Id)
             throw new BadRequestException("Id in URI is not the the same as in body");
 
-        await _serviceManager.NotificationService.UpdateNotification(notificationId, dto);
+        await _serviceManager.NotificationService.UpdateNotification(userId, dto);
 
         return Ok();
     }

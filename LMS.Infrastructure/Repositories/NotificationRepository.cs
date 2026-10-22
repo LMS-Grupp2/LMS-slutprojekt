@@ -1,4 +1,5 @@
-﻿using Domain.Models.Entities;
+﻿using Domain.Contracts.Repositories;
+using Domain.Models.Entities;
 using LMS.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,10 +19,10 @@ public class NotificationRepository : INotificationRepository
     /// </summary>
     /// <param name="id"></param>
     /// <returns>Returns notification or default</returns>
-    public async Task<Notification?> GetById(Guid notificationId)
+    public async Task<Notification?> GetById(string userId, Guid notificationId)
     {
         return await _context.Notifications
-            .SingleOrDefaultAsync(notification => notification.Id == notificationId);
+            .SingleOrDefaultAsync(notification => notification.Id == notificationId && notification.RecipientId == userId);
     }
 
     /// <summary>

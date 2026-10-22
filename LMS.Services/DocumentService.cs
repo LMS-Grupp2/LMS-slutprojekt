@@ -8,9 +8,6 @@ using LMS.Shared.DTOs.DocumentDtos;
 using LMS.Shared.DTOs.NotificationDtos;
 using Microsoft.Extensions.Options;
 using Service.Contracts;
-using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
 
 namespace LMS.Services;
 
@@ -22,7 +19,6 @@ namespace LMS.Services;
 /// </summary>
 public class DocumentService : IDocumentService
 {
-    private readonly IServiceManager _serviceManager;
     private const int MaxFileNameLength = 255;
 
     // Allowed extensions. The MIME type is taken from this list, never from the client,
@@ -44,26 +40,19 @@ public class DocumentService : IDocumentService
             [".gif"] = (FileType.Image, "image/gif")
         };
 
+    private readonly INotificationService _notificationService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly string _uploadsRoot;
     private readonly int _maxFileSizeMb;
-    private IUnitOfWork @object;
-    private IOptions<DocumentStorageSettings> settings;
 
-    public DocumentService(IServiceManager serviceManager, IUnitOfWork unitOfWork, IOptions<DocumentStorageSettings> settings)
+    public DocumentService(INotificationService notificatonService, IUnitOfWork unitOfWork, IOptions<DocumentStorageSettings> settings)
     {
-        _serviceManager = serviceManager;
+        _notificationService = notificatonService;
         _unitOfWork = unitOfWork;
         _maxFileSizeMb = settings.Value.MaxFileSizeMb;
 
         // A relative path is resolved from the folder the API runs in. Use an absolute path in production.
         _uploadsRoot = Path.GetFullPath(settings.Value.UploadsPath);
-    }
-
-    public DocumentService(IUnitOfWork @object, IOptions<DocumentStorageSettings> settings)
-    {
-        this.@object = @object;
-        this.settings = settings;
     }
 
     public async Task<IEnumerable<DocumentDto>> GetByCourseAsync(Guid courseId, string userId, bool isTeacher)
@@ -193,7 +182,7 @@ public class DocumentService : IDocumentService
             await _unitOfWork.SaveChangesAsync();
 
             // Create a notification for students about the new document
-            await CreateDocumentNotification(document);
+            await CreateDocumentNotificationAsync(document);
 
             // The uploader can always delete their own document
             var uploader = await _unitOfWork.Users.FindByIdAsync(userId);
@@ -437,7 +426,7 @@ public class DocumentService : IDocumentService
         }
     }
 
-    private async Task CreateDocumentNotification(Document document)
+    private async Task CreateDocumentNotificationAsync(Document document)
     {
         // Get name of: course, module or activity
         string name = await GetNameForNotificationAsync(document.CourseId, document.ModuleId, document.ActivityId);
@@ -450,6 +439,7 @@ public class DocumentService : IDocumentService
             ModuleId = document.ModuleId,
             ActivityId = document.ActivityId
         };
-        await _serviceManager.NotificationService.CreateNotificationAsync(notification);
+
+        await _notificationService.CreateNotificationAsync(notification);
     }
 }

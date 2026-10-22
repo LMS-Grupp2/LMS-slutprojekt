@@ -9,7 +9,7 @@ public record CreateNotificationDto
     [Required]
     [MaxLength(100)]
     public required string Message { get; init; }
-    public DateTime CreatedAd { get; init; } = DateTime.Now;
+    public DateTime CreatedAt { get; init; } = DateTime.Now;
 
     // Must have one of: RecipientId, CourseId, ModuleId, ActivityId
     public string? RecipientId { get; init; } = null!;
