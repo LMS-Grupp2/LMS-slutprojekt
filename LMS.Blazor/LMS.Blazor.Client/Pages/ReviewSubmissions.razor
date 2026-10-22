@@ -99,10 +99,10 @@
                 <div class="mb-1">Result</div>
                 <div class="btn-group">
                     <button type="button"
-                        class="btn @(isApproved ? "btn-success" : "btn-outline-secondary")"
+                        class="btn @(isApproved == true ? "btn-success" : "btn-outline-secondary")"
                         @onclick="() => isApproved = true">Approved</button>
                     <button type="button"
-                        class="btn @(!isApproved ? "btn-secondary" : "btn-outline-secondary")"
+                        class="btn @(isApproved == false ? "btn-secondary" : "btn-outline-secondary")"
                         @onclick="() => isApproved = false">Needs changes</button>
                 </div>
             </div>
@@ -118,7 +118,7 @@
                 <div class="d-flex gap-2">
                     <a class="btn btn-outline-secondary" href="submissions">Cancel</a>
                     <button type="button" class="btn btn-primary"
-                            disabled="@(isSending || string.IsNullOrWhiteSpace(comment))"
+                            disabled="@(isSending || isApproved is null || string.IsNullOrWhiteSpace(comment))"
                             @onclick="SendFeedbackAsync">Send feedback</button>
                 </div>
             </div>
@@ -138,7 +138,7 @@
     private bool IsLoading = true;
     private string? loadError;
 
-    private bool isApproved = true;
+    private bool? isApproved; // null means no selection yet
     private string comment = string.Empty;
     private bool isSending;
     private string? sendError;
@@ -197,6 +197,7 @@
 
             successMessage = "Feedback was sent. The student can now see it.";
             comment = string.Empty;
+            isApproved = null;
 
             //We reload so that the earlier feedback and the status will be up to date
             review = await ApiProxyClient.GetAsync<SubmissionReviewDto>(
