@@ -34,14 +34,33 @@ public class FeedbackService(IUnitOfWork unitOfWork) : IFeedbackService
         unitOfWork.Feedbacks.Create(feedback);
         await unitOfWork.SaveChangesAsync();
 
-        return new FeedbackDto
-        {
-            Id = feedback.Id,
-            Text = feedback.Text,
-            CreatedAt = feedback.CreatedAt,
-            TeacherId = feedback.TeacherId,
-            TeacherName = feedback.Teacher.Name
-        };
+        return MapToDto(feedback);
     }
+
+    /// <summary>
+    /// All feedback on one submission, newest first. Teachers see every submission,
+    /// a student only their own (US-1104). 404 if the submission doesn't exist or isn't theirs.
+    /// </summary>
+    public async Task<IEnumerable<FeedbackDto>> GetBySubmissionIdAsync(Guid submissionId,
+       string userId, bool isTeacher)
+    {
+        var submission = await unitOfWork.Submissions.GetByIdAsync(submissionId)
+            ?? throw new SubmissionNotFoundException(submissionId);
+
+        if (!isTeacher && submission.StudentId != userId)
+            throw new SubmissionNotFoundException(submissionId);
+
+        var feedbacks = await unitOfWork.Feedbacks.GetBySubmissionIdAsync(submissionId);
+        return feedbacks.Select(MapToDto).ToList();
+    }
+
+    private static FeedbackDto MapToDto(Feedback feedback) => new()
+    {
+        Id = feedback.Id,
+        Text = feedback.Text,
+        CreatedAt = feedback.CreatedAt,
+        TeacherId = feedback.TeacherId,
+        TeacherName = feedback.Teacher.Name
+    };
 }
 
