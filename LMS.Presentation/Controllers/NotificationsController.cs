@@ -59,4 +59,22 @@ public class NotificationsController(IServiceManager serviceManager) : Controlle
 
         return Ok();
     }
+
+    [HttpPatch]
+    [SwaggerOperation(
+        Summary = "Sets all notifications for active user as read",
+        Description = "Updates active users notifications to read")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Notifications has been set to read")]
+    [SwaggerResponse(StatusCodes.Status401Unauthorized, "Not logged in")]
+    [SwaggerResponse(StatusCodes.Status404NotFound, "Notification not found")]
+    public async Task<ActionResult<bool>> NotificationAllIsRead()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null)
+            return Unauthorized();
+
+        await _serviceManager.NotificationService.UpdateAllRead(userId);
+
+        return true;
+    }
 }

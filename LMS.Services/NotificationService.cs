@@ -44,7 +44,7 @@ public class NotificationService : INotificationService
     /// /// <returns>List of students notifications</returns>
     public async Task<IEnumerable<NotificationDto>> GetByStudentIdAsync(string studentId, int nbrItems)
     {
-        var result = await _unitOfWork.Notification.GetByStudentId(studentId, nbrItems);
+        var result = await _unitOfWork.Notification.GetByStudentIdAsync(studentId, nbrItems);
 
         var dtos = new List<NotificationDto>();
 
@@ -71,7 +71,7 @@ public class NotificationService : INotificationService
     /// <exception cref="BadRequestException"></exception>
     public async Task<bool> UpdateNotification(string userId, UpdateNotificationDto dto)
     {
-        var notification = await _unitOfWork.Notification.GetById(userId, dto.Id);
+        var notification = await _unitOfWork.Notification.GetByIdAsync(userId, dto.Id);
 
         if (notification is null)
             throw new NotificationNotFoundException();
@@ -82,6 +82,22 @@ public class NotificationService : INotificationService
         await _unitOfWork.SaveChangesAsync();
 
         return true;
+    }
+
+    public async Task UpdateAllRead(string userId)
+    {
+        var notification = await _unitOfWork.Notification.GetAllUnreadByStudentIdAsync(userId);
+
+        if (notification is null)
+            throw new NotificationNotFoundException();
+
+        foreach (var item in notification)
+        {
+            item.IsRead = true;
+        }
+        await _unitOfWork.SaveChangesAsync();
+
+        //return true;
     }
 
 

@@ -14,7 +14,9 @@
 
 @inject IApiProxyClient ApiProxyClient;
 @inject NavigationManager NavigationManager
- <div style="color: yellow;">Unread: @UnreadCount, counter: @counter</div>
+
+<div style="color: yellow;">Unread: @UnreadCount, TotalCount: @TotalCount</div>
+
 <details class="lms-bell">
     <summary aria-label="Notifications (@UnreadCount new)">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -24,7 +26,9 @@
         </svg>
         @if (UnreadCount > 0)
         {
-            <span class="lms-bell-count">@(UnreadCount > 9 ? "9+" : UnreadCount)</span>
+            <span class="lms-bell-count"
+                style=""
+            >@(UnreadCount > 9 ? "9+" : UnreadCount)</span>
         }
     </summary>
 
@@ -39,7 +43,7 @@
                 }
             </div>
 
-            @if (UnreadCount > 0 && OnMarkAllRead.HasDelegate)
+            @if (UnreadCount > 0)  //  && OnMarkAllRead.HasDelegate
             {
                 <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
                         @onclick="OnMarkAllRead">
@@ -69,8 +73,8 @@
 
                         <div class="flex-grow-1 min-w-0">
                             <div class="lms-bell-item-title">@item.Message</div>
-                            @* <div class="lms-bell-item-sub">@item.Subtitle</div> *@
-                            @* <div class="lms-bell-item-time">@TimeFormat.Relative(item.CreatedAt)</div> *@
+                            @* <div class="lms-bell-item-sub">@item.Subtitle</div>  *@
+                            <div class="lms-bell-item-time">@TimeFormat.Relative(item.CreatedAt)</div>
                         </div>
 
                         @if (!item.IsRead)
@@ -87,15 +91,20 @@
 </details>
 
 @code {
-    private readonly IEnumerable<NotificationDto>? notifications;
+    /// <summary>Only rendered when a handler is set (requires an interactive render mode).</summary>
+    //[Parameter]
+    //public EventCallback OnMarkAllRead { get; set; }
+
+    [Parameter]
+    public int MaxItems { get; set; } = 10;
+
+    private IEnumerable<NotificationDto>? notifications;
     private readonly CancellationTokenSource componentCancellation = new();
 
     private string? errorMessage;
     private bool isLoading = true;
-    private int counter = 0;
-    private int nbrNew = 0;
-
-
+    private int UnreadCount = 0;
+    private int TotalCount = 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -109,13 +118,9 @@
             if (result is null)
                 return;
 
-            // assignments = result;
-            // filteredAssignments = assignments?.ToList();
-
-            // Set number of assingnments per filter
-            //SetStatusCounts();
-
-            counter = notifications?.Count() > 0 ? notifications.Count() : 0;
+            notifications = result;
+            TotalCount = notifications?.Count() > 0 ? notifications.Count() : 0;
+            UnreadCount = TotalCount > 0 ? notifications!.Count(notification => !notification.IsRead) : 0;
         }
         catch (OperationCanceledException) when (componentCancellation.IsCancellationRequested)
         {
@@ -143,20 +148,28 @@
         StateHasChanged();  // Update GUI
     }
 
+    public void OnMarkAllRead()
+    {
+        
+        StateHasChanged();  // Update GUI
+    }
 
-    // [Parameter]
-    // public IReadOnlyList<Notifications> Items { get; set; } = [];
+    public static class TimeFormat
+    {
+        /// <summary>"1 h ago", "Today 08:12", "Yesterday", "5 Sep".</summary>
+        public static string Relative(DateTime value)
+        {
+            var diff = DateTime.Now - value;
 
-    /// <summary>Only rendered when a handler is set (requires an interactive render mode).</summary>
-    [Parameter]
-    public EventCallback OnMarkAllRead { get; set; }
+            if (diff.TotalMinutes < 1) return "Just now";
+            if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes} min ago";
+            if (diff.TotalHours < 6) return $"{(int)diff.TotalHours} h ago";
+            if (value.Date == DateTime.Today) return $"Today {value:HH:mm}";
+            if (value.Date == DateTime.Today.AddDays(-1)) return "Yesterday";
 
-    [Parameter]
-    public int MaxItems { get; set; } = 10;
-
-    // private int UnreadCount => notifications.Count(n => !n.IsRead);
-    private int UnreadCount => notifications?.Count() ?? 0;
-
+            return value.ToString("d MMM", System.Globalization.CultureInfo.InvariantCulture);
+        }
+    }
 
 
     public void Dispose()
