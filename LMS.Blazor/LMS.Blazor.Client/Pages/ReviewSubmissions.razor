@@ -1,0 +1,225 @@
+﻿@page "/submissions/{SubmissionId:guid}/review"
+
+@using System.Globalization
+@using System.Net
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
+@using LMS.Shared.DTOs.FeedbackDtos
+@using LMS.Shared.DTOs.SubmissionDtos
+@using Microsoft.AspNetCore.Authorization
+@using System.Net.Http.Json
+
+@*Teacher review page for on submission for US11: show the hand in, earlier feedback,
+    and a form to give new feedback(Approved or need changes plus a comment)*@
+@attribute [Authorize(Roles = UserRoles.Teacher)]
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>Review submission</PageTitle>
+
+<div class="d-flex flex-column gap-4">
+    @if (IsLoading)
+    {
+        <LoadingSkeleton />
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <ErrorState Message="@loadError" />
+    }
+    else if (review is not null)
+    {
+        <PageHeader Title="Review submission"
+                    Subtitle="@($"{review.CourseName} - {review.AssignmentName}")" />
+
+        <div class="lms-card p-4 d-flex flex-column gap-3">
+            @*Who and which assigment plus status on the right side*@
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="fs-5 fw-semibold">@review.StudentName - @review.AssignmentName</div>
+                <div class="@(review.Status == SubmissionStatus.Late ? "text-danger" : "text-secondary") small">
+                    Submitted @FormatDateTime(review.SubmittedAt.ToLocalTime())
+                    - deadline @FormatDateTime(review.Deadline)
+                </div>
+              </div>
+            <StatusBadge Text="@review.Status" Tone="@SubmissionStatusStyles.ToneOf(review.Status)" />
+            
+            </div>
+
+        
+
+        <hr class="my-0" />
+
+        @*The handed in files*@
+        <div>
+            <div class="text-uppercase small fw-semibold text-secondary mb-2">Submitted files</div>
+            @foreach (var file in review.Files)
+            {
+                <div class="d-flex justify-content-between align-items-center py-1">
+                    <span>@file.Name</span>
+                    <a class="btn btn-sm btn-outline-secondary" href="api/proxy/documents/@file.Id/download">Download</a>
+                </div>
+            }
+        </div>
+
+        @*Earlier feedback and newest first (will only show when there is some feedback)*@
+            @if(review.Feedbacks.Count > 0)
+            {
+                <hr class="my-0" />
+                <div>
+                    <div class="text-uppercase small fw-semibold text-secondary mb-2">Earlier feedback</div>
+                    @foreach (var feedback in review.Feedbacks)
+                    {
+                        <div class="border rounded p-3 mb-2">
+                            <div class="small text-secondary mb-1">
+                                @feedback.TeacherName - @FormatDateTime(feedback.CreatedAt.ToLocalTime())
+                            </div>
+                            <div>@feedback.Text</div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        @*Your feedback*@
+        <div class="lms-card p-4 d-flex flex-column gap-3">
+            <div class="text-uppercase small fw-semibold text-secondary">Your feedback</div>
+            
+            @if (successMessage is not null)
+            {
+                <div class="alert alert-success py-2 mb-0">@successMessage</div>
+            }
+            @if(sendError is not null)
+            {
+                <div class="alert alert-danger py-2 mb-0">@sendError</div>
+            }
+
+            <div>
+                <div class="mb-1">Result</div>
+                <div class="btn-group">
+                    <button type="button"
+                        class="btn @(isApproved == true ? "btn-success" : "btn-outline-secondary")"
+                        @onclick="() => isApproved = true">Approved</button>
+                    <button type="button"
+                        class="btn @(isApproved == false ? "btn-secondary" : "btn-outline-secondary")"
+                        @onclick="() => isApproved = false">Needs changes</button>
+                </div>
+            </div>
+
+            <div>
+                <label class="form-label" for="comment">Comment *</label>
+                <textarea id="comment" class="form-control" rows="4" maxlength="1000"
+                          @bind="comment" @bind:event="oninput"></textarea>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="small text-secondary">Saved with your name and time.</span>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-outline-secondary" href="submissions">Cancel</a>
+                    <button type="button" class="btn btn-primary"
+                            disabled="@(isSending || isApproved is null || string.IsNullOrWhiteSpace(comment))"
+                            @onclick="SendFeedbackAsync">Send feedback</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+
+
+@code {
+    [Parameter]
+    public Guid SubmissionId { get; set; }
+
+    private readonly CancellationTokenSource cts = new();
+
+    private SubmissionReviewDto? review;
+    private bool IsLoading = true;
+    private string? loadError;
+
+    private bool? isApproved; // null means no selection yet
+    private string comment = string.Empty;
+    private bool isSending;
+    private string? sendError;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await ApiProxyClient.GetAsync<SubmissionReviewDto>(
+                $"submissions/{SubmissionId}/review", cts.Token);
+
+            if (result is null)
+                return;
+
+            review = result;
+            IsLoading = false;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            //Navigating away will cancel the request
+        }
+        catch (UnauthorizedAccessException)
+        {
+            NavigationManager.NavigateTo($"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}", 
+            forceLoad: true);
+        }
+        catch (HttpRequestException ex)
+        {
+            loadError = ex.StatusCode == HttpStatusCode.NotFound
+                ? "Could not find the submission."
+                : "Could not load the submission. Please try again";
+            IsLoading = false;
+        }
+    }
+
+    // Same date format as the Submissions page, e.g. "Mon 5 Oct 2026, 23:50".
+    // InvariantCulture keeps English day/month names, whatever the browser's language is.
+    private static string FormatDateTime(DateTime value) =>
+    value.ToString("ddd d MMM yyyy, HH:mm", CultureInfo.InvariantCulture);
+
+    //Send the teacher's feed back and then reloads the page data so the new feedback and status show
+    private async Task SendFeedbackAsync()
+    {
+        isSending = true;
+        sendError = null;
+        successMessage = null;
+
+        try
+        {
+            var dto = new CreateFeedbackDto { Text = comment, IsApproved = isApproved };
+
+            await ApiProxyClient.SendAsync<FeedbackDto>(
+                HttpMethod.Post, $"submissions/{SubmissionId}/feedback", JsonContent.Create(dto), 
+                cts.Token);
+
+            successMessage = "Feedback was sent. The student can now see it.";
+            comment = string.Empty;
+            isApproved = null;
+
+            //We reload so that the earlier feedback and the status will be up to date
+            review = await ApiProxyClient.GetAsync<SubmissionReviewDto>(
+                $"submissions/{SubmissionId}/review", cts.Token) ?? review;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            //Navigating away will stop the request
+        }
+        catch (HttpRequestException)
+        {
+            sendError = "The feedback could not be sent. Please try again.";
+        }
+        finally
+        {
+            isSending = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+}

@@ -2,6 +2,7 @@
 using Domain.Models.Entities;
 using LMS.Shared.Constants;
 using LMS.Shared.DTOs.DashboardDtos;
+using LMS.Shared.Paging;
 using Service.Contracts;
 
 namespace LMS.Services;
@@ -34,9 +35,10 @@ public class TeacherDashboardService : ITeacherDashboardService
         var courseNow = CourseTime.FromUtc(now);
         var today = DateOnly.FromDateTime(courseNow);
 
-        // 1. All courses and, per course, its students. Teachers can also be course members,
-        //    so the members are filtered by role (two calls: the members of a course + the roles of all users).
-        var courses = (await _unitOfWork.Courses.GetAllCoursesAsync()).ToList();
+        // 1. All courses and, per course, its students. An empty query (no search, no status) returns every course.
+        //    Teachers can also be course members, so the members are filtered by role
+        //    (two calls: the members of a course + the roles of all users).
+        var courses = (await _unitOfWork.Courses.GetAllCoursesAsync(new CourseListQuery(), today)).ToList();
         var roleNames = await _unitOfWork.Users.GetRoleNamesByUserIdAsync();
 
         var studentsByCourse = new Dictionary<Guid, List<CourseUser>>();

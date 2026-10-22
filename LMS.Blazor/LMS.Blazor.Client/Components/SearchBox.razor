@@ -1,0 +1,60 @@
+@* Reusable search box (US15): a text input that raises OnSearch when the user presses Enter or
+   clicks Search, and raises OnSearch(null) when they click Clear. It does not search on every
+   keystroke on purpose: each search is a request to the API through the proxy.
+
+   Usage:
+   <SearchBox Value="@search" Placeholder="Search by name or email" OnSearch="OnSearchAsync" /> *@
+
+<div class="input-group">
+    <input type="search" class="form-control" placeholder="@Placeholder" aria-label="@Placeholder"
+           @bind="text" @bind:event="oninput" @onkeydown="OnKeyDownAsync" />
+
+    @if (!string.IsNullOrEmpty(text))
+    {
+        <button type="button" class="btn btn-outline-secondary" @onclick="ClearAsync">Clear</button>
+    }
+
+    <button type="button" class="btn btn-primary" @onclick="SearchAsync">Search</button>
+</div>
+
+@code {
+    // The current search text from the parent (so the box shows what is being filtered on)
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public string Placeholder { get; set; } = "Search…";
+
+    // Raised with the trimmed text, or null when cleared / empty
+    [Parameter]
+    public EventCallback<string?> OnSearch { get; set; }
+
+    private string? text;
+    private string? lastValue;
+
+    // Copy the parent's value only when it actually changed, so a parent re-render
+    // (e.g. after a role filter) does not wipe text the user is still typing.
+    protected override void OnParametersSet()
+    {
+        if (Value != lastValue)
+        {
+            lastValue = Value;
+            text = Value;
+        }
+    }
+
+    private Task OnKeyDownAsync(KeyboardEventArgs e) =>
+        e.Key == "Enter" ? SearchAsync() : Task.CompletedTask;
+
+    private Task SearchAsync()
+    {
+        var value = string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+        return OnSearch.InvokeAsync(value);
+    }
+
+    private Task ClearAsync()
+    {
+        text = null;
+        return OnSearch.InvokeAsync(null);
+    }
+}

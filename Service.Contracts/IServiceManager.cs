@@ -11,6 +11,8 @@ public interface IServiceManager
     IActivityService ActivityService { get; }
     IDocumentService DocumentService { get; } // NEW (US06)
     IAssignmentService AssignmentService { get; }
+    IFeedbackService FeedbackService { get; }
     IDashboardService DashboardService { get; } // NEW (US12)
+    INotificationService NotificationService { get; }
     ITeacherDashboardService TeacherDashboardService { get; } // NEW (US13)
 }

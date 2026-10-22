@@ -2,10 +2,10 @@
 using Domain.Models.Entities;
 using Domain.Models.Exceptions;
 using LMS.Shared.DTOs.UserDtos;
+using LMS.Shared.Paging;
 using Service.Contracts;
 using LMS.Shared.Constants;
 using Microsoft.AspNetCore.Identity;
-using System.Runtime.InteropServices;
 
 
 namespace LMS.Services;
@@ -51,30 +51,19 @@ public class UserService : IUserService
 
 
     /// <summary>
-    /// Gets all users with their role.
-    /// Roles are fetched in one query up front and looked up per user,
-    /// so it's always 2 queries no matter how many users (no N+1).
+    /// Gets one page of users with their role (US15).
+    /// The repository filters and pages in SQL; the role names come in one extra query and are
+    /// looked up per user, so it's always 3 queries (count, page, roles) no matter how many users.
+    /// Map converts the entities to DTOs and keeps the paging metadata.
     /// </summary>
-    public async Task<IEnumerable<UserDto>> GetAllAsync()
+    public async Task<PagedResult<UserDto>> GetPageAsync(UserListQuery query)
     {
-        var users = await _unitOfWork.Users.GetAllAsync();
+        var page = await _unitOfWork.Users.GetPageAsync(query);
 
         var roleNames = await _unitOfWork.Users.GetRoleNamesByUserIdAsync();
 
-        var result = new List<UserDto>();
-
-        foreach (var user in users)
-        {
-            var role = "Role not assigned";
-            if (roleNames.ContainsKey(user.Id))
-            {
-                role = roleNames[user.Id];
-            }
-
-            result.Add(MapToDto(user, role));
-        }
-        
-        return result;
+        return page.Map(user =>
+            MapToDto(user, roleNames.TryGetValue(user.Id, out var role) ? role : "Role not assigned"));
     }
 
     public async Task<UserDto> GetByIdAsync(string id)
