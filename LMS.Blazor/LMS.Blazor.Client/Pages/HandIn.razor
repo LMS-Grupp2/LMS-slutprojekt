@@ -100,7 +100,7 @@
                     {
                         @* The API refuses new files once feedback or a grade exists (#60) *@
                         <p class="lms-cell-sub mb-0">
-                            Your teacher has given feedback on this assignment, so no more files can be handed in.
+                            Your teacher has approved this assignment, so no more files can be handed in.
                         </p>
                     }
                     else
@@ -314,7 +314,7 @@
                 // 400: the API's own message says what was wrong (file type, size, empty file, not an assignment)
                 HttpStatusCode.BadRequest => ex.Message,
                 HttpStatusCode.NotFound => "This assignment no longer exists or is not part of your course.",
-                HttpStatusCode.Conflict => "Your teacher has already given feedback, so no more files can be handed in.",
+                HttpStatusCode.Conflict => "Your teacher has approved this assignment, so no more files can be handed in.",
                 HttpStatusCode.RequestEntityTooLarge => $"The file is too large. The maximum size is {MaxFileSizeMb} MB.",
                 _ => "Could not hand in the file. Please try again."
             };

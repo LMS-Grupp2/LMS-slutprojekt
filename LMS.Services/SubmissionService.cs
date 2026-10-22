@@ -43,7 +43,7 @@ public class SubmissionService : ISubmissionService
         // Checked before the file is stored, so a locked submission never gets a stray file on disk (#60)
         if (submission is not null && SubmissionStatusCalculator.IsLocked(submission))
             throw new ConflictException(
-                "The teacher has already given feedback on this assignment, so no more files can be handed in.",
+                "The teacher has approved this assignment, so no more files can be handed in.",
                 "Submission locked");
 
         // First hand-in: create the row. It is only added here, not saved yet.
