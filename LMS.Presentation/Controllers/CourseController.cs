@@ -1,5 +1,6 @@
 ﻿using LMS.Shared.Constants;
 using LMS.Shared.DTOs.CourseDtos;
+using LMS.Shared.Paging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -22,13 +23,19 @@ public class CourseController(IServiceManager serviceManager) : ControllerBase
 {
     private readonly IServiceManager _serviceManager = serviceManager;
 
-    /// <summary>GET api/courses - lists all courses.</summary>
+    /// <summary>
+    /// GET api/courses?search=&amp;status= - lists the courses that match the optional filters (US15).
+    /// Without parameters it still returns every course, so the dropdowns on other pages keep working.
+    /// </summary>
     [HttpGet]
-    [SwaggerOperation(Summary = "Get all courses", Description = "Returns all courses, earliest start date first.")]
+    [SwaggerOperation(Summary = "Get courses",
+        Description = "Returns the courses matching the optional filters, earliest start date first. " +
+                      "search matches the name; status is Upcoming, Active or Finished (by today's date).")]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<CourseDto>))]
-    public async Task<ActionResult<IEnumerable<CourseDto>>> GetCourses()
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IEnumerable<CourseDto>>> GetCourses([FromQuery] CourseListQuery query)
     {
-        var courses = await _serviceManager.CourseService.GetCoursesAsync();
+        var courses = await _serviceManager.CourseService.GetCoursesAsync(query);
 
         return Ok(courses);
     }

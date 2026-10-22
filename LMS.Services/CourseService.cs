@@ -1,7 +1,9 @@
 ﻿using Domain.Contracts;
 using Domain.Models.Entities;
 using Domain.Models.Exceptions;
+using LMS.Shared.Constants;
 using LMS.Shared.DTOs.CourseDtos;
+using LMS.Shared.Paging;
 using Service.Contracts;
 
 namespace LMS.Services;
@@ -34,14 +36,21 @@ public class CourseService(IUnitOfWork unitOfWork) : ICourseService
         return ToDto(course);
     }
 
-    /// <summary>Returns all courses, earliest start date first.</summary>
-    public async Task<IEnumerable<CourseDto>> GetCoursesAsync()
+    /// <summary>Returns the courses that match the filters, earliest start date first (US15).</summary>
+    public async Task<IEnumerable<CourseDto>> GetCoursesAsync(CourseListQuery query)
     {
-        var courses = await unitOfWork.Courses.GetAllCoursesAsync();
+        // Rule: the status must be one of the known names (returns 400). A typo should not silently return everything.
+        if (query.Status is not null && !CourseStatus.All.Contains(query.Status))
+            throw new BadRequestException(
+                $"'{query.Status}' is not a valid status. Please choose between: {string.Join(", ", CourseStatus.All)}.",
+                "Invalid status");
 
-        // The mapping runs over the loaded courses (not an empty list).
+        // "Today" is decided here, in the service, so the repository stays a pure query and tests can pass any date.
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var courses = await unitOfWork.Courses.GetAllCoursesAsync(query, today);
+
+        // The repository already orders; the mapping runs over the loaded courses.
         return courses
-            .OrderBy(c => c.StartDate)
             .Select(ToDto)
             .ToList();
     }
