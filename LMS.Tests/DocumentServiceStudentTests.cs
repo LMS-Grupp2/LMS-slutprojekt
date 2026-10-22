@@ -6,6 +6,7 @@ using Domain.Models.Exceptions;
 using LMS.Services;
 using Microsoft.Extensions.Options;
 using Moq;
+using Service.Contracts;
 
 namespace LMS.Tests;
 
@@ -49,12 +50,14 @@ public class DocumentServiceStudentTests
         unitOfWork.Setup(u => u.Modules).Returns(modules.Object);
         unitOfWork.Setup(u => u.Documents).Returns(_documents.Object);
 
+        var notificationService = new Mock<INotificationService>();
+
         var settings = Options.Create(new DocumentStorageSettings
         {
             UploadsPath = Path.Combine(Path.GetTempPath(), $"lms-tests-{Guid.NewGuid():N}")
         });
 
-        _service = new DocumentService(unitOfWork.Object, settings);
+        _service = new DocumentService(notificationService.Object, unitOfWork.Object, settings);
     }
 
     /* Upload rules */

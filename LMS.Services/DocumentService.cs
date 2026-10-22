@@ -5,6 +5,7 @@ using Domain.Models.Enums;
 using Domain.Models.Exceptions;
 using LMS.Shared.Constants;
 using LMS.Shared.DTOs.DocumentDtos;
+using LMS.Shared.DTOs.NotificationDtos;
 using Microsoft.Extensions.Options;
 using Service.Contracts;
 
@@ -39,12 +40,14 @@ public class DocumentService : IDocumentService
             [".gif"] = (FileType.Image, "image/gif")
         };
 
+    private readonly INotificationService _notificationService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly string _uploadsRoot;
     private readonly int _maxFileSizeMb;
 
-    public DocumentService(IUnitOfWork unitOfWork, IOptions<DocumentStorageSettings> settings)
+    public DocumentService(INotificationService notificatonService, IUnitOfWork unitOfWork, IOptions<DocumentStorageSettings> settings)
     {
+        _notificationService = notificatonService;
         _unitOfWork = unitOfWork;
         _maxFileSizeMb = settings.Value.MaxFileSizeMb;
 
@@ -119,6 +122,7 @@ public class DocumentService : IDocumentService
     }
 
     // Validates first (small helpers below), then stores the file on disk and its metadata in the database.
+    // Creates a notification for course attendents about new document
     public async Task<DocumentDto> UploadAsync(
         Stream content,
         string fileName,
@@ -177,6 +181,9 @@ public class DocumentService : IDocumentService
             _unitOfWork.Documents.Create(document);
             await _unitOfWork.SaveChangesAsync();
 
+            // Create a notification for students about the new document
+            await CreateDocumentNotificationAsync(document);
+
             // The uploader can always delete their own document
             var uploader = await _unitOfWork.Users.FindByIdAsync(userId);
             var roleNames = await _unitOfWork.Users.GetRoleNamesByUserIdAsync();
@@ -189,6 +196,8 @@ public class DocumentService : IDocumentService
             throw;
         }
     }
+
+
 
     public async Task<DocumentDownload> DownloadAsync(Guid id, string userId, bool isTeacher)
     {
@@ -318,6 +327,30 @@ public class DocumentService : IDocumentService
 
     /* Helpers */
 
+    // Get name from course, module or activity for notification
+    private async Task<string> GetNameForNotificationAsync(Guid? courseId, Guid? moduleId, Guid? activityId)
+    {
+        if (courseId is Guid courseGuid)
+        {
+            return (await _unitOfWork.Courses.GetCourseByIdAsync(courseGuid))?.Name
+                ?? string.Empty;
+        }
+
+        if (moduleId is Guid moduleGuid)
+        {
+            return (await _unitOfWork.Modules.GetByIdAsync(moduleGuid))?.Name
+                ?? string.Empty;
+        }
+
+        if (activityId is Guid activityGuid)
+        {
+            return (await _unitOfWork.Activities.GetByIdAsync(activityGuid))?.Name
+                ?? string.Empty;
+        }
+
+        return string.Empty;
+    }
+
     // Teachers see every course. A student only sees the course they are enrolled in.
     private async Task<bool> CanAccessCourseAsync(Guid courseId, string userId, bool isTeacher)
     {
@@ -391,5 +424,22 @@ public class DocumentService : IDocumentService
         {
             // Ignored on purpose, see the callers
         }
+    }
+
+    private async Task CreateDocumentNotificationAsync(Document document)
+    {
+        // Get name of: course, module or activity
+        string name = await GetNameForNotificationAsync(document.CourseId, document.ModuleId, document.ActivityId);
+
+        var notification = new CreateNotificationDto
+        {
+            EventType = NotificationEventTypes.Document,
+            Message = $"New document {name} - {document.Name}",
+            CourseId = document.CourseId,
+            ModuleId = document.ModuleId,
+            ActivityId = document.ActivityId
+        };
+
+        await _notificationService.CreateNotificationAsync(notification);
     }
 }
