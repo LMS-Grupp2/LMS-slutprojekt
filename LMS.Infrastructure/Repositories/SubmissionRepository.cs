@@ -39,4 +39,18 @@ public class SubmissionRepository : ISubmissionRepository
             .Where(s => s.ActivityId == activityId)
             .ToListAsync();
     }
+
+    public async Task<Submission?> GetForReviewAsync(Guid submissionId)
+    {
+        return await _context.Submissions
+            .AsNoTracking()
+            .Include(s => s.Student)
+            .Include(s => s.Activity)
+                .ThenInclude(a => a.Module)
+                .ThenInclude(m => m.Course)
+            .Include(s => s.Documents.OrderByDescending(d => d.UploadedAt))
+            .Include(s => s.Feedbacks.OrderByDescending(f => f.CreatedAt))
+                .ThenInclude(f => f.Teacher)
+            .FirstOrDefaultAsync(s => s.Id == submissionId);
+    }
 }

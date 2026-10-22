@@ -2,6 +2,7 @@ using Domain.Contracts;
 using Domain.Models.Entities;
 using Domain.Models.Exceptions;
 using LMS.Shared.Constants;
+using LMS.Shared.DTOs.FeedbackDtos;
 using LMS.Shared.DTOs.SubmissionDtos;
 using Service.Contracts;
 
@@ -123,6 +124,36 @@ public class SubmissionService : ISubmissionService
 
         // Deadline is sent as Swedish time, so the page can show it as it is
         return new SubmissionOverviewDto(activity.Id, activity.Name, activity.EndTime, deadlineUtc < now,  rows);
+    }
+
+
+    public async Task<SubmissionReviewDto> GetReviewAsync(Guid submissionId)
+    {
+        var submission = await _unitOfWork.Submissions.GetForReviewAsync(submissionId)
+            ?? throw new SubmissionNotFoundException(submissionId);
+
+        var activity = submission.Activity;
+
+        //Same time rule as US10 we compare in utc to show the deadline in sweidsh time
+        var deadlineUtc = CourseTime.ToUtc(activity.EndTime);
+        var status = SubmissionStatusCalculator.Calculate(submission, deadlineUtc, DateTime.UtcNow);
+
+        return new SubmissionReviewDto(
+            activity.Module.Course.Name,
+            activity.Name,
+            submission.Student.Name,
+            status,
+            submission.SubmittedAt,
+            activity.EndTime,
+            submission.Feedbacks.Select(f => new FeedbackDto
+            {
+                Id = f.Id,
+                Text = f.Text,
+                CreatedAt = f.CreatedAt,
+                TeacherId = f.TeacherId,
+                TeacherName = f.Teacher.Name
+            }).ToList(),
+            submission.Documents.Select(d => new SubmissionFileDto(d.Id, d.Name)).ToList();
     }
 
     private async Task<Activity> GetAssignmentForStudentAsync(Guid activityId, string studentId)

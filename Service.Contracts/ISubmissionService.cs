@@ -25,5 +25,9 @@ public interface ISubmissionService
     /// including students who have not handed in.                             
     /// </summary> 
     Task<SubmissionOverviewDto> GetOverviewAsync(Guid activityId);
+
+    /// <summary>Everything the teacher's review page 
+    /// shows for one submission (US11). 404 if it doesn't exist.</summary>
+    Task<SubmissionReviewDto> GetReviewAsync(Guid submissionId);
 }
 

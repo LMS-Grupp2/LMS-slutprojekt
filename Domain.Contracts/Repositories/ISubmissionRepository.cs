@@ -11,4 +11,6 @@ public interface ISubmissionRepository
     void Create(Submission submission);
 
     Task<IEnumerable<Submission>> GetByActivityIdAsync(Guid activityId);
+
+    Task<Submission?> GetForReviewAsync(Guid submissionId);
 }
