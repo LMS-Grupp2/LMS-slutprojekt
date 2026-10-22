@@ -1,0 +1,131 @@
+﻿@page "/submissions/{SubmissionId:guid}/review"
+
+@using System.Globalization
+@using System.Net
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
+@using LMS.Shared.DTOs.FeedbackDtos
+@using LMS.Shared.DTOs.SubmissionDtos
+@using Microsoft.AspNetCore.Authorization
+
+@*Teacher review page for on submission for US11: show the hand in, earlier feedback,
+    and a form to give new feedback(Approved or need changes plus a comment)*@
+@attribute [Authorize(Roles = UserRoles.Teacher)]
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>Review submission</PageTitle>
+
+<div class="d-flex flex-column gap-4">
+    @if (IsLoading)
+    {
+        <LoadingSkeleton />
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <ErrorState Message="@loadError" />
+    }
+    else if (review is not null)
+    {
+        <PageHeader Title="Review submission"
+                    Subtitle="@("{review.CourseName} - {review.AssignmentName}")" />
+
+        <div class="lms-card p-4 d-flex flex-column gap-3">
+            @*Who and which assigment plus status on the right side*@
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="fs-5 fw-semibold">@review.StudentName - @review.AssignmentName</div>
+                <div class="@(review.Status == SubmissionStatus.Late ? "text-danger" : "text-secondary") small">
+                    Submitted @FormatDateTime(review.SubmittedAt.ToLocalTime())
+                    - deadline @FormatDateTime(review.Deadline)
+                </div>
+            </div>
+
+            <StatusBadge Text="@review.Status" Tone="@SubmissionStatusStyles.ToneOf(review.Status)" />
+        </div>
+
+        <hr class="my-0" />
+
+        @*The handed in files*@
+        <div>
+            <div class="text-uppercase small fw-semibold text-secondary mb-2">Submitted files</div>
+            @foreach (var file in review.Files)
+            {
+                <div class="d-flex justify-content-between align-items-center py-1">
+                    <span>@file.Name</span>
+                    <a class="btn btn-sm btn-outline-secondary" href="api/proxy/documents/@file.Id/download">Download</a>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@code {
+    [Parameter]
+    public Guid SubmissionId { get; set; }
+
+    private readonly CancellationTokenSource cts = new();
+
+    private SubmissionReviewDto? review;
+    private bool IsLoading = true;
+    private string? loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await ApiProxyClient.GetAsync<SubmissionReviewDto>(
+                $"submissions/{SubmissionId}/review", cts.Token);
+
+            if (result is null)
+                return;
+
+            review = result;
+            IsLoading = false;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            //Navigating away will cancel the request
+        }
+        catch (UnauthorizedAccessException)
+        {
+            NavigationManager.NavigateTo($"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}", 
+            forceLoad: true);
+        }
+        catch (HttpRequestException ex)
+        {
+            loadError = ex.StatusCode == HttpStatusCode.NotFound
+                ? "Could not find the submission."
+                : "Could not load the submission. Please try again";
+            IsLoading = false;
+        }
+    }
+
+    private static string FormatDateTime(DateTime value) =>
+    value.ToString("ddd d MMM yyyy, HH:mm", CultureInfo.InvariantCulture);
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+}
