@@ -50,7 +50,9 @@ public class AssignmentService : IAssignmentService
                 SubmittedAt = submission?.SubmittedAt,
                 Status = SubmissionStatusCalculator.Calculate(submission, deadlineUtc, now),
                 Grade = submission?.Grade?.ToString(),
-                HasFeedback = submission?.Feedbacks.Any() ?? false
+                HasFeedback = submission?.Feedbacks.Any() ?? false,
+                Approved = submission?.Approved ?? false,
+                NeedChanges = submission?.NeedChanges ?? false
 
             };
         })
