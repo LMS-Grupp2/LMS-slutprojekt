@@ -18,6 +18,7 @@ public class ServiceManager : IServiceManager
     private readonly Lazy<IDocumentService> _documentService; // NEW (US06)
     private readonly Lazy<IAssignmentService> _assignmentService;
     private readonly Lazy<IDashboardService> _dashboardService; // NEW (US12)
+    private readonly Lazy<ITeacherDashboardService> _teacherDashboardService; // NEW (US13)
 
     public IAuthService AuthService => _authService.Value;
     public ISubmissionService SubmissionService => _submissionService.Value; // NEW (US09)
@@ -32,6 +33,8 @@ public class ServiceManager : IServiceManager
 
     public IDashboardService DashboardService => _dashboardService.Value; // NEW (US12)
 
+    public ITeacherDashboardService TeacherDashboardService => _teacherDashboardService.Value; // NEW (US13)
+
     public ServiceManager(
         Lazy<IDocumentService> documentService, // NEW (US06)
         Lazy<ISubmissionService> submissionService, // NEW (US09)
@@ -42,7 +45,8 @@ public class ServiceManager : IServiceManager
         Lazy<IUserService> userService,
         Lazy<IActivityService> activityService,
         Lazy<IAssignmentService> assignmentService,
-        Lazy<IDashboardService> dashboardService) // NEW (US12)
+        Lazy<IDashboardService> dashboardService, // NEW (US12)
+        Lazy<ITeacherDashboardService> teacherDashboardService) // NEW (US13)
     {
         _authService = authService;
         _submissionService = submissionService; // NEW (US09)
@@ -56,5 +60,7 @@ public class ServiceManager : IServiceManager
         _assignmentService = assignmentService;
 
         _dashboardService = dashboardService; // NEW (US12)
+
+        _teacherDashboardService = teacherDashboardService; // NEW (US13)
     }
 }

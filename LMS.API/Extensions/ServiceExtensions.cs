@@ -33,5 +33,7 @@ public static class ServiceExtensions
         services.AddLazy<IAssignmentService>();
         services.AddScoped<IDashboardService, DashboardService>(); // NEW (US12)
         services.AddLazy<IDashboardService>(); // NEW (US12)
+        services.AddScoped<ITeacherDashboardService, TeacherDashboardService>(); // NEW (US13)
+        services.AddLazy<ITeacherDashboardService>(); // NEW (US13)
     }
 }
