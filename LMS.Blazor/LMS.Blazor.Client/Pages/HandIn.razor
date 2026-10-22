@@ -8,6 +8,7 @@
 @using LMS.Shared.DTOs.SubmissionDtos
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Forms
+@using LMS.Shared.DTOs.FeedbackDtos
 
 @* A student's hand-in for one assignment (US09). Shows the deadline, the calculated status and the files
    handed in so far, and lets the student hand in a file. Reached from the "Hand in" button on an
@@ -124,6 +125,25 @@
                         </div>
                     }
                 </section>
+
+                @*New US11: the teacher's feedback newest first*@
+                @if (feedbacks.Count > 0)
+                {
+                    <section class="lms-card mt-4">
+                        <div class="lms-card-header">
+                            <h2 class="lms-card-title">Feedback from your teacher</h2>
+                        </div>
+                        @foreach (var feedback in feedbacks)
+                        {
+                            <div class="border rounded p-3 mb-2">
+                                <div class="small text-secondary mb-1">
+                                    @feedback.TeacherName - @FormatDateTime(feedback.CreatedAt.ToLocalTime())
+                                </div>
+                                <div>@feedback.Text</div>
+                            </div>
+                        }
+                    </section>
+                }
             </div>
         </div>
     }
@@ -143,6 +163,7 @@
 
     private Guid loadedActivityId;
     private StudentSubmissionDto? submission;
+    private List<FeedbackDto> feedbacks = []; // NEW US11: the teacher's feedback with newest first
     private bool isLoading = true;
     private string? loadError;
     private string? successMessage;
@@ -185,6 +206,12 @@
             }
 
             submission = result;
+
+            // New US11: loading the teacher feedback only when something was handed in
+            feedbacks = submission.SubmissionId is { } submissionId
+                ? await ApiProxyClient.GetAsync<List<FeedbackDto>>
+                ($"submissions/{submissionId}/feedback", cts.Token) ?? [] : [];
+
             isLoading = false;
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
