@@ -6,6 +6,7 @@
 @using LMS.Shared.Constants
 @using LMS.Shared.DTOs.DashboardDtos
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 
 @attribute [Authorize(Roles = UserRoles.Student)]
 @implements IDisposable
@@ -19,7 +20,10 @@
    so every page shows the same colours.
    Deadlines are Swedish wall-clock time and shown as they are, uploaded times are UTC and shown in local time. *@
 
-<PageHeader Title="Dashboard" Subtitle="@dashboard?.CourseName">
+<PageTitle>Dashboard</PageTitle>
+
+@* Same greeting style as the teacher's dashboard: "Welcome, Sam", with the course name under it *@
+<PageHeader Title="@GreetingText.For(userName)" Subtitle="@dashboard?.CourseName">
     <Actions>
         <a class="btn btn-primary" href="my-assignments">Go to assignments</a>
     </Actions>
@@ -212,6 +216,11 @@ else if (dashboard is not null)
     // Cancels the request when the student leaves the page
     private readonly CancellationTokenSource cts = new();
 
+    // The signed-in user, used for the name in the greeting
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private string? userName;
     private StudentDashboardDto? dashboard;
     private string? errorMessage;
     private bool isLoading = true;
@@ -219,7 +228,13 @@ else if (dashboard is not null)
     // The first upcoming activity is the "Next activity"
     private DashboardActivityDto? nextActivity => dashboard?.UpcomingActivities.FirstOrDefault();
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is not null)
+            userName = (await AuthState).User.Identity?.Name;
+
+        await LoadAsync();
+    }
 
     // Also used by the "Try again" button in the error state
     private async Task LoadAsync()

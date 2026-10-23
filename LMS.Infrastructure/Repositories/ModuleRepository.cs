@@ -19,6 +19,21 @@ public class ModuleRepository(ApplicationDbContext context) : IModuleRepository
             .OrderBy(m => m.StartDate)
             .ToListAsync();
 
+    /// <summary>
+    /// Returns the modules of several courses in one query, earliest start date first. Read only.
+    /// </summary>
+    public async Task<IEnumerable<Module>> GetByCourseIdsAsync(IEnumerable<Guid> courseIds)
+    {
+        // Materialised first, so EF Core can translate Contains to an SQL IN (...)
+        var ids = courseIds.ToList();
+
+        return await context.Modules
+            .AsNoTracking()
+            .Where(m => ids.Contains(m.CourseId))
+            .OrderBy(m => m.StartDate)
+            .ToListAsync();
+    }
+
     /// <summary>Returns a module by id. Tracking is only turned on when the module will be changed.</summary>
     public async Task<Module?> GetByIdAsync(Guid id, bool trackChanges = false)
     {

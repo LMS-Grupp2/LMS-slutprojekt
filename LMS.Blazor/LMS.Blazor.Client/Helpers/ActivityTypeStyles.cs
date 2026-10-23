@@ -1,4 +1,6 @@
-﻿namespace LMS.Blazor.Client.Helpers;
+﻿using LMS.Shared.Constants;
+
+namespace LMS.Blazor.Client.Helpers;
 
 /// <summary>
 /// The one place that decides which colour an activity type gets, so every page shows the same colours.
@@ -12,7 +14,8 @@ public static class ActivityTypeStyles
         "Lecture" => "primary",
         "E-Learning" => "info",
         "Exercise" => "success",
-        "Assignment" => "warning",
+        // The shared constant, so the name is defined in one place only
+        ActivityTypeNames.Assignment => "warning",
         _ => "muted"
     };
 }

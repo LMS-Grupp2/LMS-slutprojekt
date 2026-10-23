@@ -26,6 +26,7 @@ public class TeacherDashboardServiceTests
     private readonly List<Course> _courses = [];
     private readonly Dictionary<Guid, List<CourseUser>> _membersByCourse = [];
     private readonly Dictionary<string, string> _roles = [];
+    private readonly List<Module> _courseModules = [];
     private readonly List<Activity> _assignments = [];
     private readonly List<Activity> _upcoming = [];
 
@@ -43,11 +44,25 @@ public class TeacherDashboardServiceTests
 
         _courseRepository.Setup(r => r.GetAllCoursesAsync(It.IsAny<CourseListQuery>(), It.IsAny<DateOnly>()))
             .ReturnsAsync(_courses);
-        _courseUsers.Setup(r => r.GetByCourseIdAsync(It.IsAny<Guid>()))
-            .ReturnsAsync((Guid id) =>
-                (IEnumerable<CourseUser>)(_membersByCourse.TryGetValue(id, out var members) ? members : []));
+
+        // The members of the asked-for courses, in one call (like the real repository)
+        _courseUsers.Setup(r => r.GetByCourseIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+            .ReturnsAsync((IEnumerable<Guid> ids) =>
+                (IEnumerable<CourseUser>)_membersByCourse
+                    .Where(pair => ids.Contains(pair.Key))
+                    .SelectMany(pair => pair.Value)
+                    .ToList());
+
         _users.Setup(r => r.GetRoleNamesByUserIdAsync()).ReturnsAsync(_roles);
-        _modules.Setup(r => r.GetByCourseIdAsync(It.IsAny<Guid>())).ReturnsAsync(new List<Module>());
+
+        // The modules of the asked-for courses, in one call, earliest start date first
+        _modules.Setup(r => r.GetByCourseIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+            .ReturnsAsync((IEnumerable<Guid> ids) =>
+                (IEnumerable<Module>)_courseModules
+                    .Where(m => ids.Contains(m.CourseId))
+                    .OrderBy(m => m.StartDate)
+                    .ToList());
+
         _activities.Setup(r => r.GetAssignmentsWithSubmissionsAsync(ActivityTypeNames.Assignment))
             .ReturnsAsync(_assignments);
         _activities.Setup(r => r.GetUpcomingAcrossCoursesAsync(It.IsAny<DateTime>(), It.IsAny<int>()))
@@ -241,6 +256,44 @@ public class TeacherDashboardServiceTests
     }
 
     [Fact]
+    public async Task FinishedAndUpcomingCourses_AreNotCounted()
+    {
+        //ARRANGE: a finished and a not yet started course, each with a student who missed a deadline
+        var finished = AddCourse("Finished", Today().AddDays(-90), Today().AddDays(-30));
+        var upcoming = AddCourse("Upcoming", Today().AddDays(10), Today().AddDays(90));
+
+        foreach (var course in new[] { finished, upcoming })
+        {
+            AddStudent(course, $"s-{course.Name}", $"{course.Name} Student");
+            AddAssignment(course, $"{course.Name} task", deadlineDaysFromNow: -3);
+        }
+
+        //ACT
+        var result = await _service.GetForTeacherAsync();
+
+        //ASSERT: only courses that run today are counted, so nothing is missing
+        Assert.Equal(0, result.MissingCount);
+        Assert.Equal(0, result.LateCount);
+        Assert.Empty(result.NeedsAttention);
+    }
+
+    [Fact]
+    public async Task MembersAndModules_AreLoadedInOneQueryEach_NotPerCourse()
+    {
+        //ARRANGE: two running courses
+        AddCourse("Second course", Today().AddDays(-5), Today().AddDays(5));
+
+        //ACT
+        await _service.GetForTeacherAsync();
+
+        //ASSERT: one call for all members, one for all modules, and no call per course
+        _courseUsers.Verify(r => r.GetByCourseIdsAsync(It.IsAny<IEnumerable<Guid>>()), Times.Once);
+        _courseUsers.Verify(r => r.GetByCourseIdAsync(It.IsAny<Guid>()), Times.Never);
+        _modules.Verify(r => r.GetByCourseIdsAsync(It.IsAny<IEnumerable<Guid>>()), Times.Once);
+        _modules.Verify(r => r.GetByCourseIdAsync(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CurrentCourses_OnlyIncludeCoursesThatRunToday()
     {
         //ARRANGE: the default course runs today, the other two do not
@@ -261,15 +314,14 @@ public class TeacherDashboardServiceTests
         //ARRANGE: two students and a module that started 10 days ago and ends in 10 days (halfway)
         AddStudent(_course, "s1", "One");
         AddStudent(_course, "s2", "Two");
-        var module = new Module
+        _courseModules.Add(new Module
         {
             Id = Guid.NewGuid(),
             Name = "Blazor",
             CourseId = _course.Id,
             StartDate = Today().AddDays(-10),
             EndDate = Today().AddDays(10)
-        };
-        _modules.Setup(r => r.GetByCourseIdAsync(_course.Id)).ReturnsAsync(new List<Module> { module });
+        });
 
         //ACT
         var result = await _service.GetForTeacherAsync();
