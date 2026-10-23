@@ -1,14 +1,15 @@
+@using System.Linq
+@using System.Net
 @using LMS.Blazor.Client.Services.ApiProxy
 @using LMS.Shared.Constants
 @using LMS.Shared.DTOs.NotificationDtos
 @using Microsoft.AspNetCore.Authorization
-@using System.Linq
 
 @* Bell icon with unread badge and dropdown (US14).
    Uses <details>/<summary> so it opens and closes without JavaScript or interactivity.
    Items are intentionally not links (for now). *@
 
-@attribute [Authorize(Roles = UserRoles.Student)]
+@attribute [Authorize(Roles = UserRoles.Teacher + "," + UserRoles.Student)]
 @implements IDisposable
 
 @inject IApiProxyClient ApiProxyClient;
@@ -83,11 +84,12 @@
 </details>
 
 @code {
-    private int MaxItems { get; set; } = 10;  // Not in use right now!
+    private int MaxItems = 10;  // Not in use right now!
 
     private IEnumerable<NotificationDto>? notifications;
     private readonly CancellationTokenSource componentCancellation = new();
 
+    private string errorMessage = "";  // Not in use - where to show messages?
     private bool isLoading = true;
     private int UnreadCount = 0;
     // private int TotalCount = 0;
@@ -121,6 +123,14 @@
                 $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
                 forceLoad: true);
             return;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            errorMessage = "You are not allowed to view this data";
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "The assignments could not be loaded. Please try again later.";
         }
 
         isLoading = false;
