@@ -1,6 +1,5 @@
 ﻿using Domain.Models.Exceptions;
 using LMS.Shared.Constants;
-using LMS.Shared.DTOs.AssignmentDtos;
 using LMS.Shared.DTOs.NotificationDtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -34,7 +33,7 @@ public class NotificationsController(IServiceManager serviceManager) : Controlle
 
         if (nbrItems > maxItems)
             throw new BadRequestException($"Max {maxItems} notifications can be requested for.");
-        
+
         var notifictions = await _serviceManager.NotificationService.GetByStudentIdAsync(userId, nbrItems);
 
         return Ok(notifictions);
