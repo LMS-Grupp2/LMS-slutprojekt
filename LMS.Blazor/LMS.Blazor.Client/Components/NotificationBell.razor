@@ -1,10 +1,8 @@
-@using System.Linq
-@using System.Net
 @using LMS.Blazor.Client.Services.ApiProxy
 @using LMS.Shared.Constants
 @using LMS.Shared.DTOs.NotificationDtos
 @using Microsoft.AspNetCore.Authorization
-@using System.Net.Http.Json
+@using System.Linq
 
 @* Bell icon with unread badge and dropdown (US14).
    Uses <details>/<summary> so it opens and closes without JavaScript or interactivity.
@@ -15,7 +13,6 @@
 
 @inject IApiProxyClient ApiProxyClient;
 @inject NavigationManager NavigationManager
-
 
 <details class="lms-bell">
     <summary aria-label="Notifications (@UnreadCount new)">
@@ -30,8 +27,7 @@
         }
     </summary>
 
-    <div class="lms-bell-menu" role="dialog" aria-label="Notifications"
-            style="position: absolute; top: 55px; right: 130px; background-color: #555;">
+    <div class="lms-bell-menu" role="dialog" aria-label="Notifications">
         <div class="lms-bell-header">
             <div class="d-flex align-items-center gap-2">
                 <span class="fw-semibold">Notifications</span>
@@ -64,8 +60,7 @@
                 @foreach (var item in notifications.OrderByDescending(n => n.CreatedAt).Take(MaxItems))
                 {
                     <div class="lms-bell-item @(item.IsRead ? "" : "is-new")">
-                        <span class="lms-icon-tile @(item.EventType == NotificationEventTypes.Feedback ? "lms-tone-info" : "lms-tone-purple")"
-                              style="width:32px;height:32px;font-size:.8125rem">
+                        <span class="lms-icon-tile @(item.EventType == NotificationEventTypes.Feedback ? "lms-tone-info" : "lms-tone-purple")">
                             @(item.EventType == NotificationEventTypes.Feedback ? "F" : "D")
                         </span>
 
@@ -88,19 +83,20 @@
 </details>
 
 @code {
-    [Parameter]
-    public int MaxItems { get; set; } = 10;
+    private int MaxItems { get; set; } = 10;  // Not in use right now!
 
     private IEnumerable<NotificationDto>? notifications;
     private readonly CancellationTokenSource componentCancellation = new();
 
-    private string? errorMessage;
     private bool isLoading = true;
     private int UnreadCount = 0;
-    private int TotalCount = 0;
+    // private int TotalCount = 0;
 
     protected override async Task OnInitializedAsync()
     {
+        isLoading = true;
+
+        // Load the users notifications
         try
         {
             var result = await ApiProxyClient.GetAsync<IEnumerable<NotificationDto>>(
@@ -125,14 +121,6 @@
                 $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
                 forceLoad: true);
             return;
-        }
-        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
-        {
-            errorMessage = "You are not allowed to view this data";
-        }
-        catch (HttpRequestException)
-        {
-            errorMessage = "The assignments could not be loaded. Please try again later.";
         }
 
         isLoading = false;
@@ -159,15 +147,14 @@
         }
     }
 
-    /// <summary>
-    /// Update counter for 
-    /// </summary>
+    /// <summary> Update counter for </summary>
     private void UpdateNotificationCouter()
     {
-        TotalCount = notifications?.Count() > 0 ? notifications.Count() : 0;
-        UnreadCount = TotalCount > 0 ? notifications!.Count(notification => !notification.IsRead) : 0;
+        //TotalCount = notifications?.Count() > 0 ? notifications.Count() : 0;
+        UnreadCount = notifications?.Count() > 0 ? notifications!.Count(notification => !notification.IsRead) : 0;
     }
 
+    /// <summary> Create text with info about how old a notification is</summary>
     public static class TimeFormat
     {
         /// <summary>"1 h ago", "Today 08:12", "Yesterday", "5 Sep".</summary>
