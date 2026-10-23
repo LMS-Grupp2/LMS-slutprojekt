@@ -44,7 +44,7 @@ public class NotificationService : INotificationService
     /// /// <returns>List of students notifications</returns>
     public async Task<IEnumerable<NotificationDto>> GetByStudentIdAsync(string studentId, int nbrItems)
     {
-        var result = await _unitOfWork.Notification.GetByStudentId(studentId, nbrItems);
+        var result = await _unitOfWork.Notification.GetByStudentIdAsync(studentId, nbrItems);
 
         var dtos = new List<NotificationDto>();
 
@@ -66,12 +66,20 @@ public class NotificationService : INotificationService
     }
 
     /// <summary>
-    /// Updates notification
+    /// Updates single notification to be IsRead
+    /// Toggle single notification to be 
     /// </summary>
+    /// <param name="userId"></param>
+    /// <param name="dto"></param>
+    /// <returns></returns>
     /// <exception cref="BadRequestException"></exception>
+    /// <exception cref="NotificationNotFoundException"></exception>
     public async Task<bool> UpdateNotification(string userId, UpdateNotificationDto dto)
     {
-        var notification = await _unitOfWork.Notification.GetById(userId, dto.Id);
+        if (dto.Id is null)
+            throw new BadRequestException("Notification is not set");
+
+        var notification = await _unitOfWork.Notification.GetByIdAsync(userId, (Guid)dto.Id);
 
         if (notification is null)
             throw new NotificationNotFoundException();
@@ -79,6 +87,21 @@ public class NotificationService : INotificationService
         // Changes - can only change IsRead at the moment
         notification.IsRead = dto.IsRead ?? false;
 
+        await _unitOfWork.SaveChangesAsync();
+
+        return true;
+    }
+
+    public async Task<bool> UpdateAllRead(string userId)
+    {
+        var notification = await _unitOfWork.Notification.GetAllUnreadByStudentIdAsync(userId);
+        if (notification is null)
+            throw new NotificationNotFoundException();
+
+        foreach (var item in notification)
+        {
+            item.IsRead = true;
+        }
         await _unitOfWork.SaveChangesAsync();
 
         return true;

@@ -19,7 +19,7 @@ public class NotificationRepository : INotificationRepository
     /// </summary>
     /// <param name="id"></param>
     /// <returns>Returns notification or default</returns>
-    public async Task<Notification?> GetById(string userId, Guid notificationId)
+    public async Task<Notification?> GetByIdAsync(string userId, Guid notificationId)
     {
         return await _context.Notifications
             .SingleOrDefaultAsync(notification => notification.Id == notificationId && notification.RecipientId == userId);
@@ -30,13 +30,23 @@ public class NotificationRepository : INotificationRepository
     /// </summary>
     /// <param name="studentId"></param>
     /// <returns>Returns list of notifications for individual student, latest first with limit</returns>
-    public async Task<IEnumerable<Notification>> GetByStudentId(string studentId, int nbrItems)
+    public async Task<IEnumerable<Notification>> GetByStudentIdAsync(string studentId, int nbrItems)
     {
         return await _context.Notifications
             .AsNoTracking()
             .Where(n => n.RecipientId == studentId)
             .OrderByDescending(n => n.CreatedAt)
             .Take(nbrItems)
+            .ToListAsync();
+    }
+
+
+    public async Task<IEnumerable<Notification>> GetAllUnreadByStudentIdAsync(string userId)
+    {
+        return await _context.Notifications
+            //.AsNoTracking()
+            .Where(n => n.RecipientId == userId && n.IsRead == false)
+            //.OrderByDescending(n => n.CreatedAt)
             .ToListAsync();
     }
 
