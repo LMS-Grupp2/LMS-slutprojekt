@@ -217,15 +217,14 @@ else if (dashboard is not null)
 
     private TeacherDashboardDto? dashboard;
     private string? errorMessage;
-    private string firstName = string.Empty;
+    private string? userName;
     private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
         if (AuthState is not null)
         {
-            var name = (await AuthState).User.Identity?.Name;
-            firstName = FirstNameOf(name);
+            userName = (await AuthState).User.Identity?.Name;
         }
 
         await LoadAsync();
@@ -273,23 +272,8 @@ else if (dashboard is not null)
         isLoading = false;
     }
 
-    // The first word of the name: "Karin Sjöberg" -> "Karin". If the name is an e-mail address,
-    // only the part before the @ is used: "teacher@lms.com" -> "Teacher".
-    private static string FirstNameOf(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            return string.Empty;
-
-        var atIndex = name.IndexOf('@');
-        var text = atIndex > 0 ? name[..atIndex] : name;
-        var first = text.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
-
-        return first.Length == 0 ? first : char.ToUpperInvariant(first[0]) + first[1..];
-    }
-
-    // "Welcome, Karin". No time of day, so the text is the same on the server and in the browser.
-    private string Greeting() =>
-        string.IsNullOrEmpty(firstName) ? "Welcome" : $"Welcome, {firstName}";
+    // "Welcome, Karin". The same greeting as on the student's dashboard (see GreetingText).
+    private string Greeting() => GreetingText.For(userName);
 
     // The date in the teacher's own browser, for example "Tuesday 20 October 2026". Only shown after the data is loaded.
     private static string TodayText() =>

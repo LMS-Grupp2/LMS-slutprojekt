@@ -8,7 +8,8 @@ using Service.Contracts;
 namespace LMS.Services;
 
 /// <summary>
-/// Builds the teacher's dashboard (US13). The teacher sees all courses, like on the Courses and Submissions pages.
+/// Builds the teacher's dashboard (US13). The dashboard only looks at the courses that are running today,
+/// so finished courses do not keep adding to the Late and Missing counts.
 /// Every status comes from SubmissionStatusCalculator, the same rules as the student's pages and the
 /// Submissions page, so the numbers on the dashboard always match the rest of the app.
 /// </summary>
@@ -35,29 +36,35 @@ public class TeacherDashboardService : ITeacherDashboardService
         var courseNow = CourseTime.FromUtc(now);
         var today = DateOnly.FromDateTime(courseNow);
 
-        // 1. All courses and, per course, its students. An empty query (no search, no status) returns every course.
-        //    Teachers can also be course members, so the members are filtered by role
-        //    (two calls: the members of a course + the roles of all users).
-        var courses = (await _unitOfWork.Courses.GetAllCoursesAsync(new CourseListQuery(), today)).ToList();
-        var roleNames = await _unitOfWork.Users.GetRoleNamesByUserIdAsync();
+        // 1. Only the courses that are running today, oldest start first.
+        //    An empty query (no search, no status) returns every course, the running ones are picked here.
+        var allCourses = await _unitOfWork.Courses.GetAllCoursesAsync(new CourseListQuery(), today);
+        var courses = allCourses
+            .Where(c => c.StartDate <= today && today <= c.EndDate)
+            .OrderBy(c => c.StartDate)
+            .ToList();
+        var courseIds = courses.Select(c => c.Id).ToList();
 
-        var studentsByCourse = new Dictionary<Guid, List<CourseUser>>();
-        foreach (var course in courses)
+        // 2. The members of all those courses in one query, and the roles of all users in another.
+        //    Teachers can also be course members, so the members are filtered by role.
+        var roleNames = await _unitOfWork.Users.GetRoleNamesByUserIdAsync();
+        var members = await _unitOfWork.CourseUsers.GetByCourseIdsAsync(courseIds);
+
+        var studentsByCourse = courses.ToDictionary(c => c.Id, _ => new List<CourseUser>());
+        foreach (var member in members)
         {
-            var members = await _unitOfWork.CourseUsers.GetByCourseIdAsync(course.Id);
-            studentsByCourse[course.Id] = members
-                .Where(m => roleNames.TryGetValue(m.UserId, out var role) && role == UserRoles.Student)
-                .ToList();
+            if (roleNames.TryGetValue(member.UserId, out var role) && role == UserRoles.Student)
+                studentsByCourse[member.CourseId].Add(member);
         }
 
-        // 2. One row per student and assignment (a left join in memory): no submission means null,
+        // 3. One row per student and assignment (a left join in memory): no submission means null,
         //    which the calculator turns into "Not submitted" or "Missing".
         var assignments = await _unitOfWork.Activities.GetAssignmentsWithSubmissionsAsync(ActivityTypeNames.Assignment);
         var rows = new List<Row>();
 
         foreach (var assignment in assignments)
         {
-            // An assignment in a course that no longer exists has no students to show
+            // An assignment in a course that is not running today (finished, not started or gone) is skipped
             if (!studentsByCourse.TryGetValue(assignment.Module.CourseId, out var students))
                 continue;
 
@@ -72,7 +79,7 @@ public class TeacherDashboardService : ITeacherDashboardService
             }
         }
 
-        // 3. The four cards. Counted over all rows, not over the shortened list below.
+        // 4. The four cards. Counted over all rows, not over the shortened list below.
         var awaiting = rows.Where(r => r.Status == SubmissionStatus.AwaitingFeedback).ToList();
         var late = rows.Where(r => r.Status == SubmissionStatus.Late).ToList();
         var missing = rows.Where(r => r.Status == SubmissionStatus.Missing).ToList();
@@ -94,7 +101,7 @@ public class TeacherDashboardService : ITeacherDashboardService
         var newSince = now.AddHours(-NewSubmissionHours);
         var newSubmissionsCount = rows.Count(r => r.Submission is not null && r.Submission.SubmittedAt >= newSince);
 
-        // 4. "Needs your attention": late first, then awaiting feedback (oldest first), then missing
+        // 5. "Needs your attention": late first, then awaiting feedback (oldest first), then missing
         //    (oldest deadline first). Only a few rows, the Submissions page shows everything.
         var needsAttention = late.OrderBy(r => r.Submission!.SubmittedAt)
             .Concat(awaiting.OrderBy(r => r.Submission!.SubmittedAt))
@@ -110,7 +117,7 @@ public class TeacherDashboardService : ITeacherDashboardService
                 r.Assignment.EndTime))
             .ToList();
 
-        // 5. The next activities in all courses (one query, Module + Course + ActivityType are included)
+        // 6. The next activities in all courses (one query, Module + Course + ActivityType are included)
         var upcoming = (await _unitOfWork.Activities.GetUpcomingAcrossCoursesAsync(courseNow, UpcomingActivityCount))
             .Select(a => new TeacherActivityDto(
                 a.Id,
@@ -123,13 +130,16 @@ public class TeacherDashboardService : ITeacherDashboardService
                 a.ModuleId))
             .ToList();
 
-        // 6. The courses that are running today, oldest start first, each with its current module
+        // 7. The running courses, each with its current module. The modules of all the courses
+        //    come in one query (already sorted by start date) and are grouped per course here.
+        var modulesByCourse = (await _unitOfWork.Modules.GetByCourseIdsAsync(courseIds))
+            .GroupBy(m => m.CourseId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         var currentCourses = new List<TeacherCourseDto>();
-        foreach (var course in courses
-                     .Where(c => c.StartDate <= today && today <= c.EndDate)
-                     .OrderBy(c => c.StartDate))
+        foreach (var course in courses)
         {
-            var modules = (await _unitOfWork.Modules.GetByCourseIdAsync(course.Id)).ToList();
+            var modules = modulesByCourse.GetValueOrDefault(course.Id) ?? [];
             var module = CurrentModuleOf(modules, today);
 
             currentCourses.Add(new TeacherCourseDto(
