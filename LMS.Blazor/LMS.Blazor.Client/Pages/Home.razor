@@ -18,8 +18,8 @@
 
         var user = (await AuthState).User;
 
-        // Students start on their dashboard (US12), teachers on the user list
-        var target = user.IsInRole(UserRoles.Teacher) ? "users"
+        // Everyone starts on their dashboard: teachers (US13) and students (US12)
+        var target = user.IsInRole(UserRoles.Teacher) ? "teacher-dashboard"
                    : user.IsInRole(UserRoles.Student) ? "dashboard"
                    : "auth";
 

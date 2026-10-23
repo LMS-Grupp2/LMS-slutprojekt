@@ -14,4 +14,5 @@ public interface IServiceManager
     IFeedbackService FeedbackService { get; }
     IDashboardService DashboardService { get; } // NEW (US12)
     INotificationService NotificationService { get; }
+    ITeacherDashboardService TeacherDashboardService { get; } // NEW (US13)
 }

@@ -8,6 +8,12 @@ public interface IModuleRepository
     /// <summary>Gets the modules of a course, ordered by start date. Read only.</summary>
     Task<IEnumerable<Module>> GetByCourseIdAsync(Guid courseId);
 
+    /// <summary>
+    /// Gets the modules of several courses in one query, ordered by start date. Read only.
+    /// Used by the teacher dashboard so it does not need one query per course.
+    /// </summary>
+    Task<IEnumerable<Module>> GetByCourseIdsAsync(IEnumerable<Guid> courseIds);
+
     /// <summary>Gets a module by id. Set trackChanges to true when the module will be updated.</summary>
     Task<Module?> GetByIdAsync(Guid id, bool trackChanges = false);
 
