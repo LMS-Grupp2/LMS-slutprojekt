@@ -37,5 +37,7 @@ public static class ServiceExtensions
         services.AddLazy<IDashboardService>(); // NEW (US12)
         services.AddScoped<INotificationService, NotificationService>();
         services.AddLazy<INotificationService>();
+        services.AddScoped<ITeacherDashboardService, TeacherDashboardService>(); // NEW (US13)
+        services.AddLazy<ITeacherDashboardService>(); // NEW (US13)
     }
 }

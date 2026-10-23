@@ -8,6 +8,10 @@
     @* Teacher menu. Modules are reached through a course on the Courses page. *@
     <AuthorizeView Roles="@UserRoles.Teacher" Context="teacherContext">
         <p class="lms-sidebar-title">Teaching</p>
+        @* Dashboard (US13): what needs the teacher's attention right now *@
+        <NavLink class="lms-nav-link" href="teacher-dashboard">
+            <span class="lms-nav-glyph">O</span> Dashboard
+        </NavLink>
         <NavLink class="lms-nav-link" href="courses">
             <span class="lms-nav-glyph">C</span> Courses
         </NavLink>

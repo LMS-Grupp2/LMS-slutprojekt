@@ -1,0 +1,349 @@
+﻿@page "/teacher-dashboard"
+
+@using System.Globalization
+@using System.Net
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
+@using LMS.Shared.DTOs.DashboardDtos
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@attribute [Authorize(Roles = UserRoles.Teacher)]
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient
+@inject NavigationManager NavigationManager
+
+@* The teacher's dashboard (US13): what needs the teacher's attention right now, across all courses.
+   Data comes from GET api/teacher/dashboard through the BFF proxy (teacher/dashboard).
+   The status colours come from SubmissionStatusStyles and the activity type colours from ActivityTypeStyles,
+   so every page shows the same colours.
+   Deadlines and activity times are Swedish wall-clock time and shown as they are,
+   hand-in times are UTC and shown in local time. *@
+
+<PageTitle>Dashboard</PageTitle>
+
+<PageHeader Title="@Greeting()" Subtitle="@(dashboard is null ? null : TodayText())">
+    <Actions>
+        <a class="btn btn-outline-secondary" href="courses">Upload document</a>
+        <a class="btn btn-primary" href="courses">+ New course</a>
+    </Actions>
+</PageHeader>
+
+@if (isLoading)
+{
+    @* Shown while the dashboard is fetched, and during prerender *@
+    <LoadingSkeleton />
+}
+else if (errorMessage is not null)
+{
+    <ErrorState Message="@errorMessage" OnRetry="LoadAsync" />
+}
+else if (dashboard is not null)
+{
+    @* ---------- Four cards: awaiting feedback, new submissions, late, missing ---------- *@
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3">
+            <div class="lms-card h-100">
+                <div class="lms-cell-sub">Awaiting feedback</div>
+                <div class="fs-4 fw-bold @SubmissionStatusStyles.TextClassOf(SubmissionStatus.AwaitingFeedback)">@dashboard.AwaitingFeedbackCount</div>
+                <div class="lms-cell-sub">
+                    @(dashboard.OldestAwaitingSubmittedAt is { } oldest
+                        ? $"Oldest submitted {AgeText(oldest)}"
+                        : "Nothing is waiting")
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="lms-card h-100">
+                <div class="lms-cell-sub">New submissions</div>
+                <div class="fs-4 fw-bold text-primary">@dashboard.NewSubmissionsCount</div>
+                <div class="lms-cell-sub">Last 24 hours</div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="lms-card h-100">
+                <div class="lms-cell-sub">Late</div>
+                <div class="fs-4 fw-bold @SubmissionStatusStyles.TextClassOf(SubmissionStatus.Late)">@dashboard.LateCount</div>
+                <div class="lms-cell-sub">@(dashboard.LateAssignmentName ?? "No late hand-ins")</div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="lms-card h-100">
+                <div class="lms-cell-sub">Missing</div>
+                <div class="fs-4 fw-bold @SubmissionStatusStyles.TextClassOf(SubmissionStatus.Missing)">@dashboard.MissingCount</div>
+                <div class="lms-cell-sub">Deadline passed, nothing submitted</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        @* ---------- Needs your attention ---------- *@
+        <div class="col-12 col-lg-7">
+            <section class="lms-card h-100">
+                <div class="lms-card-header d-flex justify-content-between align-items-center">
+                    <h2 class="lms-card-title mb-0">Needs your attention</h2>
+                    <a class="text-decoration-none" href="submissions">All submissions</a>
+                </div>
+
+                @if (dashboard.NeedsAttention.Count == 0)
+                {
+                    <EmptyState Title="Nothing needs your attention" Icon="i" Tone="muted" InCard="false" />
+                }
+                else
+                {
+                    @foreach (var item in dashboard.NeedsAttention)
+                    {
+                        <div class="d-flex justify-content-between align-items-center gap-3 py-2 border-bottom">
+                            <div class="d-flex align-items-center gap-3">
+                                @* Round badge with the student's initials *@
+                                <span class="rounded-circle bg-primary-subtle text-primary fw-semibold d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                                      style="width: 36px; height: 36px;">@InitialsOf(item.StudentName)</span>
+                                <div>
+                                    <div class="lms-cell-title">@item.StudentName</div>
+                                    <div class="lms-cell-sub">@item.ActivityName · @DetailOf(item)</div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <StatusBadge Text="@item.Status" Tone="@SubmissionStatusStyles.ToneOf(item.Status)" />
+                                @* The Submissions page lets the teacher pick the assignment and read the files *@
+                                <a class="btn btn-outline-secondary btn-sm" href="submissions">
+                                    @(item.Status == SubmissionStatus.Missing ? "View" : "Review")
+                                </a>
+                            </div>
+                        </div>
+                    }
+                }
+            </section>
+        </div>
+
+        @* ---------- Upcoming activities ---------- *@
+        <div class="col-12 col-lg-5">
+            <section class="lms-card h-100">
+                <div class="lms-card-header d-flex justify-content-between align-items-center">
+                    <h2 class="lms-card-title mb-0">Upcoming activities</h2>
+                    <a class="text-decoration-none" href="courses">Courses</a>
+                </div>
+
+                @if (dashboard.UpcomingActivities.Count == 0)
+                {
+                    <EmptyState Title="No upcoming activities" Icon="i" Tone="muted" InCard="false" />
+                }
+                else
+                {
+                    @for (var i = 0; i < dashboard.UpcomingActivities.Count; i++)
+                    {
+                        var activity = dashboard.UpcomingActivities[i];
+
+                        @* The first activity is the next one and is highlighted *@
+                        <div class="d-flex justify-content-between align-items-center gap-3 py-2 px-2 border-bottom @(i == 0 ? "bg-primary-subtle rounded" : string.Empty)">
+                            <div>
+                                <a class="lms-cell-title text-decoration-none" href="modules/@activity.ModuleId/activities">@activity.Name</a>
+                                <div class="lms-cell-sub">
+                                    @FormatTime(activity.StartTime) – @FormatTime(activity.EndTime) · @FormatDay(activity.StartTime)
+                                </div>
+                                <div class="lms-cell-sub">@activity.CourseName · @activity.ModuleName</div>
+                            </div>
+                            <div class="d-flex flex-column align-items-end gap-1">
+                                @if (i == 0)
+                                {
+                                    <span class="small fw-semibold text-primary">Next up</span>
+                                }
+                                <StatusBadge Text="@activity.ActivityTypeName" Tone="@ActivityTypeStyles.ToneOf(activity.ActivityTypeName)" />
+                            </div>
+                        </div>
+                    }
+                }
+            </section>
+        </div>
+    </div>
+
+    @* ---------- Current courses ---------- *@
+    <section class="lms-card">
+        <div class="lms-card-header d-flex justify-content-between align-items-center">
+            <h2 class="lms-card-title mb-0">Current courses</h2>
+            <a class="text-decoration-none" href="courses">All courses</a>
+        </div>
+
+        @if (dashboard.CurrentCourses.Count == 0)
+        {
+            <EmptyState Title="No courses are running right now" Icon="i" Tone="muted" InCard="false" />
+        }
+        else
+        {
+            @foreach (var course in dashboard.CurrentCourses)
+            {
+                <div class="d-flex justify-content-between align-items-center gap-3 py-2 border-bottom">
+                    <div class="d-flex align-items-center gap-3">
+                        @* Square badge with the first letter of the course name *@
+                        <span class="rounded bg-primary-subtle text-primary fw-semibold d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                              style="width: 36px; height: 36px;">@InitialsOf(course.Name, 1)</span>
+                        <div>
+                            <div class="lms-cell-title">@course.Name</div>
+                            <div class="lms-cell-sub">
+                                @FormatDate(course.StartDate) – @FormatDate(course.EndDate) · @StudentsText(course.StudentCount)
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3">
+                        @* The module that is running now, with its progress *@
+                        <div style="min-width: 160px;">
+                            <div class="lms-cell-sub">Now: @(course.CurrentModuleName ?? "no modules")</div>
+                            <div class="progress mt-1" style="height: 6px;" role="progressbar"
+                                 aria-label="Module progress" aria-valuenow="@course.ProgressPercent"
+                                 aria-valuemin="0" aria-valuemax="100">
+                                <div class="progress-bar" style="width: @(course.ProgressPercent)%;"></div>
+                            </div>
+                        </div>
+                        <a class="btn btn-outline-secondary btn-sm" href="courses/@course.Id/modules">Open</a>
+                    </div>
+                </div>
+            }
+        }
+    </section>
+}
+
+@code {
+    // Cancels the request when the teacher leaves the page
+    private readonly CancellationTokenSource cts = new();
+
+    // The signed-in user, used for the name in the greeting
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private TeacherDashboardDto? dashboard;
+    private string? errorMessage;
+    private string firstName = string.Empty;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is not null)
+        {
+            var name = (await AuthState).User.Identity?.Name;
+            firstName = FirstNameOf(name);
+        }
+
+        await LoadAsync();
+    }
+
+    // Also used by the "Try again" button in the error state
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await ApiProxyClient.GetAsync<TeacherDashboardDto>("teacher/dashboard", cts.Token);
+
+            // The server-side prerender deliberately returns null. Keep showing the loading state
+            // until WebAssembly runs this method again.
+            if (result is null)
+                return;
+
+            dashboard = result;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // The teacher left the page, the component is disposed
+            return;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Not signed in (401): go to the login page and come back here afterwards
+            NavigationManager.NavigateTo(
+                $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
+                forceLoad: true);
+            return;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            errorMessage = "You are not allowed to view this page.";
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "The dashboard could not be loaded. Please try again later.";
+        }
+
+        isLoading = false;
+    }
+
+    // The first word of the name: "Karin Sjöberg" -> "Karin". If the name is an e-mail address,
+    // only the part before the @ is used: "teacher@lms.com" -> "Teacher".
+    private static string FirstNameOf(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return string.Empty;
+
+        var atIndex = name.IndexOf('@');
+        var text = atIndex > 0 ? name[..atIndex] : name;
+        var first = text.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
+
+        return first.Length == 0 ? first : char.ToUpperInvariant(first[0]) + first[1..];
+    }
+
+    // "Welcome, Karin". No time of day, so the text is the same on the server and in the browser.
+    private string Greeting() =>
+        string.IsNullOrEmpty(firstName) ? "Welcome" : $"Welcome, {firstName}";
+
+    // The date in the teacher's own browser, for example "Tuesday 20 October 2026". Only shown after the data is loaded.
+    private static string TodayText() =>
+        DateTime.Now.ToString("dddd d MMMM yyyy", CultureInfo.InvariantCulture);
+
+    // How long ago a UTC time was: "today", "1 day ago", "4 days ago"
+    private static string AgeText(DateTime utc)
+    {
+        var days = (int)(DateTime.UtcNow - utc).TotalDays;
+        return days switch
+        {
+            <= 0 => "today",
+            1 => "1 day ago",
+            _ => $"{days} days ago"
+        };
+    }
+
+    // The second line of an attention row: when it was handed in, or which deadline passed
+    private static string DetailOf(TeacherAttentionItemDto item) =>
+        item.SubmittedAt is { } submittedAt
+            ? $"submitted {FormatUploaded(submittedAt)}"
+            : $"deadline {FormatDateTime(item.Deadline)}";
+
+    // "Elias Norén" -> "EN", "Fullstack .NET" -> "F" (when length is 1)
+    private static string InitialsOf(string name, int length = 2)
+    {
+        var letters = name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(word => char.ToUpperInvariant(word[0]))
+            .Take(length);
+        return new string(letters.ToArray());
+    }
+
+    private static string StudentsText(int count) => count == 1 ? "1 student" : $"{count} students";
+
+    // Deadlines and activity times are Swedish wall-clock time and shown as they are: "Mon 5 Oct, 17:00"
+    private static string FormatDateTime(DateTime value) =>
+        value.ToString("ddd d MMM, HH:mm", CultureInfo.InvariantCulture);
+
+    private static string FormatTime(DateTime value) =>
+        value.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    private static string FormatDay(DateTime value) =>
+        value.ToString("ddd d MMM", CultureInfo.InvariantCulture);
+
+    private static string FormatDate(DateOnly value) =>
+        value.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+
+    // Hand-in times are UTC (set by the server), so they are shown in the browser's local time
+    private static string FormatUploaded(DateTime utc) =>
+        utc.ToLocalTime().ToString("d MMM, HH:mm", CultureInfo.InvariantCulture);
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+}

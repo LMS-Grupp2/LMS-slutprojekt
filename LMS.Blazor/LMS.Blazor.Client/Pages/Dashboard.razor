@@ -15,7 +15,8 @@
 
 @* The student's dashboard (US12): what matters most right now, from the student's own course.
    Data comes from GET api/student/dashboard through the BFF proxy (student/dashboard).
-   The status colours come from SubmissionStatusStyles so every page shows the same colours.
+   The status colours come from SubmissionStatusStyles and the activity type colours from ActivityTypeStyles,
+   so every page shows the same colours.
    Deadlines are Swedish wall-clock time and shown as they are, uploaded times are UTC and shown in local time. *@
 
 <PageHeader Title="Dashboard" Subtitle="@dashboard?.CourseName">
@@ -45,7 +46,7 @@ else if (dashboard is not null)
             <span class="fw-bold fs-5" aria-hidden="true">!</span>
             <div class="flex-grow-1">
                 <div class="fw-semibold">@LateTitle()</div>
-                <div>@first.ActivityName deadline was @FormatDateTime(first.EndTime). You can still submit it.</div>
+                <div>@first.ActivityName — deadline was @FormatDateTime(first.EndTime). You can still submit it.</div>
             </div>
             <a class="btn btn-danger btn-sm text-nowrap" href="assignments/@first.ActivityId">Submit now</a>
         </div>
@@ -59,7 +60,8 @@ else if (dashboard is not null)
                 @if (nextActivity is not null)
                 {
                     <div class="fs-4 fw-bold">@FormatTime(nextActivity.StartTime)</div>
-                    <div class="lms-cell-sub">@nextActivity.Name</div>
+                    @* The date is shown too, because the next activity is not always today *@
+                    <div class="lms-cell-sub">@FormatDay(nextActivity.StartTime) · @nextActivity.Name</div>
                 }
                 else
                 {
@@ -137,7 +139,7 @@ else if (dashboard is not null)
                                 {
                                     <span class="small fw-semibold text-primary">Next up</span>
                                 }
-                                <StatusBadge Text="@activity.ActivityTypeName" Tone="@ActivityToneOf(activity.ActivityTypeName)" />
+                                <StatusBadge Text="@activity.ActivityTypeName" Tone="@ActivityTypeStyles.ToneOf(activity.ActivityTypeName)" />
                             </div>
                         </div>
                     }
@@ -270,16 +272,6 @@ else if (dashboard is not null)
         dashboard?.OverdueAssignments.Count == 1
             ? "You have 1 late assignment"
             : $"You have {dashboard?.OverdueAssignments.Count} late assignments";
-
-    // Badge colour per activity type (the same colours as on the Activities page)
-    private static string ActivityToneOf(string typeName) => typeName switch
-    {
-        "Lecture" => "primary",
-        "E-Learning" => "info",
-        "Exercise" => "success",
-        "Assignment" => "warning",
-        _ => "muted"
-    };
 
     // Deadlines and activity times are Swedish wall-clock time and shown as they are: "Mon 5 Oct, 17:00"
     private static string FormatDateTime(DateTime value) =>
