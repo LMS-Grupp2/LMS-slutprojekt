@@ -66,12 +66,20 @@ public class NotificationService : INotificationService
     }
 
     /// <summary>
-    /// Updates notification
+    /// Updates single notification to be IsRead
+    /// Toggle single notification to be 
     /// </summary>
+    /// <param name="userId"></param>
+    /// <param name="dto"></param>
+    /// <returns></returns>
     /// <exception cref="BadRequestException"></exception>
+    /// <exception cref="NotificationNotFoundException"></exception>
     public async Task<bool> UpdateNotification(string userId, UpdateNotificationDto dto)
     {
-        var notification = await _unitOfWork.Notification.GetByIdAsync(userId, dto.Id);
+        if (dto.Id is null)
+            throw new BadRequestException("Notification is not set");
+
+        var notification = await _unitOfWork.Notification.GetByIdAsync(userId, (Guid)dto.Id);
 
         if (notification is null)
             throw new NotificationNotFoundException();
@@ -84,10 +92,9 @@ public class NotificationService : INotificationService
         return true;
     }
 
-    public async Task UpdateAllRead(string userId)
+    public async Task<bool> UpdateAllRead(string userId)
     {
         var notification = await _unitOfWork.Notification.GetAllUnreadByStudentIdAsync(userId);
-
         if (notification is null)
             throw new NotificationNotFoundException();
 
@@ -97,7 +104,7 @@ public class NotificationService : INotificationService
         }
         await _unitOfWork.SaveChangesAsync();
 
-        //return true;
+        return true;
     }
 
 

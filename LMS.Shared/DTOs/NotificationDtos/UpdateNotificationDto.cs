@@ -2,6 +2,6 @@
 
 public record UpdateNotificationDto
 {
-    public required Guid Id { get; init; }
+    public Guid? Id { get; init; }
     public bool? IsRead { get; init; }
 }

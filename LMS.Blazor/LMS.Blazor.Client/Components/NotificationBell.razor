@@ -4,6 +4,7 @@
 @using LMS.Shared.Constants
 @using LMS.Shared.DTOs.NotificationDtos
 @using Microsoft.AspNetCore.Authorization
+@using System.Net.Http.Json
 
 @* Bell icon with unread badge and dropdown (US14).
    Uses <details>/<summary> so it opens and closes without JavaScript or interactivity.
@@ -15,7 +16,6 @@
 @inject IApiProxyClient ApiProxyClient;
 @inject NavigationManager NavigationManager
 
-<div style="color: yellow;">Unread: @UnreadCount, TotalCount: @TotalCount</div>
 
 <details class="lms-bell">
     <summary aria-label="Notifications (@UnreadCount new)">
@@ -26,9 +26,7 @@
         </svg>
         @if (UnreadCount > 0)
         {
-            <span class="lms-bell-count"
-                style=""
-            >@(UnreadCount > 9 ? "9+" : UnreadCount)</span>
+            <span class="lms-bell-count">@(UnreadCount > 9 ? "9+" : UnreadCount)</span>
         }
     </summary>
 
@@ -43,7 +41,7 @@
                 }
             </div>
 
-            @if (UnreadCount > 0)  //  && OnMarkAllRead.HasDelegate
+            @if (UnreadCount > 0)
             {
                 <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
                         @onclick="OnMarkAllRead">
@@ -63,7 +61,7 @@
         else
         {
             @if (notifications?.Any() ?? false) {
-                @foreach (var item in notifications)   //.OrderByDescending(n => n.CreatedAt).Take(MaxItems))
+                @foreach (var item in notifications.OrderByDescending(n => n.CreatedAt).Take(MaxItems))
                 {
                     <div class="lms-bell-item @(item.IsRead ? "" : "is-new")">
                         <span class="lms-icon-tile @(item.EventType == NotificationEventTypes.Feedback ? "lms-tone-info" : "lms-tone-purple")"
@@ -84,17 +82,12 @@
                     </div>
                 }
             }
-
             <div class="lms-bell-footer">Showing the @MaxItems latest notifications</div>
         }
     </div>
 </details>
 
 @code {
-    /// <summary>Only rendered when a handler is set (requires an interactive render mode).</summary>
-    //[Parameter]
-    //public EventCallback OnMarkAllRead { get; set; }
-
     [Parameter]
     public int MaxItems { get; set; } = 10;
 
@@ -119,8 +112,7 @@
                 return;
 
             notifications = result;
-            TotalCount = notifications?.Count() > 0 ? notifications.Count() : 0;
-            UnreadCount = TotalCount > 0 ? notifications!.Count(notification => !notification.IsRead) : 0;
+            UpdateNotificationCouter();
         }
         catch (OperationCanceledException) when (componentCancellation.IsCancellationRequested)
         {
@@ -144,14 +136,36 @@
         }
 
         isLoading = false;
-
         StateHasChanged();  // Update GUI
     }
 
-    public void OnMarkAllRead()
+    /// <summary> Update all notifications to be read</summary>
+    private async Task OnMarkAllRead()
     {
-        
-        StateHasChanged();  // Update GUI
+        if (notifications is not null)
+        {
+            try
+            {
+                await ApiProxyClient.SendAsync<object>(
+                    HttpMethod.Patch, "notifications/allRead", null, componentCancellation.Token);
+
+                notifications = notifications.Select(item => item with { IsRead = true }).ToList();
+                UpdateNotificationCouter();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Failed to set all notifications as IsRead. Error: {e.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Update counter for 
+    /// </summary>
+    private void UpdateNotificationCouter()
+    {
+        TotalCount = notifications?.Count() > 0 ? notifications.Count() : 0;
+        UnreadCount = TotalCount > 0 ? notifications!.Count(notification => !notification.IsRead) : 0;
     }
 
     public static class TimeFormat
@@ -170,7 +184,6 @@
             return value.ToString("d MMM", System.Globalization.CultureInfo.InvariantCulture);
         }
     }
-
 
     public void Dispose()
     {

@@ -6,6 +6,6 @@ public interface INotificationService
 {
     Task CreateNotificationAsync(CreateNotificationDto dto);
     Task<IEnumerable<NotificationDto>> GetByStudentIdAsync(string studentId, int nbrItems);
-    Task UpdateAllRead(string userId);
+    Task<bool> UpdateAllRead(string userId);
     Task<bool> UpdateNotification(string userId, UpdateNotificationDto dto);
 }
