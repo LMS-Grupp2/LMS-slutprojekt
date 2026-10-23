@@ -1,5 +1,5 @@
 ﻿/* =========================================================================
-   Styles for NotificationBell.razor (US14).
+   Styles for NotificationBell.razor (US14), following the Figma mockup.
    This is a scoped stylesheet: Blazor only applies it to the elements rendered by
    NotificationBell, so it cannot affect the rest of the app. Colours and spacing come
    from the tokens in wwwroot/css/lms.css (--lms-*), so the bell matches the dark top bar.
@@ -40,6 +40,24 @@
             outline: 2px solid var(--bs-primary);
             outline-offset: 2px;
         }
+
+    /* Small arrow under the bell that points from the dropdown to the bell (as in the mockup).
+   It is a rotated square that sits on the top edge of the menu, only its upper half shows. */
+    .lms-bell[open] > summary::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -12px;
+        width: 10px;
+        height: 10px;
+        margin-left: -5px;
+        margin-bottom: -5px;
+        background: #fff;
+        border-left: 1px solid var(--bs-border-color);
+        border-top: 1px solid var(--bs-border-color);
+        transform: rotate(45deg);
+        z-index: 1041; /* above the menu, so the menu border does not cross the arrow */
+    }
 
 /* Red unread counter in the corner of the bell */
 .lms-bell-count {
@@ -99,13 +117,9 @@
     border-bottom: 1px solid var(--bs-border-color);
 }
 
-    .lms-bell-item:last-of-type {
-        border-bottom: 0;
-    }
-
     /* Unread notifications have a light blue background and a dot */
     .lms-bell-item.is-new {
-        background: var(--lms-primary-subtle);
+        background: #f5f9ff;
     }
 
 .lms-bell-item-title {
@@ -119,6 +133,10 @@
     margin-top: .125rem;
     font-size: .75rem;
     color: var(--bs-secondary-color);
+}
+
+.lms-bell-item-time {
+    color: #9ca3af; /* the time is lighter than the subtitle */
 }
 
 .lms-bell-new-dot {
@@ -151,6 +169,8 @@
 .lms-bell-footer {
     padding: .5rem 1rem;
     border-top: 1px solid var(--bs-border-color);
+    background: #f8f9fa;
+    border-radius: 0 0 var(--lms-radius) var(--lms-radius);
     text-align: center;
     font-size: .75rem;
     color: var(--bs-secondary-color);
@@ -165,5 +185,10 @@
         right: .5rem !important;
         width: auto;
         max-width: none;
+    }
+
+    /* The arrow would point at the wrong place on a full-width menu */
+    .lms-bell[open] > summary::after {
+        display: none;
     }
 }
