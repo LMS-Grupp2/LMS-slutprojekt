@@ -1,11 +1,16 @@
 ﻿using Domain.Models.Entities;
+using LMS.Shared.Paging;
 using Microsoft.AspNetCore.Identity;
 
 namespace Domain.Contracts.Repositories;
 
 public interface IUserRepository
 {
-    Task<IEnumerable<ApplicationUser>> GetAllAsync();
+    /// <summary>
+    /// One page of users, filtered by search text, role and course (US15).
+    /// Ordered by name, then id, so the pages are stable. Includes CourseUsers.Course.
+    /// </summary>
+    Task<PagedResult<ApplicationUser>> GetPageAsync(UserListQuery query);
     Task<ApplicationUser?> FindByIdAsync(string id);
     Task<ApplicationUser?> FindByIdWithCourseAsync(string id);
     Task<ApplicationUser?> FindByEmailAsync(string email);

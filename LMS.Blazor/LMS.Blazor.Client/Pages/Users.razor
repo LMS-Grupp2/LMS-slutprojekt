@@ -5,6 +5,7 @@
 @using LMS.Blazor.Client.Services.ApiProxy
 @using LMS.Shared.Constants
 @using LMS.Shared.DTOs.UserDtos
+@using LMS.Shared.Paging
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 
@@ -37,6 +38,36 @@
 
         @* ---------- User list (left) ---------- *@
         <div class="col-12 @(showForm ? "col-xl-8" : "col-xl-12")">
+
+            @* ---------- Toolbar: search + filters (US15). Every change reloads page 1 from the API. ---------- *@
+            <div class="lms-card mb-3">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-6">
+                        <SearchBox Value="@search" Placeholder="Search by name or email" OnSearch="OnSearchAsync" />
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <select class="form-select" aria-label="Filter by role"
+                                value="@(roleFilter ?? string.Empty)" @onchange="OnRoleChangedAsync">
+                            <option value="">All roles</option>
+                            @foreach (var role in UserRoles.Assignable)
+                            {
+                                <option value="@role">@role</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <select class="form-select" aria-label="Filter by course"
+                                value="@(courseFilter?.ToString() ?? string.Empty)" @onchange="OnCourseChangedAsync">
+                            <option value="">All courses</option>
+                            @foreach (var course in courses)
+                            {
+                                <option value="@course.Id">@course.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             @if (isLoading)
             {
                 <LoadingSkeleton />
@@ -45,11 +76,18 @@
             {
                 <ErrorState Message="@loadError" OnRetry="ReloadAsync" />
             }
-            else if (users is { Count: 0 })
+            else if (usersPage is { TotalCount: 0 } && HasFilters)
+            {
+                <EmptyState Icon="i" Tone="muted" Title="No users match your filters"
+                            Description="Try another search text, role or course.">
+                    <button type="button" class="btn btn-outline-secondary btn-sm mt-2" @onclick="ClearFiltersAsync">Clear filters</button>
+                </EmptyState>
+            }
+            else if (usersPage is { TotalCount: 0 })
             {
                 <EmptyState Title="No users yet" Description="Create the first user with the button above." />
             }
-            else if (users is not null)
+            else if (usersPage is not null)
             {
                 <div class="lms-card lms-card-table">
                     <div class="table-responsive">
@@ -63,7 +101,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var user in users)
+                                @foreach (var user in usersPage.Items)
                                 {
                                     <tr>
                                         <td>
@@ -85,6 +123,11 @@
                             </tbody>
                         </table>
                     </div>
+
+                    @* Pager (US15): the API returns one page, this asks for another one *@
+                    <Pagination Page="@usersPage.Page" PageSize="@usersPage.PageSize"
+                                TotalCount="@usersPage.TotalCount" TotalPages="@usersPage.TotalPages"
+                                OnPageChanged="GoToPageAsync" />
                 </div>
             }
         </div>
@@ -204,7 +247,15 @@
     private string? currentUserName;
     private bool editingSelf;
 
-    private List<UserDto>? users;
+    // The current page of users from the API (US15), with its paging metadata
+    private PagedResult<UserDto>? usersPage;
+
+    // The list state sent to the API as query-string parameters
+    private string? search;
+    private string? roleFilter;
+    private Guid? courseFilter;
+    private int currentPage = 1;
+
     private List<CourseOption> courses = [];
     private bool isLoading = true;
     private string? loadError;
@@ -221,18 +272,36 @@
     private string? courseFieldError;
     private string? successMessage;
 
-    // Subtitle under the title, e.g. "72 students · 4 teachers"
+    // Subtitle under the title, e.g. "134 users" or "12 users match your filters".
+    // The count comes from the API's TotalCount: the page only holds 20 users, so counting them here would be wrong.
     private string UserCountText
     {
         get
         {
-            if (users is null) return string.Empty;
+            if (usersPage is null) return string.Empty;
 
-            var students = users.Count(u => u.Role == UserRoles.Student);
-            var teachers = users.Count(u => u.Role == UserRoles.Teacher);
+            var count = usersPage.TotalCount;
 
-            return $"{students} {(students == 1 ? "student" : "students")} · " +
-                   $"{teachers} {(teachers == 1 ? "teacher" : "teachers")}";
+            return HasFilters
+                ? $"{count} {(count == 1 ? "user matches" : "users match")} your filters"
+                : $"{count} {(count == 1 ? "user" : "users")}";
+        }
+    }
+
+    private bool HasFilters => search is not null || roleFilter is not null || courseFilter is not null;
+
+    // Builds "users?search=anna&role=Student&page=2". Values are escaped because a search text may contain & or spaces.
+    private string UsersEndpoint
+    {
+        get
+        {
+            var parameters = new List<string> { $"page={currentPage}", $"pageSize={PagedQuery.DefaultPageSize}" };
+
+            if (search is not null) parameters.Add($"search={Uri.EscapeDataString(search)}");
+            if (roleFilter is not null) parameters.Add($"role={Uri.EscapeDataString(roleFilter)}");
+            if (courseFilter is Guid courseId) parameters.Add($"courseId={courseId}");
+
+            return $"users?{string.Join("&", parameters)}";
         }
     }
 
@@ -262,7 +331,7 @@
 
         try
         {
-            var result = await ApiProxyClient.GetAsync<List<UserDto>>("users", cts.Token);
+            var result = await ApiProxyClient.GetAsync<PagedResult<UserDto>>(UsersEndpoint, cts.Token);
 
             // The server-side prerender client deliberately returns null. Keep
             // showing the loading state until WebAssembly runs this again.
@@ -271,7 +340,16 @@
                 return;
             }
 
-            users = result;
+            usersPage = result;
+
+            // After a delete elsewhere or a narrower filter the asked page may no longer exist: go to the last one.
+            if (result.Page > result.TotalPages)
+            {
+                currentPage = result.TotalPages;
+                await LoadUsersAsync();
+                return;
+            }
+
             isLoading = false;
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
@@ -289,6 +367,45 @@
                 : "Could not load users. Please try again.";
             isLoading = false;
         }
+    }
+
+    // ---------- Toolbar + pager handlers (US15). A new filter always starts from page 1. ----------
+
+    private Task OnSearchAsync(string? value)
+    {
+        search = value;
+        currentPage = 1;
+        return LoadUsersAsync();
+    }
+
+    private Task OnRoleChangedAsync(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        roleFilter = string.IsNullOrEmpty(value) ? null : value;
+        currentPage = 1;
+        return LoadUsersAsync();
+    }
+
+    private Task OnCourseChangedAsync(ChangeEventArgs e)
+    {
+        courseFilter = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        currentPage = 1;
+        return LoadUsersAsync();
+    }
+
+    private Task GoToPageAsync(int page)
+    {
+        currentPage = page;
+        return LoadUsersAsync();
+    }
+
+    private Task ClearFiltersAsync()
+    {
+        search = null;
+        roleFilter = null;
+        courseFilter = null;
+        currentPage = 1;
+        return LoadUsersAsync();
     }
 
     private async Task LoadCoursesAsync()

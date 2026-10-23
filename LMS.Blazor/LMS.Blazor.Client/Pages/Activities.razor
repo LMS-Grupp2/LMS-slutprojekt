@@ -70,6 +70,35 @@
                 else
                 {
                     <div class="lms-card lms-card-table">
+
+                        @* ---------- Filter by type + sort (US15). The list is small and already loaded,
+                           so this is done in the browser; no request is sent. ---------- *@
+                        <div class="d-flex flex-wrap align-items-center gap-2 px-3 pt-3">
+                            <select class="form-select form-select-sm w-auto" aria-label="Filter by type"
+                                    value="@(typeFilter?.ToString() ?? string.Empty)" @onchange="OnTypeFilterChanged">
+                                <option value="">All types</option>
+                                @foreach (var type in activityTypes)
+                                {
+                                    <option value="@type.Id">@type.Name</option>
+                                }
+                            </select>
+
+                            <select class="form-select form-select-sm w-auto" aria-label="Sort by"
+                                    value="@sortBy" @onchange="OnSortChanged">
+                                <option value="@SortByStart">Sort: start time</option>
+                                <option value="@SortByName">Sort: name</option>
+                                <option value="@SortByType">Sort: type</option>
+                            </select>
+
+                            <span class="lms-cell-sub ms-auto">@VisibleActivities.Count of @activities.Count shown</span>
+                        </div>
+
+                        @if (VisibleActivities.Count == 0)
+                        {
+                            <EmptyState Icon="i" Tone="muted" InCard="false" Title="No activities of this type"
+                                        Description="Pick another type or show all types." />
+                        }
+
                         <div class="table-responsive">
                             <table class="table lms-table align-middle">
                                 <thead>
@@ -83,7 +112,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var item in activities)
+                                    @foreach (var item in VisibleActivities)
                                     {
                                         @* The activity open in the detail card is highlighted *@
                                         <tr class="@(item.Id == selected?.Id ? "lms-row-highlight" : string.Empty)">
@@ -261,6 +290,39 @@
     private List<ActivityDto>? activities;
     private List<ActivityTypeDto> activityTypes = new();
     private ActivityDto? selected;
+
+    // Filter + sort state (US15). Applied to the loaded list in VisibleActivities.
+    private const string SortByStart = "start";
+    private const string SortByName = "name";
+    private const string SortByType = "type";
+    private Guid? typeFilter;
+    private string sortBy = SortByStart;
+
+    // The rows shown in the table: the loaded activities, filtered by type and sorted by the chosen column.
+    // Start time is always the tie-breaker, so two activities with the same name keep a predictable order.
+    private List<ActivityDto> VisibleActivities
+    {
+        get
+        {
+            var visible = (activities ?? new())
+                .Where(a => typeFilter is null || a.ActivityTypeId == typeFilter);
+
+            visible = sortBy switch
+            {
+                SortByName => visible.OrderBy(a => a.Name).ThenBy(a => a.StartTime),
+                SortByType => visible.OrderBy(a => a.ActivityTypeName).ThenBy(a => a.StartTime),
+                _ => visible.OrderBy(a => a.StartTime)
+            };
+
+            return visible.ToList();
+        }
+    }
+
+    private void OnTypeFilterChanged(ChangeEventArgs e) =>
+        typeFilter = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+
+    private void OnSortChanged(ChangeEventArgs e) =>
+        sortBy = e.Value?.ToString() ?? SortByStart;
     private bool isLoading = true;
     private string? loadError;
 

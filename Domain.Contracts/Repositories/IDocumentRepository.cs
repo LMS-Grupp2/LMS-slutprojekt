@@ -26,6 +26,14 @@ public interface IDocumentRepository
     /// <summary>Returns the documents attached directly to an activity, newest first. Read only.</summary>
     Task<IEnumerable<Document>> GetByActivityIdAsync(Guid activityId);
 
+    /// <summary>
+    /// Returns the newest documents in a course (US12, the student dashboard), at most "take" of them.
+    /// Same rule as GetByCourseIdAsync, but hand-in files are left out (they belong to a submission, not to the
+    /// course). Uploader, module and activity are loaded so the dashboard can show where a document belongs.
+    /// Read only.
+    /// </summary>
+    Task<IEnumerable<Document>> GetRecentByCourseIdAsync(Guid courseId, int take);
+
     void Create(Document document);
     void Delete(Document document);
 }

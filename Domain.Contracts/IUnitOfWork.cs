@@ -1,6 +1,5 @@
 ﻿using Domain.Contracts.Repositories;
 
-
 namespace Domain.Contracts;
 
 public interface IUnitOfWork
@@ -13,5 +12,7 @@ public interface IUnitOfWork
     IActivityRepository Activities { get; }
     IDocumentRepository Documents { get; } // NEW (US06): access to document metadata
     IAssignmentRepository Assignment { get; }
+    INotificationRepository Notification { get; }
+    IFeedbackRepository Feedbacks { get; } // US11 feedbacks
     Task SaveChangesAsync();
 }

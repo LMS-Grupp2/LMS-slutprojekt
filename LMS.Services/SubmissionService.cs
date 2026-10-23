@@ -42,7 +42,7 @@ public class SubmissionService : ISubmissionService
         // Checked before the file is stored, so a locked submission never gets a stray file on disk (#60)
         if (submission is not null && SubmissionStatusCalculator.IsLocked(submission))
             throw new ConflictException(
-                "The teacher has already given feedback on this assignment, so no more files can be handed in.",
+                "The teacher has approved this assignment, so no more files can be handed in.",
                 "Submission locked");
 
         // First hand-in: create the row. It is only added here, not saved yet.
@@ -125,6 +125,29 @@ public class SubmissionService : ISubmissionService
         return new SubmissionOverviewDto(activity.Id, activity.Name, activity.EndTime, deadlineUtc < now,  rows);
     }
 
+
+    public async Task<SubmissionReviewDto> GetReviewAsync(Guid submissionId)
+    {
+        var submission = await _unitOfWork.Submissions.GetForReviewAsync(submissionId)
+            ?? throw new SubmissionNotFoundException(submissionId);
+
+        var activity = submission.Activity;
+
+        //Same time rule as US10 we compare in utc to show the deadline in sweidsh time
+        var deadlineUtc = CourseTime.ToUtc(activity.EndTime);
+        var status = SubmissionStatusCalculator.Calculate(submission, deadlineUtc, DateTime.UtcNow);
+
+        return new SubmissionReviewDto(
+            activity.Module.Course.Name,
+            activity.Name,
+            submission.Student.Name,
+            status,
+            submission.SubmittedAt,
+            activity.EndTime,
+            submission.Feedbacks.Select(FeedbackService.MapToDto).ToList(),
+            submission.Documents.Select(d => new SubmissionFileDto(d.Id, d.Name)).ToList());
+    }
+
     private async Task<Activity> GetAssignmentForStudentAsync(Guid activityId, string studentId)
     {
         var activity = await _unitOfWork.Activities.GetByIdAsync(activityId)
@@ -181,6 +204,7 @@ public class SubmissionService : ISubmissionService
             .ToList() ?? [];
 
         return new SubmissionOverviewRowDto(
+            submission?.Id,
             student.UserId,
             student.User.Name,
             submission?.SubmittedAt,

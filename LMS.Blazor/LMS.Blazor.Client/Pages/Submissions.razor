@@ -99,6 +99,7 @@
                             <th>Submitted</th>
                             <th>Files</th>
                             <th>Status</th>
+                            <th></th>
                         </tr>
                     </thead>
 
@@ -143,6 +144,14 @@
                                 </td>
 
                                 <td><StatusBadge Text="@row.Status" Tone="@SubmissionStatusStyles.ToneOf(row.Status)" /></td>
+
+                                @*Review button only wwhen the student has handed in something US11*@
+                                <td class="text-end">
+                                    @if (row.SubmissionId is { } submissionId )
+                                    {
+                                        <a class="btn btn-sm btn-outline-primary" href="submissions/@submissionId/review">Review</a>
+                                    }
+                                </td>
                             </tr>
                         }
                     </tbody>

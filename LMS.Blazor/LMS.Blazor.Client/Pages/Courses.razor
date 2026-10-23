@@ -6,6 +6,7 @@
 @using LMS.Blazor.Client.Services.ApiProxy
 @using LMS.Shared.Constants
 @using LMS.Shared.DTOs.CourseDtos
+@using LMS.Shared.Paging
 @using Microsoft.AspNetCore.Authorization
 
 @* Teacher overview of all courses, with an inline form to create and edit a course.
@@ -110,6 +111,28 @@
     }
 
     @* ---------- Loading, error, empty and list states ---------- *@
+    @* ---------- Toolbar: search + status filter (US15), list mode only. Filtering happens in the API. ---------- *@
+    @if (!showForm)
+    {
+        <div class="lms-card">
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-md-8">
+                    <SearchBox Value="@search" Placeholder="Search by course name" OnSearch="OnSearchAsync" />
+                </div>
+                <div class="col-12 col-md-4">
+                    <select class="form-select" aria-label="Filter by status"
+                            value="@(statusFilter ?? string.Empty)" @onchange="OnStatusChangedAsync">
+                        <option value="">All statuses</option>
+                        @foreach (var status in CourseStatus.All)
+                        {
+                            <option value="@status">@status</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    }
+
     @if (isLoading)
     {
         <LoadingSkeleton />
@@ -117,6 +140,13 @@
     else if (!string.IsNullOrWhiteSpace(loadError))
     {
         <ErrorState Message="@loadError" OnRetry="LoadCoursesAsync" />
+    }
+    else if (courses is { Count: 0 } && HasFilters)
+    {
+        <EmptyState Icon="i" Tone="muted" Title="No courses match your filters"
+                    Description="Try another search text or status.">
+            <button type="button" class="btn btn-outline-secondary btn-sm mt-2" @onclick="ClearFiltersAsync">Clear filters</button>
+        </EmptyState>
     }
     else if (courses is { Count: 0 })
     {
@@ -181,12 +211,61 @@
     private string? formError;
     private string? successMessage;
 
-    // Subtitle under the page title, e.g. "5 courses"
-    private string CourseCountText => courses is null
-        ? string.Empty
-        : $"{courses.Count} {(courses.Count == 1 ? "course" : "courses")}";
+    // The filters sent to the API as query-string parameters (US15)
+    private string? search;
+    private string? statusFilter;
+
+    private bool HasFilters => search is not null || statusFilter is not null;
+
+    // Builds "courses?search=net&status=Active". Without filters it is plain "courses", like before.
+    private string CoursesEndpoint
+    {
+        get
+        {
+            var parameters = new List<string>();
+            if (search is not null) parameters.Add($"search={Uri.EscapeDataString(search)}");
+            if (statusFilter is not null) parameters.Add($"status={Uri.EscapeDataString(statusFilter)}");
+
+            return parameters.Count == 0 ? "courses" : $"courses?{string.Join("&", parameters)}";
+        }
+    }
+
+    // Subtitle under the page title, e.g. "5 courses" or "2 courses match your filters"
+    private string CourseCountText
+    {
+        get
+        {
+            if (courses is null) return string.Empty;
+
+            var count = courses.Count;
+
+            return HasFilters
+                ? $"{count} {(count == 1 ? "course matches" : "courses match")} your filters"
+                : $"{count} {(count == 1 ? "course" : "courses")}";
+        }
+    }
 
     protected override async Task OnInitializedAsync() => await LoadCoursesAsync();
+
+    private Task OnSearchAsync(string? value)
+    {
+        search = value;
+        return LoadCoursesAsync();
+    }
+
+    private Task OnStatusChangedAsync(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        statusFilter = string.IsNullOrEmpty(value) ? null : value;
+        return LoadCoursesAsync();
+    }
+
+    private Task ClearFiltersAsync()
+    {
+        search = null;
+        statusFilter = null;
+        return LoadCoursesAsync();
+    }
 
     private async Task LoadCoursesAsync()
     {
@@ -195,7 +274,7 @@
 
         try
         {
-            var result = await ApiProxyClient.GetAsync<List<CourseDto>>("courses", cts.Token);
+            var result = await ApiProxyClient.GetAsync<List<CourseDto>>(CoursesEndpoint, cts.Token);
 
             // The server-side prerender client deliberately returns null. Keep
             // showing the loading state until WebAssembly runs this again.
@@ -384,9 +463,10 @@
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
 
-        if (today > course.EndDate) return ("Finished", "muted");
-        if (today >= course.StartDate) return ("Active", "success");
-        return ("Upcoming", "info");
+        // Same words and same date rule as the API's status filter (CourseRepository), via the shared constants.
+        if (today > course.EndDate) return (CourseStatus.Finished, "muted");
+        if (today >= course.StartDate) return (CourseStatus.Active, "success");
+        return (CourseStatus.Upcoming, "info");
     }
 
     public void Dispose()

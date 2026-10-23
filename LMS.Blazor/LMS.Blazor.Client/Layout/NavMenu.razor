@@ -8,6 +8,10 @@
     @* Teacher menu. Modules are reached through a course on the Courses page. *@
     <AuthorizeView Roles="@UserRoles.Teacher" Context="teacherContext">
         <p class="lms-sidebar-title">Teaching</p>
+        @* Dashboard (US13): what needs the teacher's attention right now *@
+        <NavLink class="lms-nav-link" href="teacher-dashboard">
+            <span class="lms-nav-glyph">O</span> Dashboard
+        </NavLink>
         <NavLink class="lms-nav-link" href="courses">
             <span class="lms-nav-glyph">C</span> Courses
         </NavLink>
@@ -22,6 +26,11 @@
     @* Student menu. Modules opens the modules of the student's own course. *@
     <AuthorizeView Roles="@UserRoles.Student" Context="studentContext">
         <p class="lms-sidebar-title">My learning</p>
+        @* Dashboard (US12): overview of what matters most right now.
+           The glyph is "O" (overview) because "D" is already used by Documents. *@
+        <NavLink class="lms-nav-link" href="dashboard">
+            <span class="lms-nav-glyph">O</span> Dashboard
+        </NavLink>
         <NavLink class="lms-nav-link" href="my-course">
             <span class="lms-nav-glyph">C</span> My course
         </NavLink>

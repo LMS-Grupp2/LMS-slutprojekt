@@ -1,0 +1,313 @@
+﻿@page "/dashboard"
+
+@using System.Globalization
+@using System.Net
+@using LMS.Blazor.Client.Services.ApiProxy
+@using LMS.Shared.Constants
+@using LMS.Shared.DTOs.DashboardDtos
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@attribute [Authorize(Roles = UserRoles.Student)]
+@implements IDisposable
+
+@inject IApiProxyClient ApiProxyClient
+@inject NavigationManager NavigationManager
+
+@* The student's dashboard (US12): what matters most right now, from the student's own course.
+   Data comes from GET api/student/dashboard through the BFF proxy (student/dashboard).
+   The status colours come from SubmissionStatusStyles and the activity type colours from ActivityTypeStyles,
+   so every page shows the same colours.
+   Deadlines are Swedish wall-clock time and shown as they are, uploaded times are UTC and shown in local time. *@
+
+<PageTitle>Dashboard</PageTitle>
+
+@* Same greeting style as the teacher's dashboard: "Welcome, Sam", with the course name under it *@
+<PageHeader Title="@GreetingText.For(userName)" Subtitle="@dashboard?.CourseName">
+    <Actions>
+        <a class="btn btn-primary" href="my-assignments">Go to assignments</a>
+    </Actions>
+</PageHeader>
+
+@if (isLoading)
+{
+    @* Shown while the dashboard is fetched, and during prerender *@
+    <LoadingSkeleton />
+}
+else if (errorMessage is not null)
+{
+    <ErrorState Message="@errorMessage" OnRetry="LoadAsync" />
+}
+else if (dashboard is not null)
+{
+    @* ---------- Red banner: assignments that were never handed in and are past the deadline ---------- *@
+    @if (dashboard.OverdueAssignments.Count > 0)
+    {
+        var first = dashboard.OverdueAssignments[0];
+
+        <div class="alert alert-danger d-flex align-items-center gap-3" role="alert">
+            @* Warning icon, as in the Figma design *@
+            <span class="fw-bold fs-5" aria-hidden="true">!</span>
+            <div class="flex-grow-1">
+                <div class="fw-semibold">@LateTitle()</div>
+                <div>@first.ActivityName — deadline was @FormatDateTime(first.EndTime). You can still submit it.</div>
+            </div>
+            <a class="btn btn-danger btn-sm text-nowrap" href="assignments/@first.ActivityId">Submit now</a>
+        </div>
+    }
+
+    @* ---------- Four cards: next activity, not submitted, feedback, current module ---------- *@
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3">
+            <div class="lms-card h-100">
+                <div class="lms-cell-sub">Next activity</div>
+                @if (nextActivity is not null)
+                {
+                    <div class="fs-4 fw-bold">@FormatTime(nextActivity.StartTime)</div>
+                    @* The date is shown too, because the next activity is not always today *@
+                    <div class="lms-cell-sub">@FormatDay(nextActivity.StartTime) · @nextActivity.Name</div>
+                }
+                else
+                {
+                    <div class="fs-4 fw-bold">-</div>
+                    <div class="lms-cell-sub">No upcoming activities</div>
+                }
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="lms-card h-100">
+                <div class="lms-cell-sub">Not submitted</div>
+                <div class="fs-4 fw-bold @(dashboard.OverdueCount > 0 ? "text-danger" : string.Empty)">@dashboard.NotSubmittedCount</div>
+                <div class="lms-cell-sub">@dashboard.OverdueCount overdue · @dashboard.DueThisWeekCount due this week</div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="lms-card h-100">
+                <div class="lms-cell-sub">Feedback</div>
+                <div class="fs-4 fw-bold">@dashboard.FeedbackGivenCount</div>
+                <div class="lms-cell-sub">assignments with feedback</div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="lms-card h-100">
+                <div class="lms-cell-sub">Current module</div>
+                @if (dashboard.CurrentModule is { } module)
+                {
+                    <div class="fs-4 fw-bold">@module.Name</div>
+                    <div class="lms-cell-sub">@FormatDate(module.StartDate) – @FormatDate(module.EndDate)</div>
+                    <div class="progress mt-2" style="height: 6px;" role="progressbar"
+                         aria-label="Module progress" aria-valuenow="@module.ProgressPercent"
+                         aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar" style="width: @(module.ProgressPercent)%;"></div>
+                    </div>
+                }
+                else
+                {
+                    <div class="fs-4 fw-bold">-</div>
+                    <div class="lms-cell-sub">No modules yet</div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        @* ---------- Upcoming activities ---------- *@
+        <div class="col-12 col-lg-7">
+            <section class="lms-card h-100">
+                <div class="lms-card-header d-flex justify-content-between align-items-center">
+                    <h2 class="lms-card-title mb-0">Upcoming activities</h2>
+                    <a class="text-decoration-none" href="my-modules">Modules</a>
+                </div>
+
+                @if (dashboard.UpcomingActivities.Count == 0)
+                {
+                    <EmptyState Title="No upcoming activities" Icon="i" Tone="muted" InCard="false" />
+                }
+                else
+                {
+                    @for (var i = 0; i < dashboard.UpcomingActivities.Count; i++)
+                    {
+                        var activity = dashboard.UpcomingActivities[i];
+
+                        @* The first activity is the next one and is highlighted *@
+                        <div class="d-flex justify-content-between align-items-center gap-3 py-2 px-2 border-bottom @(i == 0 ? "bg-primary-subtle rounded" : string.Empty)">
+                            <div>
+                                <div class="lms-cell-title">@FormatTime(activity.StartTime) – @FormatTime(activity.EndTime) · @activity.Name</div>
+                                <div class="lms-cell-sub">@FormatDay(activity.StartTime) · @activity.ModuleName</div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                @if (i == 0)
+                                {
+                                    <span class="small fw-semibold text-primary">Next up</span>
+                                }
+                                <StatusBadge Text="@activity.ActivityTypeName" Tone="@ActivityTypeStyles.ToneOf(activity.ActivityTypeName)" />
+                            </div>
+                        </div>
+                    }
+                }
+            </section>
+        </div>
+
+        @* ---------- Deadlines ---------- *@
+        <div class="col-12 col-lg-5">
+            <section class="lms-card h-100">
+                <div class="lms-card-header d-flex justify-content-between align-items-center">
+                    <h2 class="lms-card-title mb-0">Deadlines</h2>
+                    <a class="text-decoration-none" href="my-assignments">All assignments</a>
+                </div>
+
+                @if (dashboard.Deadlines.Count == 0)
+                {
+                    <EmptyState Title="No assignments yet" Icon="i" Tone="muted" InCard="false" />
+                }
+                else
+                {
+                    @foreach (var deadline in dashboard.Deadlines)
+                    {
+                        <div class="d-flex justify-content-between align-items-center gap-3 py-2 border-bottom">
+                            <div>
+                                <a class="lms-cell-title text-decoration-none" href="assignments/@deadline.ActivityId">@deadline.ActivityName</a>
+                                <div class="lms-cell-sub">@deadline.ModuleName · Deadline @FormatDateTime(deadline.EndTime)</div>
+                            </div>
+                            <StatusBadge Text="@(deadline.Status ?? string.Empty)"
+                                         Tone="@SubmissionStatusStyles.ToneOf(deadline.Status ?? string.Empty)" />
+                        </div>
+                    }
+                }
+            </section>
+        </div>
+    </div>
+
+    @* ---------- Latest documents ---------- *@
+    <section class="lms-card">
+        <div class="lms-card-header d-flex justify-content-between align-items-center">
+            <h2 class="lms-card-title mb-0">Latest documents</h2>
+            <a class="text-decoration-none" href="my-documents">All documents</a>
+        </div>
+
+        @if (dashboard.RecentDocuments.Count == 0)
+        {
+            <EmptyState Title="No documents yet" Icon="i" Tone="muted" InCard="false" />
+        }
+        else
+        {
+            @foreach (var document in dashboard.RecentDocuments)
+            {
+                <div class="d-flex justify-content-between align-items-center gap-3 py-2 border-bottom">
+                    <div class="d-flex align-items-center gap-3">
+                        <StatusBadge Text="@document.FileType" Tone="muted" />
+                        <div>
+                            @* Files are fetched through the BFF proxy, like on the Documents pages *@
+                            <a class="lms-cell-title text-decoration-none" href="api/proxy/documents/@document.Id/download">@document.Name</a>
+                            <div class="lms-cell-sub">@document.Context · @document.UploadedByName · @FormatUploaded(document.UploadedAt)</div>
+                        </div>
+                    </div>
+                    <a class="btn btn-outline-secondary btn-sm" href="api/proxy/documents/@document.Id/download">Download</a>
+                </div>
+            }
+        }
+    </section>
+}
+
+@code {
+    // Cancels the request when the student leaves the page
+    private readonly CancellationTokenSource cts = new();
+
+    // The signed-in user, used for the name in the greeting
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private string? userName;
+    private StudentDashboardDto? dashboard;
+    private string? errorMessage;
+    private bool isLoading = true;
+
+    // The first upcoming activity is the "Next activity"
+    private DashboardActivityDto? nextActivity => dashboard?.UpcomingActivities.FirstOrDefault();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is not null)
+            userName = (await AuthState).User.Identity?.Name;
+
+        await LoadAsync();
+    }
+
+    // Also used by the "Try again" button in the error state
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await ApiProxyClient.GetAsync<StudentDashboardDto>("student/dashboard", cts.Token);
+
+            // The server-side prerender deliberately returns null. Keep showing the loading state
+            // until WebAssembly runs this method again.
+            if (result is null)
+                return;
+
+            dashboard = result;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // The student left the page, the component is disposed
+            return;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Not signed in (401): go to the login page and come back here afterwards
+            NavigationManager.NavigateTo(
+                $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
+                forceLoad: true);
+            return;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
+        {
+            errorMessage = "You are not enrolled in any course yet.";
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            errorMessage = "You are not allowed to view this page.";
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "The dashboard could not be loaded. Please try again later.";
+        }
+
+        isLoading = false;
+    }
+
+    // Headline of the red banner, worded as in the Figma design: "You have 1 late assignment"
+    private string LateTitle() =>
+        dashboard?.OverdueAssignments.Count == 1
+            ? "You have 1 late assignment"
+            : $"You have {dashboard?.OverdueAssignments.Count} late assignments";
+
+    // Deadlines and activity times are Swedish wall-clock time and shown as they are: "Mon 5 Oct, 17:00"
+    private static string FormatDateTime(DateTime value) =>
+        value.ToString("ddd d MMM, HH:mm", CultureInfo.InvariantCulture);
+
+    private static string FormatTime(DateTime value) =>
+        value.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    private static string FormatDay(DateTime value) =>
+        value.ToString("ddd d MMM", CultureInfo.InvariantCulture);
+
+    private static string FormatDate(DateOnly value) =>
+        value.ToString("d MMM", CultureInfo.InvariantCulture);
+
+    // Uploaded times are UTC (set by the server), so they are shown in the browser's local time
+    private static string FormatUploaded(DateTime utc) =>
+        utc.ToLocalTime().ToString("d MMM, HH:mm", CultureInfo.InvariantCulture);
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+}

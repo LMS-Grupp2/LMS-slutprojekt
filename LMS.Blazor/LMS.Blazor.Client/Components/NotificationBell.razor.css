@@ -1,0 +1,194 @@
+﻿/* =========================================================================
+   Styles for NotificationBell.razor (US14), following the Figma mockup.
+   This is a scoped stylesheet: Blazor only applies it to the elements rendered by
+   NotificationBell, so it cannot affect the rest of the app. Colours and spacing come
+   from the tokens in wwwroot/css/lms.css (--lms-*), so the bell matches the dark top bar.
+   ========================================================================= */
+
+/* ---------- The bell button (inside the dark top bar) ---------- */
+.lms-bell {
+    position: relative; /* the dropdown is placed relative to the bell */
+}
+
+    /* Hide the default <details> arrow, the bell icon is the button */
+    .lms-bell > summary {
+        list-style: none;
+        cursor: pointer;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        color: var(--lms-nav-muted);
+        transition: background-color .15s ease, color .15s ease;
+    }
+
+        .lms-bell > summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .lms-bell > summary:hover,
+        .lms-bell[open] > summary {
+            background: var(--lms-nav-bg-hover);
+            color: #fff;
+        }
+
+        /* Keyboard users get a visible focus ring */
+        .lms-bell > summary:focus-visible {
+            outline: 2px solid var(--bs-primary);
+            outline-offset: 2px;
+        }
+
+    /* Small arrow under the bell that points from the dropdown to the bell (as in the mockup).
+   It is a rotated square that sits on the top edge of the menu, only its upper half shows. */
+    .lms-bell[open] > summary::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -12px;
+        width: 10px;
+        height: 10px;
+        margin-left: -5px;
+        margin-bottom: -5px;
+        background: #fff;
+        border-left: 1px solid var(--bs-border-color);
+        border-top: 1px solid var(--bs-border-color);
+        transform: rotate(45deg);
+        z-index: 1041; /* above the menu, so the menu border does not cross the arrow */
+    }
+
+/* Red unread counter in the corner of the bell */
+.lms-bell-count {
+    position: absolute;
+    top: -4px;
+    right: -6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 2px solid var(--lms-nav-bg);
+    background: #dc3545;
+    color: #fff;
+    font-size: .6875rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+/* ---------- The dropdown ---------- */
+/* position, top, right and background use !important so the design also wins over
+   the temporary inline style in the component (absolute, top 55px, right 130px, grey). */
+.lms-bell-menu {
+    position: absolute !important;
+    top: calc(100% + 12px) !important;
+    right: 0 !important;
+    width: 360px;
+    max-width: 92vw;
+    max-height: 440px;
+    overflow-y: auto;
+    z-index: 1040;
+    background-color: #fff !important;
+    color: var(--bs-body-color);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--lms-radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .15);
+    font-size: .8125rem;
+}
+
+.lms-bell-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .75rem 1rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+/* ---------- One notification ---------- */
+.lms-bell-item {
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+    padding: .75rem 1rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+    /* Unread notifications have a light blue background and a dot */
+    .lms-bell-item.is-new {
+        background: #f5f9ff;
+    }
+
+.lms-bell-item-title {
+    font-weight: 500;
+    line-height: 1.35;
+    overflow-wrap: anywhere; /* long messages wrap instead of widening the menu */
+}
+
+.lms-bell-item-sub,
+.lms-bell-item-time {
+    margin-top: .125rem;
+    font-size: .75rem;
+    color: var(--bs-secondary-color);
+}
+
+.lms-bell-item-time {
+    color: #9ca3af; /* the time is lighter than the subtitle */
+}
+
+.lms-bell-new-dot {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    margin-top: .375rem;
+    border-radius: 50%;
+    background: var(--bs-primary);
+}
+
+/* Lets a flex child with long text shrink (the component uses the class min-w-0) */
+.min-w-0 {
+    min-width: 0;
+}
+
+/* ---------- Round icon with a letter or symbol (F = feedback, D = document) ---------- */
+.lms-icon-tile {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+/* ---------- Footer ---------- */
+.lms-bell-footer {
+    padding: .5rem 1rem;
+    border-top: 1px solid var(--bs-border-color);
+    background: #f8f9fa;
+    border-radius: 0 0 var(--lms-radius) var(--lms-radius);
+    text-align: center;
+    font-size: .75rem;
+    color: var(--bs-secondary-color);
+}
+
+/* ---------- Small screens: the menu spans the screen width below the top bar ---------- */
+@media (max-width: 575.98px) {
+    .lms-bell-menu {
+        position: fixed !important;
+        top: var(--lms-nav-height) !important;
+        left: .5rem;
+        right: .5rem !important;
+        width: auto;
+        max-width: none;
+    }
+
+    /* The arrow would point at the wrong place on a full-width menu */
+    .lms-bell[open] > summary::after {
+        display: none;
+    }
+}

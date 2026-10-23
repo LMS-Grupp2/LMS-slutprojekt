@@ -1,6 +1,8 @@
 using Domain.Contracts.Repositories;
 using Domain.Models.Entities;
 using LMS.Infrastructure.Data;
+using LMS.Shared.Constants;
+using LMS.Shared.Paging;
 using Microsoft.EntityFrameworkCore;
 
 namespace LMS.Infrastructure.Repositories;
@@ -17,11 +19,31 @@ public class CourseRepository(ApplicationDbContext context) : ICourseRepository
         await context.Courses.AddAsync(course);
     }
 
-    /// <summary>Returns all courses. Read only, so tracking is turned off.</summary>
-    public async Task<IEnumerable<Course>> GetAllCoursesAsync()
+    /// <summary>
+    /// Returns the courses that match the filters, in one SQL query (US15). Read only, so tracking is turned off.
+    /// The status is not a column: it is a date comparison, so each status becomes a WHERE on the dates.
+    /// </summary>
+    public async Task<IEnumerable<Course>> GetAllCoursesAsync(CourseListQuery query, DateOnly today)
     {
-        return await context.Courses
-            .AsNoTracking()
+        var courses = context.Courses.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var search = query.Search.Trim();
+            courses = courses.Where(c => c.Name.Contains(search));
+        }
+
+        courses = query.Status switch
+        {
+            CourseStatus.Upcoming => courses.Where(c => c.StartDate > today),
+            CourseStatus.Active => courses.Where(c => c.StartDate <= today && c.EndDate >= today),
+            CourseStatus.Finished => courses.Where(c => c.EndDate < today),
+            _ => courses // null or unknown: the service has already rejected unknown values
+        };
+
+        return await courses
+            .OrderBy(c => c.StartDate)
+            .ThenBy(c => c.Name)
             .ToListAsync();
     }
 

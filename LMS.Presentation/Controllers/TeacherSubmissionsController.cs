@@ -32,4 +32,14 @@ public class TeacherSubmissionsController(IServiceManager serviceManager) : Cont
         var overview = await _serviceManager.SubmissionService.GetOverviewAsync(activityId);
         return Ok(overview);
     }
+
+    [HttpGet("~/api/submissions/{submissionId:guid}/review")]
+    [SwaggerOperation(Summary = "Get one submission for the teacher's review page")]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(SubmissionReviewDto))]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SubmissionReviewDto>> GetReview(Guid submissionId)
+    {
+        var review = await _serviceManager.SubmissionService.GetReviewAsync(submissionId);
+        return Ok(review);
+    }
 }

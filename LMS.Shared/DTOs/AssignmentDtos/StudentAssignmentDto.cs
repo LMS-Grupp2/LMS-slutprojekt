@@ -25,4 +25,6 @@ public record StudentAssignmentDto
 
     // Feedback
     public bool HasFeedback { get; init; }
+    public bool Approved { get; init; } // NEW US11
+    public bool NeedChanges { get; init; } // NEW US11
 }

@@ -34,4 +34,17 @@ public class CourseUserRepository : ICourseUserRepository
             .Where(cu => cu.CourseId == courseId)
             .ToListAsync();
     }
+
+    // One query for the members of several courses (instead of one query per course)
+    public async Task<IEnumerable<CourseUser>> GetByCourseIdsAsync(IEnumerable<Guid> courseIds)
+    {
+        // Materialised first, so EF Core can translate Contains to an SQL IN (...)
+        var ids = courseIds.ToList();
+
+        return await _context.CourseUsers
+            .AsNoTracking()
+            .Include(cu => cu.User)
+            .Where(cu => ids.Contains(cu.CourseId))
+            .ToListAsync();
+    }
 }

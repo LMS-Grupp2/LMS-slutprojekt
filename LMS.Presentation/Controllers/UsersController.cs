@@ -1,4 +1,5 @@
 ﻿using LMS.Shared.DTOs.UserDtos;
+using LMS.Shared.Paging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -17,13 +18,20 @@ public class UsersController(IServiceManager serviceManager) : ControllerBase
 {
     private readonly IServiceManager _serviceManager = serviceManager;
 
+    /// <summary>
+    /// GET api/users?search=&amp;role=&amp;courseId=&amp;page=&amp;pageSize= (US15).
+    /// [FromQuery] binds the query string to UserListQuery; [ApiController] validates its
+    /// DataAnnotations and returns 400 with field errors before this method runs.
+    /// </summary>
     [HttpGet]
     [SwaggerOperation(
-        Summary = "List users",
-        Description = "Returns all users with their role and course names.")]
-    [SwaggerResponse(StatusCodes.Status200OK, "Users retrieved successfully", typeof(IEnumerable<UserDto>))]
-    public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers() =>
-        Ok(await _serviceManager.UserService.GetAllAsync());
+        Summary = "List users (paged)",
+        Description = "Returns one page of users with their role and course names, ordered by name. " +
+                      "Optional filters: search (name or email), role, courseId. page starts at 1, pageSize is 1-100.")]
+    [SwaggerResponse(StatusCodes.Status200OK, "Users retrieved successfully", typeof(PagedResult<UserDto>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid page, pageSize or search")]
+    public async Task<ActionResult<PagedResult<UserDto>>> GetUsers([FromQuery] UserListQuery query) =>
+        Ok(await _serviceManager.UserService.GetPageAsync(query));
 
     [HttpGet("{id}")]
     [SwaggerOperation(

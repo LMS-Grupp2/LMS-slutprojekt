@@ -27,4 +27,25 @@ public interface IActivityRepository
     /// </summary>
     Task<Activity?> FindOverlappingAsync(Guid moduleId, DateTime startTime,
         DateTime endTime, Guid? excludeActivityId);
+
+    /// <summary>
+    /// Returns the next activities in a course (US12): activities that have not ended yet, earliest start first,
+    /// at most "take" of them. Module and ActivityType are loaded. Read only.
+    /// fromCourseTime is Swedish wall-clock time (see CourseTime.FromUtc), the same time the activities are stored in.
+    /// </summary>
+    Task<IEnumerable<Activity>> GetUpcomingByCourseIdAsync(Guid courseId, DateTime fromCourseTime, int take);
+
+    /// <summary>
+    /// Returns the next activities across ALL courses (US13, the teacher dashboard): activities that have not
+    /// ended yet, earliest start first, at most "take" of them. ActivityType and Module (with its Course)
+    /// are loaded. Read only. fromCourseTime is Swedish wall-clock time, like in GetUpcomingByCourseIdAsync.
+    /// </summary>
+    Task<IEnumerable<Activity>> GetUpcomingAcrossCoursesAsync(DateTime fromCourseTime, int take);
+
+    /// <summary>
+    /// Returns every assignment (US13) with its submissions, and for each submission its Feedbacks and Student.
+    /// Module is loaded too, so the course is known. Read only. The activity type name is passed in
+    /// (ActivityTypeNames.Assignment), so the data layer does not need to know the constant.
+    /// </summary>
+    Task<IEnumerable<Activity>> GetAssignmentsWithSubmissionsAsync(string assignmentTypeName);
 }
