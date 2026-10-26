@@ -195,15 +195,15 @@
                 {
                     item.IsRead = true;
 
-                    // // Goto notification type page
-                    // if (item.EventType == NotificationEventTypes.Feedback)
-                    // {
-                    //     NavigationManager.NavigateTo("/my-assignments");
-                    // }
-                    // else if (item.EventType == NotificationEventTypes.Document)
-                    // {
-                    //     NavigationManager.NavigateTo("/my-documents");
-                    // }
+                    // Goto notification type page
+                    if (item.EventType == NotificationEventTypes.Feedback)
+                    {
+                        NavigationManager.NavigateTo("/my-assignments");
+                    }
+                    else if (item.EventType == NotificationEventTypes.Document)
+                    {
+                        NavigationManager.NavigateTo("/my-documents");
+                    }
                 }
 
                 // Update the unread counter
@@ -248,7 +248,7 @@
         /// <summary>"1 h ago", "Today 08:12", "Yesterday", "5 Sep".</summary>
         public static string Relative(DateTime value)
         {
-            var diff = DateTime.Now - value;
+            var diff = DateTime.UtcNow - value;
 
             if (diff.TotalMinutes < 1) return "Just now";
             if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes} min ago";
