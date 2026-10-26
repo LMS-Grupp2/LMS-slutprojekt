@@ -60,6 +60,13 @@ public class NotificationsController(IServiceManager serviceManager) : Controlle
         return Ok();
     }
 
+    //[HttpPatch("notifications/IsRead")]
+    //public async Task<IActionResult> IsRead([FromQuery] Guid notificationId)
+    //{
+
+
+    //}
+
     [HttpPatch("notifications/allRead")]
     [SwaggerOperation(
         Summary = "Sets all notifications for active user as read",
