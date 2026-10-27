@@ -584,11 +584,11 @@
             $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
             forceLoad: true);
 
-    private static string FormatShort(DateOnly date) =>
-        date.ToString("d MMM", CultureInfo.InvariantCulture);
+    // The formats come from DateText, so every page shows dates the same way.
+    // Short: "1 Oct" (module list). Long: "1 Oct 2026" (headers and the timeline).
+    private static string FormatShort(DateOnly date) => DateText.ShortDate(date);
 
-    private static string FormatLong(DateOnly date) =>
-        date.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+    private static string FormatLong(DateOnly date) => DateText.Date(date);
 
     // Length of a module in days (used for the timeline segment width)
     private static int DaysIn(ModuleDto module) =>

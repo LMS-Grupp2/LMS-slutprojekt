@@ -168,18 +168,10 @@
     public static class TimeFormat
     {
         /// <summary>"1 h ago", "Today 08:12", "Yesterday", "5 Sep".</summary>
-        public static string Relative(DateTime value)
-        {
-            var diff = DateTime.Now - value;
-
-            if (diff.TotalMinutes < 1) return "Just now";
-            if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes} min ago";
-            if (diff.TotalHours < 6) return $"{(int)diff.TotalHours} h ago";
-            if (value.Date == DateTime.Today) return $"Today {value:HH:mm}";
-            if (value.Date == DateTime.Today.AddDays(-1)) return "Yesterday";
-
-            return value.ToString("d MMM", System.Globalization.CultureInfo.InvariantCulture);
-        }
+        // The time of a notification is UTC from the server. DateText converts it to local time
+        // before comparing it with the clock of the browser.
+        public static string Relative(DateTime value) =>
+            LMS.Blazor.Client.Helpers.DateText.Relative(value);
     }
 
     public void Dispose()

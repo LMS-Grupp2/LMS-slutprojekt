@@ -19,7 +19,7 @@
    The status colours come from SubmissionStatusStyles and the activity type colours from ActivityTypeStyles,
    so every page shows the same colours.
    Deadlines and activity times are Swedish wall-clock time and shown as they are,
-   hand-in times are UTC and shown in local time.
+   hand-in times are UTC and shown in local time (both through DateText).
    The Review / View button of an attention row goes straight to where the teacher needs to be (see LinkOf). *@
 
 <PageTitle>Dashboard</PageTitle>
@@ -314,22 +314,19 @@ else if (dashboard is not null)
 
     private static string StudentsText(int count) => count == 1 ? "1 student" : $"{count} students";
 
+    // All the formats below come from DateText, so every page shows the same text for the same time.
+
     // Deadlines and activity times are Swedish wall-clock time and shown as they are: "Mon 5 Oct, 17:00"
-    private static string FormatDateTime(DateTime value) =>
-        value.ToString("ddd d MMM, HH:mm", CultureInfo.InvariantCulture);
+    private static string FormatDateTime(DateTime value) => DateText.WallClock(value);
 
-    private static string FormatTime(DateTime value) =>
-        value.ToString("HH:mm", CultureInfo.InvariantCulture);
+    private static string FormatTime(DateTime value) => DateText.Time(value);
 
-    private static string FormatDay(DateTime value) =>
-        value.ToString("ddd d MMM", CultureInfo.InvariantCulture);
+    private static string FormatDay(DateTime value) => DateText.Day(value);
 
-    private static string FormatDate(DateOnly value) =>
-        value.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+    private static string FormatDate(DateOnly value) => DateText.Date(value);
 
     // Hand-in times are UTC (set by the server), so they are shown in the browser's local time
-    private static string FormatUploaded(DateTime utc) =>
-        utc.ToLocalTime().ToString("d MMM, HH:mm", CultureInfo.InvariantCulture);
+    private static string FormatUploaded(DateTime utc) => DateText.Utc(utc);
 
     public void Dispose()
     {

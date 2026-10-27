@@ -483,8 +483,8 @@
             $"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}",
             forceLoad: true);
 
-    private static string FormatDate(DateOnly date) =>
-        date.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+    // The format comes from DateText, so every page shows dates the same way: "1 Oct 2026"
+    private static string FormatDate(DateOnly date) => DateText.Date(date);
 
     // Status is calculated from today's date: Upcoming / Active / Finished (as in the mockups).
     // Tone is the badge colour name used by StatusBadge.

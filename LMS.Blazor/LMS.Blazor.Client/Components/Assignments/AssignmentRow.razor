@@ -73,7 +73,7 @@
     private static string RowClass(bool late) =>
         late ? "bg-late" : "";
 
+    // The deadline is Swedish wall-clock time and shown as it is, in the format from DateText:
     // "Mon 12 Oct, 17:00"
-    private static string FormatDateTime(DateTime time) =>
-    time.ToString("ddd d MMM, HH:mm", CultureInfo.InvariantCulture);
+    private static string FormatDateTime(DateTime time) => DateText.WallClock(time);
 }
