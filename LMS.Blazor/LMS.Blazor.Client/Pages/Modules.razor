@@ -32,6 +32,8 @@
                     <a href="courses">Courses</a> / @(courseName ?? "Course")
                 </Breadcrumb>
                 <Actions>
+                    @* Opens the edit form of this course (the Courses page opens it from ?edit={id}) *@
+                    <a class="btn btn-outline-secondary" href="courses?edit=@CourseId">Edit course</a>
                     @* NEW (US06): link to the course documents *@
                     <a class="btn btn-outline-primary" href="courses/@CourseId/documents">Documents</a>
                     @if (!showForm)
