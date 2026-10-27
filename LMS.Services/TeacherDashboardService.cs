@@ -59,7 +59,9 @@ public class TeacherDashboardService : ITeacherDashboardService
 
         // 3. One row per student and assignment (a left join in memory): no submission means null,
         //    which the calculator turns into "Not submitted" or "Missing".
-        var assignments = await _unitOfWork.Activities.GetAssignmentsWithSubmissionsAsync(ActivityTypeNames.Assignment);
+        //    Only the assignments of the running courses are loaded (the course ids are passed to the query).
+        var assignments = await _unitOfWork.Activities.GetAssignmentsWithSubmissionsAsync(
+            ActivityTypeNames.Assignment, courseIds);
         var rows = new List<Row>();
 
         foreach (var assignment in assignments)
