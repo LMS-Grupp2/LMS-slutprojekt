@@ -17,8 +17,9 @@
 
 @inject IApiProxyClient ApiProxyClient;
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JS
 
-<AuthorizeView Roles="Student">
+<AuthorizeView Roles="@UserRoles.Student">
     <details class="lms-bell">
         <summary aria-label="Notifications (@UnreadCount new)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -61,29 +62,32 @@
             }
             else
             {
-                @if (notifications?.Any() ?? false) {
-                    @foreach (var item in notifications.OrderByDescending(n => n.CreatedAt).Take(MaxItems))
-                    {
-                        <div class="lms-bell-item @(item.IsRead ? "" : "is-new")"
-                                    @onclick="() => OnNotificationClick(item.Id)"
-                                    style="cursor: pointer;">
-                            <span class="lms-icon-tile @(item.EventType == NotificationEventTypes.Feedback ? "lms-tone-info" : "lms-tone-purple")">
-                                @(item.EventType == NotificationEventTypes.Feedback ? "F" : "D")
-                            </span>
+                <div id="notificationsList">
+                    @if (notifications?.Any() ?? false) {
+                        @foreach (var item in notifications.OrderByDescending(n => n.CreatedAt).Take(MaxItems))
+                        {
+                            <div class="lms-bell-item @(item.IsRead ? "" : "is-new")"
+                                        @onclick="() => OnNotificationClick(item.Id)"
+                                        style="cursor: pointer;">
+                                <span class="lms-icon-tile @(item.EventType == NotificationEventTypes.Feedback ? "lms-tone-info" : "lms-tone-purple")">
+                                    @(item.EventType == NotificationEventTypes.Feedback ? "F" : "D")
+                                </span>
 
-                            <div class="flex-grow-1 min-w-0">
-                                <div class="lms-bell-item-title">@item.Message</div>
-                                @* <div class="lms-bell-item-sub">@item.Subtitle</div>  *@
-                                <div class="lms-bell-item-time">@TimeFormat.Relative(item.CreatedAt)</div>
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="lms-bell-item-title">@item.Message</div>
+                                    @* <div class="lms-bell-item-sub">@item.Subtitle</div>  *@
+                                    <div class="lms-bell-item-time">@TimeFormat.Relative(item.CreatedAt)</div>
+                                </div>
+
+                                @if (!item.IsRead)
+                                {
+                                    <span class="lms-bell-new-dot" aria-label="New"></span>
+                                }
                             </div>
+                        }
 
-                            @if (!item.IsRead)
-                            {
-                                <span class="lms-bell-new-dot" aria-label="New"></span>
-                            }
-                        </div>
                     }
-                }
+                </div>
                 <div class="lms-bell-footer">Showing the @MaxItems latest notifications</div>
             }
         </div>
@@ -148,6 +152,10 @@
 
     private async Task OnNotificationClick(Guid notificationId)
     {
+        //await JS.InvokeVoidAsync("showAlert", "Hello from Blazor!");
+        await JS.InvokeVoidAsync("closeList");
+        StateHasChanged();
+
         if (notifications is not null && notifications.Any(n => n.Id == notificationId))
         {
             var item = notifications.FirstOrDefault(n => n.Id == notificationId);
