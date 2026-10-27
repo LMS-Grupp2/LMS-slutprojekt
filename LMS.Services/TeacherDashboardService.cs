@@ -103,6 +103,8 @@ public class TeacherDashboardService : ITeacherDashboardService
 
         // 5. "Needs your attention": late first, then awaiting feedback (oldest first), then missing
         //    (oldest deadline first). Only a few rows, the Submissions page shows everything.
+        //    Each row also carries the course and the submission, so the page can link straight to
+        //    the review page (hand-in exists) or to the right course and assignment (missing).
         var needsAttention = late.OrderBy(r => r.Submission!.SubmittedAt)
             .Concat(awaiting.OrderBy(r => r.Submission!.SubmittedAt))
             .Concat(missing.OrderBy(r => r.Assignment.EndTime))
@@ -114,7 +116,9 @@ public class TeacherDashboardService : ITeacherDashboardService
                 r.Assignment.Name,
                 r.Status,
                 r.Submission?.SubmittedAt,
-                r.Assignment.EndTime))
+                r.Assignment.EndTime,
+                r.Assignment.Module.CourseId,
+                r.Submission?.Id))
             .ToList();
 
         // 6. The next activities in all courses (one query, Module + Course + ActivityType are included)
