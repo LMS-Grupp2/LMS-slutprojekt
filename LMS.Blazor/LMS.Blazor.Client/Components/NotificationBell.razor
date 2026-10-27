@@ -1,9 +1,9 @@
-@using System.Linq
-@using System.Net
 @using LMS.Blazor.Client.Services.ApiProxy
 @using LMS.Shared.Constants
 @using LMS.Shared.DTOs.NotificationDtos
 @using Microsoft.AspNetCore.Authorization
+@using System.Linq
+@using System.Net
 @using System.Text;
 @using System.Text.Json
 
@@ -11,7 +11,6 @@
    Uses <details>/<summary> so it opens and closes without JavaScript or interactivity.
    Items are intentionally not links (for now). *@
 
-@* @attribute [Authorize(Roles = UserRoles.Teacher + "," + UserRoles.Student)] *@
 @attribute [Authorize(Roles = UserRoles.Student)]
 @implements IDisposable
 
@@ -62,32 +61,28 @@
             }
             else
             {
-                <div id="notificationsList">
-                    @if (notifications?.Any() ?? false) {
-                        @foreach (var item in notifications.OrderByDescending(n => n.CreatedAt).Take(MaxItems))
-                        {
-                            <div class="lms-bell-item @(item.IsRead ? "" : "is-new")"
-                                        @onclick="() => OnNotificationClick(item.Id)"
-                                        style="cursor: pointer;">
-                                <span class="lms-icon-tile @(item.EventType == NotificationEventTypes.Feedback ? "lms-tone-info" : "lms-tone-purple")">
-                                    @(item.EventType == NotificationEventTypes.Feedback ? "F" : "D")
-                                </span>
+                @if (notifications?.Any() ?? false) {
+                    @foreach (var item in notifications.OrderByDescending(n => n.CreatedAt).Take(MaxItems))
+                    {
+                        <div class="lms-bell-item @(item.IsRead ? "" : "is-new")" @onclick="() => OnNotificationClick(item.Id)">
+                            <span class="lms-icon-tile @(item.EventType == NotificationEventTypes.Feedback ? "lms-tone-info" : "lms-tone-purple")">
+                                @(item.EventType == NotificationEventTypes.Feedback ? "F" : "D")
+                            </span>
 
-                                <div class="flex-grow-1 min-w-0">
-                                    <div class="lms-bell-item-title">@item.Message</div>
-                                    @* <div class="lms-bell-item-sub">@item.Subtitle</div>  *@
-                                    <div class="lms-bell-item-time">@TimeFormat.Relative(item.CreatedAt)</div>
-                                </div>
-
-                                @if (!item.IsRead)
-                                {
-                                    <span class="lms-bell-new-dot" aria-label="New"></span>
-                                }
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="lms-bell-item-title">@item.Message</div>
+                                @* <div class="lms-bell-item-sub">@item.Subtitle</div>  *@
+                                <div class="lms-bell-item-time">@TimeFormat.Relative(item.CreatedAt)</div>
                             </div>
-                        }
 
+                            @if (!item.IsRead)
+                            {
+                                <span class="lms-bell-new-dot" aria-label="New"></span>
+                            }
+                        </div>
                     }
-                </div>
+
+                }
                 <div class="lms-bell-footer">Showing the @MaxItems latest notifications</div>
             }
         </div>
@@ -109,7 +104,7 @@
     {
         isLoading = true;
         Console.WriteLine("NotificationBell: OnInitializedAsync()");
-
+        
         // Load the users notifications
         try
         {
@@ -147,26 +142,26 @@
         }
 
         isLoading = false;
-        StateHasChanged();  // Update GUI
+        //StateHasChanged();  // Update GUI
     }
 
     private async Task OnNotificationClick(Guid notificationId)
     {
-        //await JS.InvokeVoidAsync("showAlert", "Hello from Blazor!");
-        await JS.InvokeVoidAsync("closeList");
-        StateHasChanged();
+        // Close notification dropdown
+        await JS.InvokeVoidAsync("eval", "document.querySelector('.lms-bell')?.removeAttribute('open')");
 
         if (notifications is not null && notifications.Any(n => n.Id == notificationId))
         {
             var item = notifications.FirstOrDefault(n => n.Id == notificationId);
             if (item is not null)
             {
+                // Set clicked notification to is read
                 if (item.IsRead == false)
                 {
                     await UpdateNotificationAwait(item.Id);
                 }
 
-                // Goto notification type page
+                // Redirect to target pages
                 if (item.EventType == NotificationEventTypes.Feedback)
                 {
                     NavigationManager.NavigateTo("/my-assignments");

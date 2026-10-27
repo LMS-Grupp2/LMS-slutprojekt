@@ -10,7 +10,6 @@ using System.Security.Claims;
 
 namespace LMS.Presentation.Controllers;
 
-//[Route("api/notifications")]
 [Route("api")]
 [ApiController]
 [Authorize(Roles = UserRoles.Teacher + "," + UserRoles.Student)]
@@ -59,13 +58,6 @@ public class NotificationsController(IServiceManager serviceManager) : Controlle
 
         return Ok();
     }
-
-    //[HttpPatch("notifications/IsRead")]
-    //public async Task<IActionResult> IsRead([FromQuery] Guid notificationId)
-    //{
-
-
-    //}
 
     [HttpPatch("notifications/allRead")]
     [SwaggerOperation(
