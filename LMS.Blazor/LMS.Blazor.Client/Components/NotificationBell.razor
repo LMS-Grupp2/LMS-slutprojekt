@@ -9,7 +9,7 @@
 
 @* Bell icon with unread badge and dropdown (US14).
    Uses <details>/<summary> so it opens and closes without JavaScript or interactivity.
-   Items are intentionally not links (for now). *@
+   Items are linked to document/feedback. On linking the dropdown is closed with JavaScript *@
 
 @attribute [Authorize(Roles = UserRoles.Student)]
 @implements IDisposable
@@ -81,7 +81,6 @@
                             }
                         </div>
                     }
-
                 }
                 <div class="lms-bell-footer">Showing the @MaxItems latest notifications</div>
             }
@@ -93,18 +92,17 @@
     /// <summary> Max number of notifications that is be fetched and show in the dropdown.</summary>
     private int MaxItems = 10;
 
-    private IEnumerable<NotificationDto>? notifications;
+    private IEnumerable<NotificationDto>? notifications;  // List of the students notifications
     private readonly CancellationTokenSource componentCancellation = new();
 
     private string errorMessage = "";  // Not in use - where to show messages?
-    private bool isLoading = true;
-    private int UnreadCount = 0;
+    private bool isLoading = true;  // Needed by IDisposable!
+    private int UnreadCount = 0;  // Number of unread notifications
 
     protected override async Task OnInitializedAsync()
     {
         isLoading = true;
-        Console.WriteLine("NotificationBell: OnInitializedAsync()");
-        
+
         // Load the users notifications
         try
         {
@@ -145,23 +143,24 @@
         //StateHasChanged();  // Update GUI
     }
 
+    /// <summary> Redirect to target, mark as is read and the notification dropdown is closed</summary>
     private async Task OnNotificationClick(Guid notificationId)
     {
         // Close notification dropdown
         await JS.InvokeVoidAsync("eval", "document.querySelector('.lms-bell')?.removeAttribute('open')");
 
-        if (notifications is not null && notifications.Any(n => n.Id == notificationId))
+        if (notifications is not null)  //  && notifications.Any(n => n.Id == notificationId)
         {
-            var item = notifications.FirstOrDefault(n => n.Id == notificationId);
+            var item = notifications?.FirstOrDefault(n => n.Id == notificationId);
             if (item is not null)
             {
-                // Set clicked notification to is read
+                // Set clicked notification to is read if needed
                 if (item.IsRead == false)
                 {
-                    await UpdateNotificationAwait(item.Id);
+                    await UpdateIsRead(item);
                 }
 
-                // Redirect to target pages
+                // Redirect to target
                 if (item.EventType == NotificationEventTypes.Feedback)
                 {
                     NavigationManager.NavigateTo("/my-assignments");
@@ -174,52 +173,36 @@
         }
     }
 
-    private async Task UpdateNotificationAwait(Guid notificationId)
+    /// <summary> Sets clicked notification to is read</summary>
+    private async Task UpdateIsRead(NotificationDto dto)
     {
-        if (notifications is not null && notifications.Any(n => n.Id == notificationId))
+        if (dto is not null && dto.IsRead == false)
         {
             try
             {
-                // Update the notification to be read on the server
-                var dto = new UpdateNotificationDto()
+                var updateDto = new UpdateNotificationDto()
                 {
-                    Id = notificationId,
+                    Id = dto.Id,
                     IsRead = true
                 };
-
-                var json = JsonSerializer.Serialize(dto);
+                var json = JsonSerializer.Serialize(updateDto);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
+
                 await ApiProxyClient.SendAsync<object>(
-                    HttpMethod.Patch, $"notifications/{notificationId}", content, componentCancellation.Token);
+                        HttpMethod.Patch, $"notifications/{dto.Id}", content, componentCancellation.Token);
 
-                // Update the local copy of the notification to be read
-                var item = notifications.FirstOrDefault(n => n.Id == notificationId);
-                if (item is not null)
-                {
-                    item.IsRead = true;
-
-                    // Goto notification type page
-                    if (item.EventType == NotificationEventTypes.Feedback)
-                    {
-                        NavigationManager.NavigateTo("/my-assignments");
-                    }
-                    else if (item.EventType == NotificationEventTypes.Document)
-                    {
-                        NavigationManager.NavigateTo("/my-documents");
-                    }
-                }
-
-                // Update the unread counter
-                UpdateNotificationCouter();                
+                dto.IsRead = true;  // Update the local copy of the notification to be read
+                UpdateNotificationCouter();  // Update the unread counter
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Failed to set notification {notificationId} as IsRead. Error: {e.Message}");
+                Console.WriteLine($"Failed to set all notifications as IsRead. Error: {e.Message}");
+                errorMessage = "Failed to set the notification as is read";
             }
         }
     }
 
-    /// <summary> Update all notifications to be read</summary>
+    /// <summary> Update all notifications to is read</summary>
     private async Task OnMarkAllRead()
     {
         if (notifications is not null)
