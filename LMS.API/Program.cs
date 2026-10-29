@@ -5,7 +5,8 @@ using LMS.Presentation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-internal class Program
+// Public so LMS.Tests can start the API in memory with WebApplicationFactory<Program> (US16)
+public class Program
 {
     private static void Main(string[] args)
     {

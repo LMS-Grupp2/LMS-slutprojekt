@@ -25,6 +25,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- DataSeedService is internal; the integration tests in LMS.Tests remove it from the test server -->
+    <InternalsVisibleTo Include="LMS.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\LMS.Infrastructure\LMS.Infrastructure.csproj" />
     <ProjectReference Include="..\LMS.Presentation\LMS.Presentation.csproj" />
     <ProjectReference Include="..\LMS.Services\LMS.Services.csproj" />
