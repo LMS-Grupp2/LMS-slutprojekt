@@ -14,6 +14,7 @@
 @inject IApiProxyClient ApiProxyClient
 @inject NavigationManager NavigationManager
 
+
 @* The teacher's dashboard (US13): what needs the teacher's attention right now, across all courses.
    Data comes from GET api/teacher/dashboard through the BFF proxy (teacher/dashboard).
    The status colours come from SubmissionStatusStyles and the activity type colours from ActivityTypeStyles,
@@ -269,6 +270,8 @@ else if (dashboard is not null)
 
         isLoading = false;
     }
+
+   
 
     // "Welcome, Karin". The same greeting as on the student's dashboard (see GreetingText).
     private string Greeting() => GreetingText.For(userName);
