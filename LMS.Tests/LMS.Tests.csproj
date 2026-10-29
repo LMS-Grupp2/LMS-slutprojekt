@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\LMS.Presentation\LMS.Presentation.csproj" />
     <ProjectReference Include="..\LMS.Services\LMS.Services.csproj" />
+    <ProjectReference Include="..\LMS.Infrastructure\LMS.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
