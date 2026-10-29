@@ -619,9 +619,8 @@
             ? $"{bytes / 1024d / 1024d:0.#} MB"
             : $"{Math.Max(1, bytes / 1024d):0.#} KB";
 
-    // The API stores UTC, show it in the user's local time
-    private static string FormatDate(DateTime value) =>
-        value.ToLocalTime().ToString("d MMM yyyy, HH:mm", CultureInfo.InvariantCulture);
+    // The API stores UTC. DateText shows it in the user's local time, in the same format as every other page.
+    private static string FormatDate(DateTime value) => DateText.Utc(value);
 
     public void Dispose()
     {
