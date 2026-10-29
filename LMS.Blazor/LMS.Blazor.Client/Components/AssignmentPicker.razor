@@ -111,6 +111,8 @@ else if (courses is not null)
 
             courses = result.OrderBy(c => c.Name).ToList();
             IsLoadingCourses = false;
+
+            await RestoreSelectionAsync();
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {
@@ -233,6 +235,14 @@ else if (courses is not null)
 
     public void Dispose()
     {
+        // If we leave submissions tab for anything then the choices resets.
+        //When dispose runs, navigationmanager.uri is already the page we are going to
+        if (!NavigationManager.Uri.Contains("/review"))
+        {
+            Selection.CourseId = null;
+            Selection.AssignmentId = null;
+        }
+
         cts.Cancel(); // 1. tells any running request to stop
         cts.Dispose(); // 2. then it throws the remote control away
     }
