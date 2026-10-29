@@ -17,7 +17,6 @@ public sealed record TeacherAttentionItemDto(
     string StudentId,
     string StudentName,
     Guid ActivityId,
-    Guid CourseId,
     string ActivityName,
     string Status,
     DateTime? SubmittedAt,

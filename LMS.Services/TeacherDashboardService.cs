@@ -115,7 +115,6 @@ public class TeacherDashboardService : ITeacherDashboardService
                 r.Student.Id,
                 r.Student.Name,
                 r.Assignment.Id,
-                r.Assignment.Module.CourseId,
                 r.Assignment.Name,
                 r.Status,
                 r.Submission?.SubmittedAt,
