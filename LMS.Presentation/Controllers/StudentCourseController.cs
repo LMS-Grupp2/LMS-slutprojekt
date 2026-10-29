@@ -11,6 +11,7 @@ namespace LMS.Presentation.Controllers;
 
 [Route("api/student/course")]
 [ApiController]
+// The role name comes from the shared constant, so it cannot drift from the seeded role
 [Authorize(Roles = UserRoles.Student)]
 public class StudentCourseController(IServiceManager serviceManager) : ControllerBase
 {

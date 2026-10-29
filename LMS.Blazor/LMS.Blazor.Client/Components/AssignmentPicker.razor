@@ -9,7 +9,10 @@
    Loads all courses; picking a course loads its assignments (activities of type Assignment).
    The page only gets told which assignment was picked, through OnAssignmentSelected (null = none).
     Usage:
-   <AssignmentPicker OnAssignmentSelected="LoadOverviewAsync" /> *@
+   <AssignmentPicker OnAssignmentSelected="LoadOverviewAsync" />
+
+   Optional: InitialCourseId / InitialAssignmentId preselect a course and an assignment once,
+   right after the courses are loaded (for example when the dashboard links to a missing hand-in). *@
 
 @implements IDisposable
 
@@ -70,6 +73,14 @@ else if (courses is not null)
     [Parameter]
     public EventCallback<Guid?> OnAssignmentSelected { get; set; }
 
+    // Optional: a course to choose as soon as the courses are loaded (null = none)
+    [Parameter]
+    public Guid? InitialCourseId { get; set; }
+
+    // Optional: an assignment of that course to choose after the course is chosen (null = none)
+    [Parameter]
+    public Guid? InitialAssignmentId { get; set; }
+
     private readonly CancellationTokenSource cts = new();
 
     // Courses
@@ -87,6 +98,9 @@ else if (courses is not null)
 
     // The chosen assignment
     private Guid? selectedAssignmentId;
+
+    // The preselection (InitialCourseId / InitialAssignmentId) is applied only once
+    private bool initialSelectionDone;
 
     protected override async Task OnInitializedAsync() => await LoadCoursesAsync();
 
@@ -109,6 +123,9 @@ else if (courses is not null)
 
             courses = result.OrderBy(c => c.Name).ToList();
             IsLoadingCourses = false;
+
+            //If the page asked for a course (and assignment) to be chosen, do it now that the courses are here
+            await ApplyInitialSelectionAsync();
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {
@@ -126,6 +143,34 @@ else if (courses is not null)
                 ? "You do not have access to the courses."
                 : "Could not load the courses. Please try again.";
             IsLoadingCourses = false;
+        }
+    }
+
+    //Chooses the course and assignment the page asked for (InitialCourseId / InitialAssignmentId), once.
+    //An id that no longer exists is ignored, then the teacher simply chooses by hand.
+    private async Task ApplyInitialSelectionAsync()
+    {
+        if (initialSelectionDone || InitialCourseId is null || courses is null)
+        {
+            return;
+        }
+
+        initialSelectionDone = true;
+
+        if (!courses.Any(c => c.Id == InitialCourseId))
+        {
+            return;
+        }
+
+        // Same steps as when the teacher picks the course in the list
+        selectedCourseId = InitialCourseId;
+        await OnCourseChangedAsync();
+
+        // Then the assignment, if it is one of the course's assignments
+        if (InitialAssignmentId is { } assignmentId && assignments.Any(a => a.Id == assignmentId))
+        {
+            selectedAssignmentId = assignmentId;
+            await OnAssignmentChangedAsync();
         }
     }
 
