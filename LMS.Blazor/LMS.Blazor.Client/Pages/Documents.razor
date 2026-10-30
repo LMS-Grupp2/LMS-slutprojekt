@@ -250,7 +250,13 @@
     private void CloseForm()
     {
         showForm = false;
-        // TODO(human): reset the form state here, so that reopening the form starts clean
+
+        // Closing removes the file input from the page, so the chosen file must be forgotten too
+        selectedFile = null;
+        uploadError = null;
+        targetKind = TargetKind.Course;
+        selectedModuleId = Guid.Empty;
+        selectedActivityId = Guid.Empty;
     }
 
     // The two lists on the page: material from teachers and documents shared by students
