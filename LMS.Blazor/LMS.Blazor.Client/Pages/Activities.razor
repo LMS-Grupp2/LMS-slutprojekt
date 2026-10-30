@@ -69,13 +69,12 @@
                 else
                 {
                     <div class="lms-card mb-3">
-                        <div class="row g-2 align-items-center">
                         @* ---------- Filter by type + sort (US15). The list is small and already loaded,
-                            so this is done in the browser; no request is sent. ---------- *@
-                        <div class="d-flex flex-wrap align-items-center gap-2 ">
+                           so this is done in the browser; no request is sent. ---------- *@
+                        <div class="d-flex flex-wrap align-items-center gap-2">
                             <select class="form-select form-select-sm w-auto" aria-label="Filter by type"
                                     value="@(typeFilter?.ToString() ?? string.Empty)" @onchange="OnTypeFilterChanged"
-                                        style="min-width: 140px;">
+                                    style="min-width: 140px;">
                                 <option value="">All types</option>
                                 @foreach (var type in activityTypes)
                                 {
@@ -84,7 +83,7 @@
                             </select>
 
                             <select class="form-select form-select-sm w-auto" aria-label="Sort by"
-                                    value="@sortBy" @onchange="OnSortChanged" 
+                                    value="@sortBy" @onchange="OnSortChanged"
                                     style="min-width: 140px;">
                                 <option value="@SortByStart">Sort: start time</option>
                                 <option value="@SortByName">Sort: name</option>
@@ -92,8 +91,6 @@
                             </select>
 
                             <span class="lms-cell-sub ms-auto">@VisibleActivities.Count of @activities.Count shown</span>
-                        </div>
-
                         </div>
                     </div>
 
