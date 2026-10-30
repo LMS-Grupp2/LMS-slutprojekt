@@ -31,41 +31,45 @@ else if (!string.IsNullOrWhiteSpace(coursesError))
 }
 else if (courses is not null)
 {
-    <div class="row g-3">
-        @*----------Courses---------*@
-        <div class="col-12 col-md-4">
-            <label class="form-label" for="picker-course">Course</label>
-            <select id="picker-course" class="form-select"
-                    @bind="selectedCourseId" @bind:after="OnCourseChangedAsync">
-                <option value="">Choose a course...</option>
-                @foreach (var course in courses)
-                {
-                    <option value="@course.Id">@course.Name</option>
-                }
-            </select>
-        </div>
+    @* <div class="row g-3"> *@
+        <div class="lms-card mb-3">
+            <div class="row g-2 align-items-center">
+                @*----------Courses---------*@
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="picker-course">Course</label>
+                    <select id="picker-course" class="form-select"
+                            @bind="selectedCourseId" @bind:after="OnCourseChangedAsync">
+                        <option value="">Choose a course...</option>
+                        @foreach (var course in courses)
+                        {
+                            <option value="@course.Id">@course.Name</option>
+                        }
+                    </select>
+                </div>
 
-        @*----------Assignment---------*@
-        <div class="col-12 col-md-4">
-            <label class="form-label" for="picker-assignment">Assignment</label>
-            <select id="picker-assignment" class="form-select"
-                    @bind="selectedAssignmentId" @bind:after="OnAssignmentChangedAsync"
-                    disabled="@(selectedCourseId is null || isLoadingAssignments)">
-                <option value="">
-                    @(isLoadingAssignments ? "Loading..." : "Choose an assignment...")
-                </option>
-                @foreach (var assignment in assignments)
-                {
-                    <option value="@assignment.Id">@assignment.Name</option>
-                }
-            </select>
-            @if (!string.IsNullOrWhiteSpace(assignmentsError))
-            {
-                <div class="text-danger small mt-1">@assignmentsError</div>
+                @*----------Assignment---------*@
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="picker-assignment">Assignment</label>
+                    <select id="picker-assignment" class="form-select"
+                            @bind="selectedAssignmentId" @bind:after="OnAssignmentChangedAsync"
+                            disabled="@(selectedCourseId is null || isLoadingAssignments)">
+                        <option value="">
+                            @(isLoadingAssignments ? "Loading..." : "Choose an assignment...")
+                        </option>
+                        @foreach (var assignment in assignments)
+                        {
+                            <option value="@assignment.Id">@assignment.Name</option>
+                        }
+                    </select>
+                    @if (!string.IsNullOrWhiteSpace(assignmentsError))
+                    {
+                        <div class="text-danger small mt-1">@assignmentsError</div>
                 
-            }
+                    }
+                </div>
+            </div>
         </div>
-    </div>
+    @* </div> *@
 }
 
 
